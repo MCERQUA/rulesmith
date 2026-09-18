@@ -9,9 +9,9 @@ from pathlib import Path
 import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from jev_compose.graph import Plan, Task
-from jev_compose.optimize import SearchConfig, evaluate_plan, optimize_plan
-from jev_compose.runtime import JevProgram
+from decision_compose.graph import Plan, Task
+from decision_compose.optimize import SearchConfig, evaluate_plan, optimize_plan
+from decision_compose.runtime import DecisionProgram
 
 
 def parser() -> argparse.ArgumentParser:
@@ -104,7 +104,7 @@ def main() -> None:
         base_url=args.base_url, timeout=args.timeout, retry=RetryPolicy(max_retries=0)
     ) as client:
         if args.command == "run":
-            prediction = JevProgram(plan, client, args.model)(
+            prediction = DecisionProgram(plan, client, args.model)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")

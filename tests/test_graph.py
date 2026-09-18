@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from jev_compose.graph import Plan, Task
+from decision_compose.graph import Plan, Task
 
 
 def binary_plan(cutoff=0.5):

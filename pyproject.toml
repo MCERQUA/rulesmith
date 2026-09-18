@@ -1,7 +1,7 @@
 [project]
-name = "jev-compose"
+name = "decision-compose"
 version = "0.1.0"
-description = "Evolve typed Jev decision trees with DSPy and GEPA."
+description = "Evolve typed decision trees with DSPy and GEPA."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.scripts]
-jev-compose = "jev_compose.cli:main"
+decision-compose = "decision_compose.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "hypothesis>=6,<7", "ruff>=0.12,<1"]

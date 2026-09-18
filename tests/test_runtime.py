@@ -3,8 +3,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
-from jev_compose.graph import Choice, Noul, Score
-from jev_compose.runtime import ResponseError, read_answer
+from decision_compose.graph import Choice, Noul, Score
+from decision_compose.runtime import ResponseError, read_answer
 
 
 @given(st.floats(min_value=0, max_value=1, allow_nan=False))

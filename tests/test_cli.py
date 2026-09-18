@@ -8,7 +8,7 @@ from test_graph import binary_plan, task_data
 
 def invoke(*args):
     return subprocess.run(
-        [sys.executable, "-m", "jev_compose.cli", *map(str, args)],
+        [sys.executable, "-m", "decision_compose.cli", *map(str, args)],
         capture_output=True,
         text=True,
         check=False,

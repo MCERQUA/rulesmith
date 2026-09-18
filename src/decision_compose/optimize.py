@@ -11,8 +11,8 @@ from gepa.core.adapter import EvaluationBatch, GEPAAdapter
 from pydantic import Field
 from typesafe_sdk import TypeSafeClient
 
-from jev_compose.graph import Example, Plan, StrictModel, Task
-from jev_compose.runtime import JevProgram
+from decision_compose.graph import Example, Plan, StrictModel, Task
+from decision_compose.runtime import DecisionProgram
 
 
 class SearchConfig(StrictModel):
@@ -51,7 +51,7 @@ class TreeAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
                 if capture_traces
                 else None,
             )
-        program = JevProgram(plan, self.client, self.model)
+        program = DecisionProgram(plan, self.client, self.model)
         for example in batch:
             try:
                 prediction = program(state=example.state)
@@ -150,7 +150,7 @@ def optimize_plan(
 
 
 def evaluate_plan(plan: Plan, examples: list[Example], client: TypeSafeClient, model: str) -> dict:
-    program = JevProgram(plan, client, model)
+    program = DecisionProgram(plan, client, model)
     rows = []
     for example in examples:
         prediction = program(state=example.state)

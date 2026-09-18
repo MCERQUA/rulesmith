@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from jev_compose.graph import Plan
+from decision_compose.graph import Plan
 
 
 def pytest_addoption(parser):

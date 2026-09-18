@@ -3,15 +3,15 @@ import json
 import pytest
 from test_graph import binary_plan, task_data
 
-from jev_compose.graph import Plan, Task
-from jev_compose.optimize import SearchConfig, TreeAdapter, optimize_plan
-from jev_compose.runtime import JevProgram, ResponseError
+from decision_compose.graph import Plan, Task
+from decision_compose.optimize import SearchConfig, TreeAdapter, optimize_plan
+from decision_compose.runtime import DecisionProgram, ResponseError
 
 
 def test_official_sdk_http_dspy_and_tree_execute_together(provider, client):
     plan = Plan.model_validate(binary_plan())
     provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
-    result = JevProgram(plan, client, "fixture-model")(state={"request": "Example"})
+    result = DecisionProgram(plan, client, "fixture-model")(state={"request": "Example"})
     assert result.label == "accept"
     assert result.path == ["eligible"]
     assert result.model == "fixture-model" and result.input_tokens == 12
@@ -90,7 +90,7 @@ def test_real_gepa_evolves_structure_through_the_official_sdk(provider, client):
 
 def test_constant_program_never_calls_provider(provider, client):
     plan = Plan.model_validate({"questions": {}, "root": {"type": "return", "label": "review"}})
-    assert JevProgram(plan, client, "fixture-model")(state="Example").label == "review"
+    assert DecisionProgram(plan, client, "fixture-model")(state="Example").label == "review"
     assert provider.requests == []
 
 
@@ -137,7 +137,9 @@ def test_choice_score_and_noul_share_one_sdk_request(provider, client, mixed_pla
         },
         "refund": {"type": "noul", "noul": 0.9},
     }
-    prediction = JevProgram(mixed_plan, client, "fixture-model")(state="Refund this charge now.")
+    prediction = DecisionProgram(mixed_plan, client, "fixture-model")(
+        state="Refund this charge now."
+    )
     assert prediction.label == "accept"
     assert prediction.path == ["team", "urgency", "refund"]
     assert len(provider.requests) == 1

@@ -5,7 +5,7 @@ import math
 import dspy
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, TypeSafeClient
 
-from jev_compose.graph import Choice, Noul, Plan, Question, Score, State
+from decision_compose.graph import Choice, Noul, Plan, Question, Score, State
 
 
 class ResponseError(ValueError):
@@ -59,7 +59,7 @@ def read_answer(question: Question, answer: NoulAnswer | ChoiceAnswer | ScoreAns
     }
 
 
-class JevProgram(dspy.Module):
+class DecisionProgram(dspy.Module):
     def __init__(self, plan: Plan, client: TypeSafeClient, model: str):
         super().__init__()
         self.plan = plan

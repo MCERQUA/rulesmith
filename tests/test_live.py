@@ -7,9 +7,9 @@ import dspy
 import pytest
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from jev_compose.graph import Plan, Task
-from jev_compose.optimize import SearchConfig, optimize_plan
-from jev_compose.runtime import JevProgram
+from decision_compose.graph import Plan, Task
+from decision_compose.optimize import SearchConfig, optimize_plan
+from decision_compose.runtime import DecisionProgram
 
 pytestmark = pytest.mark.live
 
@@ -23,8 +23,8 @@ def live_client():
 
 
 def test_live_jev_returns_all_three_primitives(live_client, mixed_plan):
-    model = os.environ.get("JEV_COMPOSE_MODEL", "jev-latest")
-    result = JevProgram(mixed_plan, live_client, model)(
+    model = os.environ.get("DECISION_COMPOSE_MODEL", "jev-latest")
+    result = DecisionProgram(mixed_plan, live_client, model)(
         state="My card was charged twice. Please refund the duplicate charge immediately."
     )
     assert result.label in {"accept", "review"}
@@ -33,9 +33,9 @@ def test_live_jev_returns_all_three_primitives(live_client, mixed_plan):
 
 
 def test_live_gepa_returns_a_valid_program(live_client):
-    reflection_model = os.environ.get("JEV_COMPOSE_REFLECTION_MODEL")
+    reflection_model = os.environ.get("DECISION_COMPOSE_REFLECTION_MODEL")
     if not reflection_model:
-        pytest.fail("--live requires JEV_COMPOSE_REFLECTION_MODEL and its provider credential")
+        pytest.fail("--live requires DECISION_COMPOSE_REFLECTION_MODEL and its provider credential")
     root = Path(__file__).resolve().parents[1]
     task = Task.model_validate_json((root / "examples/task.json").read_text())
     initial = Plan.model_validate(
@@ -53,7 +53,7 @@ def test_live_gepa_returns_a_valid_program(live_client):
         task,
         initial,
         live_client,
-        os.environ.get("JEV_COMPOSE_MODEL", "jev-latest"),
+        os.environ.get("DECISION_COMPOSE_MODEL", "jev-latest"),
         reflect,
         SearchConfig(max_metric_calls=12),
     )
