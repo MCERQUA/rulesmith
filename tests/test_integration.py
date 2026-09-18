@@ -87,6 +87,90 @@ def test_real_gepa_evolves_structure_through_the_official_sdk(provider, client):
     assert "request C" not in json.dumps(reflections)
 
 
+@pytest.mark.parametrize("failure", ["schema", "execution"])
+def test_real_gepa_carries_rejected_graph_feedback_into_next_reflection(provider, client, failure):
+    data = task_data()
+    data["validation"][0]["label"] = "accept"
+    task = Task.model_validate(data)
+    initial = Plan.model_validate(constant_plan())
+    proposed = Plan.model_validate(binary_plan())
+    invalid_data = {"nodes": {}, "outputs": {"label": {"type": "node", "node": "missing"}}}
+    expected_error = "unknown nodes"
+    if failure == "execution":
+        invalid_data = binary_plan()
+        invalid_data["nodes"]["decision"]["when"] = {
+            "type": "compare",
+            "node": "eligible",
+            "op": "lt",
+            "value": 0.5,
+        }
+        expected_error = "required graph outputs were skipped"
+    invalid = json.dumps(invalid_data)
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+    reflections = []
+
+    def reflect(prompt):
+        reflections.append(prompt)
+        if len(reflections) == 1:
+            return invalid
+        assert json.dumps(invalid) in prompt
+        assert expected_error in prompt
+        if failure == "execution":
+            assert '"outputs":' in prompt and '"eligible":' in prompt
+        return proposed.model_dump_json()
+
+    best, report = optimize_plan(
+        task,
+        initial,
+        client,
+        "fixture-model",
+        reflect,
+        SearchConfig(max_metric_calls=6, reflection_batch=1),
+    )
+    assert best == proposed
+    assert report["validation_accuracy"] == 1
+    assert report["reflection_calls"] == len(reflections) == 2
+    assert report["invalid_candidate_evaluations"] == int(failure == "schema")
+    assert report["metric_calls"] == 6
+    assert "request C" not in json.dumps(reflections)
+
+
+def test_validation_execution_failures_do_not_enter_training_reflection_feedback(client):
+    data = constant_plan()
+    data["nodes"] = {
+        "gate": {"type": "value", "value": 0},
+        "label": {
+            "type": "value",
+            "value": "accept",
+            "when": {"type": "compare", "node": "gate", "op": "ge", "value": 1},
+        },
+    }
+    data["outputs"]["label"] = ref("label")
+    adapter = GraphAdapter(Task.model_validate(task_data()), client, "fixture", SearchConfig())
+    batch = adapter.evaluate(
+        adapter.task.validation, {"graph": json.dumps(data)}, capture_traces=False
+    )
+    assert batch.scores == [0.0]
+    assert adapter.rejected_candidate_feedback is None
+
+
+def test_real_gepa_keeps_seed_when_train_improvement_regresses_validation(client):
+    task = Task.model_validate(task_data())
+    initial = Plan.model_validate(constant_plan())
+    proposed = Plan.model_validate(constant_plan("accept"))
+    best, report = optimize_plan(
+        task,
+        initial,
+        client,
+        "fixture-model",
+        lambda prompt: proposed.model_dump_json(),
+        SearchConfig(max_metric_calls=4, reflection_batch=1),
+    )
+    assert best == initial
+    assert report["validation_scores"] == [1.0, 0.0]
+    assert report["validation_accuracy"] == report["seed_validation_accuracy"] == 1
+
+
 def test_constant_program_never_calls_provider(provider, client):
     plan = Plan.model_validate(constant_plan())
     assert DecisionProgram(plan, client, "fixture-model")(state="Example").label == "review"

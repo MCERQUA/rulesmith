@@ -23,7 +23,10 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["live: paid calls to configured Jev and reflection models"]
+markers = [
+    "live: paid calls to configured Jev and reflection models",
+    "ruling: real inference against an explicitly configured Ruling server",
+]
 
 [tool.ruff]
 line-length = 100

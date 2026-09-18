@@ -8,7 +8,7 @@ import pytest
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from decision_compose.graph import Plan, Task
-from decision_compose.optimize import SearchConfig, optimize_plan
+from decision_compose.optimize import GraphProposer, SearchConfig, optimize_plan
 from decision_compose.runtime import DecisionProgram
 
 pytestmark = pytest.mark.live
@@ -46,15 +46,12 @@ def test_live_gepa_returns_a_valid_program(live_client):
     )
     lm = dspy.LM(reflection_model, temperature=1, max_tokens=4096, num_retries=0, cache=False)
 
-    def reflect(prompt):
-        return lm(messages=prompt)[0] if isinstance(prompt, list) else lm(prompt)[0]
-
     best, report = optimize_plan(
         task,
         initial,
         live_client,
         os.environ.get("DECISION_COMPOSE_MODEL", "jev-latest"),
-        reflect,
+        GraphProposer(lm),
         SearchConfig(max_metric_calls=12),
     )
     best.check(task.labels, max_nodes=16, max_depth=8)

@@ -178,3 +178,55 @@ def test_cli_run_supports_generic_named_outputs_without_a_task(tmp_path):
     }
     assert prediction["calls"] == {}
     assert "label" not in prediction
+
+
+def test_ruling_backend_uses_local_endpoint_without_typesafe_credentials(
+    tmp_path, provider, monkeypatch
+):
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("RULING_API_KEY", raising=False)
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("RULING_BASE_URL", provider.url)
+    plan = write(tmp_path / "plan.json", binary_plan())
+    state = write(tmp_path / "state.json", "Please refund the duplicate charge.")
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+    result = invoke("run", plan, state, "--backend", "ruling")
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["label"] == "accept"
+    assert provider.requests[0][1]["model"] == "default"
+
+
+@pytest.mark.parametrize("backend", ["ruling", "typesafe"])
+def test_backend_configuration_keeps_endpoints_and_credentials_separate(backend, monkeypatch):
+    from decision_compose.cli import resolve_backend
+
+    monkeypatch.setenv("RULING_BASE_URL", "http://127.0.0.1:8010")
+    monkeypatch.setenv("RULING_API_KEY", "local-test-key")
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "https://provider.example.com")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "hosted-test-key")
+    model, connection = resolve_backend(backend)
+    assert connection == {
+        "base_url": "http://127.0.0.1:8010"
+        if backend == "ruling"
+        else "https://provider.example.com",
+        "api_key": "local-test-key" if backend == "ruling" else "hosted-test-key",
+    }
+    assert model == ("default" if backend == "ruling" else "jev-latest")
+    model, connection = resolve_backend(
+        backend, model="chosen-model", base_url="http://127.0.0.1:9"
+    )
+    assert model == "chosen-model" and connection["base_url"] == "http://127.0.0.1:9"
+
+
+def test_empty_ruling_configuration_never_falls_back_to_hosted_endpoint(monkeypatch):
+    from decision_compose.cli import BACKENDS, resolve_backend
+
+    monkeypatch.setenv("RULING_BASE_URL", "  ")
+    monkeypatch.setenv("RULING_API_KEY", "  ")
+    monkeypatch.setenv("TYPESAFE_BASE_URL", "https://provider.example.com")
+    monkeypatch.setenv("TYPESAFE_API_KEY", "hosted-test-key")
+    _, connection = resolve_backend("ruling")
+    assert connection == {
+        "base_url": BACKENDS["ruling"].base_url,
+        "api_key": BACKENDS["ruling"].api_key,
+    }

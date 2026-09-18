@@ -7,12 +7,42 @@ from importlib.metadata import version
 
 import dspy
 import gepa
+from dspy.utils.exceptions import AdapterParseError
 from gepa.core.adapter import EvaluationBatch, GEPAAdapter
-from pydantic import Field
+from pydantic import Field, JsonValue, ValidationError
 from typesafe_sdk import TypeSafeClient
 
 from decision_compose.graph import Example, Plan, StrictModel, Task
 from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
+
+
+class GraphProposal(dspy.Signature):
+    """Design a complete decision DAG that satisfies the supplied schema and feedback."""
+
+    request: str = dspy.InputField()
+    nodes: dict[str, JsonValue] = dspy.OutputField(desc="Node IDs mapped to node definitions")
+    outputs: dict[str, JsonValue] = dspy.OutputField(desc="Output names mapped to sources")
+
+
+class GraphProposer(dspy.Module):
+    def __init__(self, lm: dspy.LM):
+        super().__init__()
+        self.lm = lm
+        self.predict = dspy.Predict(GraphProposal)
+
+    def forward(self, prompt: str | list[dict]) -> str:
+        request = prompt if isinstance(prompt, str) else json.dumps(prompt)
+        # Open mappings need JSON mode; native strict schemas can prohibit new node IDs.
+        with dspy.context(lm=self.lm, adapter=dspy.JSONAdapter()):
+            try:
+                result = self.predict(request=request)
+            except (AdapterParseError, ValidationError) as error:
+                # Syntax failures remain candidates so GEPA can score and reflect on them.
+                return json.dumps({"generation_error": str(error)})
+        try:
+            return json.dumps({"nodes": result.nodes, "outputs": result.outputs}, allow_nan=False)
+        except ValueError as error:
+            return json.dumps({"generation_error": str(error)})
 
 
 class SearchConfig(StrictModel):
@@ -39,6 +69,8 @@ class GraphAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
         self.execution = execution or ExecutionConfig()
         self.failure: Exception | None = None
         self.resolved_models: set[str] = set()
+        self.rejected_candidate_feedback: dict | None = None
+        self.invalid_candidate_evaluations = 0
 
     def parse(self, candidate: dict[str, str]) -> Plan:
         plan = Plan.model_validate_json(candidate["graph"])
@@ -52,6 +84,12 @@ class GraphAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
         try:
             plan = self.parse(candidate)
         except ValueError as error:
+            self.invalid_candidate_evaluations += 1
+            if capture_traces:
+                self.rejected_candidate_feedback = {
+                    "graph": candidate["graph"],
+                    "error": f"Candidate validation failed: {error}",
+                }
             return EvaluationBatch(
                 outputs=[None] * len(batch),
                 scores=[0.0] * len(batch),
@@ -68,6 +106,12 @@ class GraphAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
                 outputs.append(error.prediction)
                 scores.append(0.0)
                 if capture_traces:
+                    self.rejected_candidate_feedback = {
+                        "graph": candidate["graph"],
+                        "error": f"Graph execution failed: {error}",
+                        "input": example.state,
+                        "outputs": dict(error.prediction),
+                    }
                     records.append(
                         {
                             "Inputs": example.state,
@@ -115,11 +159,42 @@ def optimize_plan(
     if config.max_metric_calls < minimum_budget:
         raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
     adapter = GraphAdapter(task, client, model, config, execution)
+    reflection_calls = 0
+    syntax_example = Plan.model_validate(
+        {
+            "nodes": {
+                "decision": {
+                    "type": "call",
+                    "question": {
+                        "type": "choice",
+                        "instructions": task.description,
+                        "criteria": {label: label for label in task.labels[:2]},
+                    },
+                    "inputs": {"request": {"type": "state"}},
+                }
+            },
+            "outputs": {"label": {"type": "node", "node": "decision"}},
+        }
+    )
 
     def reflect(prompt):
+        nonlocal reflection_calls
         if adapter.failure is not None:
             raise adapter.failure
+        if adapter.rejected_candidate_feedback is not None:
+            # GEPA discards rejected children; retain their errors for the next proposal.
+            feedback = (
+                "A previous graph proposal failed. Correct this failure in your next graph:\n"
+                + json.dumps(adapter.rejected_candidate_feedback)
+            )
+            prompt = (
+                [*prompt, {"role": "user", "content": feedback}]
+                if isinstance(prompt, list)
+                else f"{prompt}\n\n{feedback}"
+            )
+            adapter.rejected_candidate_feedback = None
         try:
+            reflection_calls += 1
             return reflection_lm(prompt)
         except Exception as error:
             # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
@@ -132,6 +207,11 @@ def optimize_plan(
         "nodes, questions, input wiring, and conditions. Each call receives its mapped inputs, "
         "which can reference original state, literal data, or earlier node values/answers. "
         "Each call is a separate request; independent ready calls run concurrently. "
+        "A call's question MUST be an object nested inside the call, containing lowercase "
+        "type, instructions, and criteria when applicable. Never put instructions or criteria "
+        'beside question. Original input uses {"type":"state"}; it is not a node named input. '
+        "Only declared node IDs may be referenced; there is no input_wiring field. "
+        "Use view=value for a label output, not view=answer (which returns an object). "
         "Node and control references must form a DAG; every node must feed an output. "
         "Conditions gate execution after dependencies settle. Missing required inputs skip "
         "a node; optional missing inputs are omitted. merge builds an object. coalesce waits "
@@ -143,6 +223,10 @@ def optimize_plan(
         f"Task: {task.description}\nAllowed output labels: {json.dumps(task.labels)}\n"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
         f"JSON schema: {json.dumps(Plan.model_json_schema())}\n"
+        "Minimal syntax example using two labels (not a solution):\n"
+        f"{syntax_example.model_dump_json(exclude_none=True)}\n"
+        "Use the task's full label set when appropriate. You may replace this topology "
+        "with any valid DAG, including multiple calls, branches, and joins.\n"
         "Current graph:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
     result = gepa.optimize(
@@ -174,6 +258,8 @@ def optimize_plan(
         "validation_accuracy": result.val_aggregate_scores[result.best_idx],
         "validation_scores": result.val_aggregate_scores,
         "candidates": len(result.candidates),
+        "reflection_calls": reflection_calls,
+        "invalid_candidate_evaluations": adapter.invalid_candidate_evaluations,
         "metric_calls": result.total_metric_calls,
     }
     return best, report

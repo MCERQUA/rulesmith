@@ -2,16 +2,43 @@
 
 import argparse
 import json
+import os
 import sys
 from contextlib import nullcontext, redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
 
 import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from decision_compose.graph import Call, Plan, Task
-from decision_compose.optimize import SearchConfig, evaluate_plan, optimize_plan
+from decision_compose.optimize import GraphProposer, SearchConfig, evaluate_plan, optimize_plan
 from decision_compose.runtime import DecisionProgram, ExecutionConfig
+
+
+@dataclass(frozen=True)
+class Backend:
+    model: str
+    base_url_env: str
+    api_key_env: str
+    base_url: str | None = None
+    api_key: str | None = None
+
+
+BACKENDS = {
+    "typesafe": Backend("jev-latest", "TYPESAFE_BASE_URL", "TYPESAFE_API_KEY"),
+    # The SDK requires a nonempty key even when the local server disables auth.
+    "ruling": Backend(
+        "default", "RULING_BASE_URL", "RULING_API_KEY", "http://127.0.0.1:8010", "local-no-auth"
+    ),
+}
+
+
+def resolve_backend(name: str, model: str | None = None, base_url: str | None = None):
+    backend = BACKENDS[name]
+    endpoint = (base_url or os.environ.get(backend.base_url_env, "")).strip() or backend.base_url
+    key = os.environ.get(backend.api_key_env, "").strip() or backend.api_key
+    return model or backend.model, {"base_url": endpoint, "api_key": key}
 
 
 def parser() -> argparse.ArgumentParser:
@@ -52,8 +79,9 @@ def parser() -> argparse.ArgumentParser:
 
 
 def provider_arguments(command: argparse.ArgumentParser) -> None:
-    command.add_argument("--model", default="jev-latest")
-    command.add_argument("--base-url", help="Override TYPESAFE_BASE_URL")
+    command.add_argument("--backend", choices=tuple(BACKENDS), default="typesafe")
+    command.add_argument("--model", help="Model ID; defaults to the selected backend alias")
+    command.add_argument("--base-url", help="Override the selected backend endpoint")
     command.add_argument("--timeout", type=float, default=60)
     command.add_argument("--max-workers", type=int, default=ExecutionConfig().max_workers)
 
@@ -94,40 +122,34 @@ def main() -> None:
             **lm_options,
         )
 
-        def reflect(prompt):
-            return (
-                reflection(messages=prompt)[0]
-                if isinstance(prompt, list)
-                else reflection(prompt)[0]
-            )
+        reflect = GraphProposer(reflection)
 
+    model, connection = resolve_backend(args.backend, args.model, args.base_url)
     execution = ExecutionConfig(max_workers=args.max_workers)
     needs_client = args.command == "optimize" or any(
         isinstance(node, Call) for node in plan.nodes.values()
     )
     context = (
-        TypeSafeClient(
-            base_url=args.base_url, timeout=args.timeout, retry=RetryPolicy(max_retries=0)
-        )
+        TypeSafeClient(**connection, timeout=args.timeout, retry=RetryPolicy(max_retries=0))
         if needs_client
         else nullcontext(None)
     )
     with context as client:
         if args.command == "run":
-            prediction = DecisionProgram(plan, client, args.model, execution)(
+            prediction = DecisionProgram(plan, client, model, execution)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")
         elif args.command == "evaluate":
-            report = evaluate_plan(plan, getattr(task, args.split), client, args.model, execution)
+            report = evaluate_plan(plan, getattr(task, args.split), client, model, execution)
             report["split"] = args.split
+            report["backend"] = args.backend
             args.output.write_text(dump(report))
             print(dump({"accuracy": report["accuracy"], "output": str(args.output)}), end="")
         else:
             with redirect_stdout(sys.stderr):
-                best, report = optimize_plan(
-                    task, plan, client, args.model, reflect, config, execution
-                )
+                best, report = optimize_plan(task, plan, client, model, reflect, config, execution)
+            report["backend"] = args.backend
             report["reflection_model"] = args.reflection_model
             args.output.mkdir()
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")

@@ -15,13 +15,19 @@ def pytest_addoption(parser):
     parser.addoption(
         "--live", action="store_true", help="Allow paid hosted-model integration tests"
     )
+    parser.addoption(
+        "--ruling-url", help="Run local-model integration tests against this Ruling server"
+    )
+    parser.addoption("--ruling-reflection-model", help="DSPy model ID for real graph generation")
+    parser.addoption("--ruling-reflection-url", help="Explicit local text-generation API base URL")
 
 
 def pytest_collection_modifyitems(config, items):
-    if not config.getoption("--live"):
-        for item in items:
-            if "live" in item.keywords:
-                item.add_marker(pytest.mark.skip(reason="paid live check requires --live"))
+    for item in items:
+        if item.get_closest_marker("live") is not None and not config.getoption("--live"):
+            item.add_marker(pytest.mark.skip(reason="paid live check requires --live"))
+        if item.get_closest_marker("ruling") is not None and not config.getoption("--ruling-url"):
+            item.add_marker(pytest.mark.skip(reason="local model check requires --ruling-url"))
 
 
 @pytest.fixture
