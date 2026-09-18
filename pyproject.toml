@@ -1,0 +1,33 @@
+[project]
+name = "jev-compose"
+version = "0.1.0"
+description = "Evolve typed Jev decision trees with DSPy and GEPA."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "dspy==3.3.1",
+    "gepa==0.1.4",
+    "pydantic>=2.11,<3",
+    "typesafe-sdk>=0.6,<0.7",
+]
+
+[project.scripts]
+jev-compose = "jev_compose.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "hypothesis>=6,<7", "ruff>=0.12,<1"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["live: paid calls to configured Jev and reflection models"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

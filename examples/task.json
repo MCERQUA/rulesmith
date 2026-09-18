@@ -1,0 +1,70 @@
+{
+  "description": "Route each support ticket to billing, technical, or sales based on its primary request. Billing handles existing charges, invoices, and refunds. Technical handles product failures and troubleshooting. Sales handles prospective purchases, pricing, and product demonstrations. This small authored dataset illustrates the workflow; it is not a benchmark.",
+  "labels": ["billing", "technical", "sales"],
+  "train": [
+    {
+      "id": "train-billing-1",
+      "state": "My credit card was charged twice for this month's subscription. Please reverse the duplicate charge.",
+      "label": "billing"
+    },
+    {
+      "id": "train-billing-2",
+      "state": "Please send me an itemized invoice for the subscription payment I already made.",
+      "label": "billing"
+    },
+    {
+      "id": "train-technical-1",
+      "state": "The desktop app closes every time I try to open a project. How can I fix the crash?",
+      "label": "technical"
+    },
+    {
+      "id": "train-technical-2",
+      "state": "File uploads fail with an internal server error. I need help troubleshooting the upload feature.",
+      "label": "technical"
+    },
+    {
+      "id": "train-sales-1",
+      "state": "We are considering buying your product for our team. Could you provide a price quote?",
+      "label": "sales"
+    },
+    {
+      "id": "train-sales-2",
+      "state": "Before purchasing, I would like to schedule a demonstration of your enterprise plan.",
+      "label": "sales"
+    }
+  ],
+  "validation": [
+    {
+      "id": "validation-billing-1",
+      "state": "I canceled my subscription but received another charge. Please refund that payment.",
+      "label": "billing"
+    },
+    {
+      "id": "validation-technical-1",
+      "state": "The dashboard stays blank after I sign in, even after clearing my browser cache. Please help me restore it.",
+      "label": "technical"
+    },
+    {
+      "id": "validation-sales-1",
+      "state": "Our company is evaluating your service. What volume discounts are available for a new annual contract?",
+      "label": "sales"
+    }
+  ],
+  "test": [
+    {
+      "id": "test-billing-1",
+      "state": "The amount on my paid invoice is higher than the agreed subscription rate. Please correct the overcharge.",
+      "label": "billing"
+    },
+    {
+      "id": "test-technical-1",
+      "state": "Exporting a report produces an empty file instead of the saved results. Can you investigate this malfunction?",
+      "label": "technical"
+    },
+    {
+      "id": "test-sales-1",
+      "state": "I am comparing vendors for a new purchase. Could a sales representative explain your available plans?",
+      "label": "sales"
+    }
+  ]
+}
