@@ -1,13 +1,15 @@
 # decision-compose
 
-Build and optimize typed directed acyclic graphs of Jev calls. DSPy provides the
-execution module; GEPA evolves the complete graph; TypeSafe's official SDK makes
-the model requests.
+Build and optimize typed directed acyclic graphs of Jev calls. A custom DAG
+executor runs inside a DSPy module; GEPA searches over the complete graph;
+TypeSafe's official SDK makes the model requests.
 
 Graphs support arbitrary finite acyclic topology over the supported node types:
 sequential calls, parallel fan-out, shared dependencies, conditional branches,
 joins, and multiple outputs. Each call can consume the original input and earlier
-answers. A saved graph runs without the reflection model.
+answers. A saved graph runs without the reflection model. Execution supports
+named JSON outputs; optimization currently scores classification accuracy against
+a required `label` output.
 
 This independent research prototype is not affiliated with TypeSafe. It optimizes
 programs, not Jev's weights. No live benchmark improvement is claimed.
@@ -23,8 +25,10 @@ uv run decision-compose validate examples/task.json examples/dag.json
 ```
 
 Validation and default tests need no credentials. For model calls, set
-`TYPESAFE_API_KEY` in your shell. The SDK reads the environment; this project does
-not load `.env` files. Commands that execute calls are billable.
+`TYPESAFE_API_KEY` in your shell. The SDK reads the environment. DSPy's LiteLLM
+dependency can also load `.env` files on import (its default `DEV` mode does), so
+do not assume shell variables are the only configuration source. Commands that
+execute hosted model calls are billable.
 
 `examples/task.json` contains 12 authored support tickets: six training, three
 validation, and three test examples. This is a wiring example, not a benchmark.
@@ -113,7 +117,10 @@ The cutoff is illustrative, not calibrated. Every `call` sends its mapped input
 object as the SDK request's `state` and its own question in a separate request.
 Independent ready calls execute concurrently, bounded by `max_workers` (default
 4). Dependencies become available as requests finish; there is no layer-wide
-barrier. A shared node runs once per execution, even when several nodes use it.
+barrier. An executed shared node runs once per execution, even when several
+nodes use it.
+Independent questions are not batched into one provider request. All call nodes
+use the model selected for the program.
 
 | Node | Behavior |
 | --- | --- |
@@ -155,8 +162,9 @@ A comparison against a skipped node is false; `present` tests availability.
 Negation follows ordinary Boolean rules, so negating a skipped comparison is true.
 
 A node waits for all data and condition dependencies to settle. A false condition
-skips it. A skipped required input skips its consumer; an optional skipped input
-is omitted from the input object. Optional skipped outputs are omitted from the
+skips it. The condition gates that node, not its upstream dependencies, which
+may already have run. A skipped required input skips its consumer; an optional
+skipped input is omitted from the input object. Optional skipped outputs are omitted from the
 output object. A required skipped graph output raises `GraphExecutionError`.
 `coalesce` skips when all its sources skip. Its declared source order, not request
 completion order, determines which available value it returns.
@@ -195,16 +203,19 @@ independent of concurrent completion order.
 Generic execution supports arbitrary named JSON outputs. The current task,
 evaluation, and optimization interface remains supervised classification: it
 requires a `label` output with a statically known categorical domain within the
-task's labels and scores exact-match accuracy. Duplicate example IDs and
-JSON-equivalent states are rejected across splits to catch obvious leakage.
+task's labels and scores exact-match accuracy. Duplicate example IDs and states
+with identical JSON serialization after sorting object keys are rejected across
+splits. This catches exact duplicates, not semantic equivalence: `1` and `1.0`,
+for example, remain distinct.
 
 `optimize_plan` accepts the task, seed plan, TypeSafe client, model ID, reflection
 callable, `SearchConfig`, and optional `ExecutionConfig`. The reflection callable
 returns a JSON graph. A custom `GraphAdapter` exposes that complete graph to
 GEPA; no generated Python is executed. Invalid graphs and unavailable required
 outputs get zero scores and feedback, including any partial execution trace.
-Provider or malformed-response failures
-stop optimization instead of becoming task-performance scores.
+Provider or malformed-response failures stop optimization instead of becoming
+task-performance scores. Optimization reports save scores and metadata, not
+complete execution traces; evaluation reports include per-example node answers.
 
 ## Verification and limits
 
@@ -218,7 +229,8 @@ uv build
 Unit tests cover graph validation and execution semantics. Integration tests
 exercise the official SDK over local HTTP, DSPy's module and LM interfaces, the
 real GEPA search engine, and CLI artifacts. Protocol fixtures and fixed proposals
-verify wiring, not live model quality. Paid hosted checks are opt-in:
+verify wiring, not hosted-service compatibility or live model quality. Paid
+hosted checks are opt-in:
 
 ```sh
 # Configure TYPESAFE_API_KEY and your reflection provider's credential first.
@@ -233,14 +245,16 @@ uv run pytest --live tests/test_live.py -q
   iteration and excludes reflection calls; it is **not a dollar cap**.
 - A failed request cannot undo independent requests already in flight. Provider
   failures abort execution; skipped branches are an explicit control-flow result.
-- Input mappings and question instructions go to Jev. Training examples and
-  execution feedback go to the reflection provider. Reports contain model answers.
+- Resolved node inputs and question instructions go to Jev. Training examples and
+  execution feedback go to the reflection provider. Evaluation reports contain
+  model answers.
 - Optimizer seeds do not make hosted models deterministic. Use representative
   data, provider spending limits, and a final untouched test split.
 
 ## Sources
 
-- [TypeSafe primitives](https://docs.typesafe.ai/primitives/choice)
+- [TypeSafe Choice](https://docs.typesafe.ai/primitives/choice)
+- [TypeSafe Score semantics](https://docs.typesafe.ai/primitives/score)
 - [TypeSafe question semantics](https://docs.typesafe.ai/cookbooks/parallel_questions)
 - [DSPy modules](https://dspy.ai/learn/programming/modules/)
 - [GEPA custom adapters](https://gepa-ai.github.io/gepa/guides/adapters/)
