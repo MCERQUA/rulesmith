@@ -1,8 +1,9 @@
-"""A finite tree language over a shared bank of typed questions."""
+"""A typed, finite DAG language for model calls and deterministic data flow."""
 
 from __future__ import annotations
 
 import json
+from graphlib import CycleError, TopologicalSorter
 from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints, model_validator
@@ -41,94 +42,248 @@ class Noul(StrictModel):
 Question = Annotated[Choice | Score | Noul, Field(discriminator="type")]
 
 
-class Return(StrictModel):
-    type: Literal["return"] = "return"
-    label: Text
+class StateInput(StrictModel):
+    type: Literal["state"] = "state"
 
 
-class Switch(StrictModel):
+class LiteralInput(StrictModel):
+    type: Literal["literal"] = "literal"
+    value: JsonValue
+
+
+class NodeInput(StrictModel):
+    type: Literal["node"] = "node"
+    node: Text
+    view: Literal["value", "answer"] = "value"
+    optional: bool = False
+
+
+Source = Annotated[StateInput | LiteralInput | NodeInput, Field(discriminator="type")]
+
+
+class Compare(StrictModel):
+    type: Literal["compare"] = "compare"
+    node: Text
+    op: Literal["eq", "lt", "ge"]
+    value: str | float
+
+
+class Present(StrictModel):
+    type: Literal["present"] = "present"
+    node: Text
+
+
+class All(StrictModel):
+    type: Literal["all"] = "all"
+    conditions: list[Condition] = Field(min_length=1)
+
+
+class Any(StrictModel):
+    type: Literal["any"] = "any"
+    conditions: list[Condition] = Field(min_length=1)
+
+
+class Not(StrictModel):
+    type: Literal["not"] = "not"
+    condition: Condition
+
+
+Condition = Annotated[Compare | Present | All | Any | Not, Field(discriminator="type")]
+All.model_rebuild()
+Any.model_rebuild()
+Not.model_rebuild()
+
+
+def predicates(condition: Condition | None) -> list[Compare | Present]:
+    if condition is None:
+        return []
+    if isinstance(condition, (Compare, Present)):
+        return [condition]
+    if isinstance(condition, Not):
+        return predicates(condition.condition)
+    return [leaf for child in condition.conditions for leaf in predicates(child)]
+
+
+class Guarded(StrictModel):
+    when: Condition | None = None
+
+
+class Call(Guarded):
+    type: Literal["call"] = "call"
+    question: Question
+    inputs: dict[Text, Source] = Field(min_length=1)
+
+
+class Switch(Guarded):
     type: Literal["switch"] = "switch"
-    question: Text
-    cases: dict[Text, Node]
+    source: Text
+    cases: dict[Text, Text] = Field(min_length=1)
 
 
-class Threshold(StrictModel):
+class Threshold(Guarded):
     type: Literal["threshold"] = "threshold"
-    question: Text
+    source: Text
     cutoff: float
-    below: Node
-    above: Node
+    below: Text
+    above: Text
 
 
-Node = Annotated[Return | Switch | Threshold, Field(discriminator="type")]
-Switch.model_rebuild()
-Threshold.model_rebuild()
+class Merge(Guarded):
+    type: Literal["merge"] = "merge"
+    inputs: dict[Text, Source] = Field(min_length=1)
 
 
-def children(node: Node) -> list[Node]:
-    if isinstance(node, Switch):
-        return list(node.cases.values())
-    if isinstance(node, Threshold):
-        return [node.below, node.above]
-    return []
+class Coalesce(Guarded):
+    type: Literal["coalesce"] = "coalesce"
+    sources: list[Text] = Field(min_length=1)
+
+
+class Value(Guarded):
+    type: Literal["value"] = "value"
+    value: JsonValue
+
+
+Node = Annotated[Call | Switch | Threshold | Merge | Coalesce | Value, Field(discriminator="type")]
+Domain = frozenset[str] | tuple[float, float] | None
+
+
+def literal_domain(value: JsonValue) -> Domain:
+    if isinstance(value, str):
+        return frozenset([value])
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return (value, value)
+    return None
 
 
 class Plan(StrictModel):
-    questions: dict[Text, Question]
-    root: Node
+    nodes: dict[Text, Node]
+    outputs: dict[Text, Source] = Field(min_length=1)
+
+    def dependencies(self) -> dict[str, set[str]]:
+        result = {}
+        for key, node in self.nodes.items():
+            refs = {condition.node for condition in predicates(node.when)}
+            if isinstance(node, (Call, Merge)):
+                refs.update(s.node for s in node.inputs.values() if isinstance(s, NodeInput))
+            elif isinstance(node, (Switch, Threshold)):
+                refs.add(node.source)
+            elif isinstance(node, Coalesce):
+                refs.update(node.sources)
+            result[key] = refs
+        return result
+
+    def order(self) -> tuple[str, ...]:
+        dependencies = self.dependencies()
+        return tuple(
+            TopologicalSorter(
+                {k: sorted(dependencies[k]) for k in sorted(self.nodes)}
+            ).static_order()
+        )
+
+    def domains(self) -> dict[str, Domain]:
+        """Infer finite label sets and numeric bounds without running model calls."""
+        result: dict[str, Domain] = {}
+        for key in self.order():
+            node = self.nodes[key]
+            domain = None
+            if isinstance(node, Call):
+                q = node.question
+                domain = (
+                    frozenset(q.criteria)
+                    if isinstance(q, Choice)
+                    else (0, len(q.criteria) - 1 if isinstance(q, Score) else 1)
+                )
+            elif isinstance(node, Switch):
+                domain = frozenset(node.cases.values())
+            elif isinstance(node, Threshold):
+                domain = frozenset([node.below, node.above])
+            elif isinstance(node, Value):
+                domain = literal_domain(node.value)
+            elif isinstance(node, Coalesce):
+                inputs = [result[source] for source in node.sources]
+                if all(isinstance(d, frozenset) for d in inputs):
+                    domain = frozenset().union(*inputs)
+                elif all(isinstance(d, tuple) for d in inputs):
+                    domain = (min(d[0] for d in inputs), max(d[1] for d in inputs))
+            result[key] = domain
+        return result
 
     @model_validator(mode="after")
     def typed_references(self) -> Self:
+        dependencies = self.dependencies()
+        sources = list(self.outputs.values())
+        for node in self.nodes.values():
+            if isinstance(node, (Call, Merge)):
+                sources.extend(node.inputs.values())
+        references = {r for parents in dependencies.values() for r in parents}
+        references.update(s.node for s in sources if isinstance(s, NodeInput))
+        unknown = references - self.nodes.keys()
+        if unknown:
+            raise ValueError(f"unknown nodes: {sorted(unknown)}")
+        for source in sources:
+            if (
+                isinstance(source, NodeInput)
+                and source.view == "answer"
+                and not isinstance(self.nodes[source.node], Call)
+            ):
+                raise ValueError("answer view requires a call node")
+        try:
+            self.order()
+        except CycleError as error:
+            raise ValueError(f"graph contains a cycle: {error.args[1]}") from error
+
         used = set()
-        pending = [self.root]
+        pending = [s.node for s in self.outputs.values() if isinstance(s, NodeInput)]
         while pending:
-            node = pending.pop()
-            if isinstance(node, Return):
-                continue
-            if node.question not in self.questions:
-                raise ValueError(f"unknown question: {node.question}")
-            question = self.questions[node.question]
-            used.add(node.question)
+            key = pending.pop()
+            if key not in used:
+                used.add(key)
+                pending.extend(dependencies[key])
+        if used != self.nodes.keys():
+            raise ValueError("every node must contribute to a graph output")
+
+        domains = self.domains()
+        for node in self.nodes.values():
             if isinstance(node, Switch):
-                if not isinstance(question, Choice):
-                    raise ValueError("switch requires a Choice question")
-                if set(node.cases) != set(question.criteria):
-                    raise ValueError("switch cases must match the Choice options exactly")
-            else:
-                if isinstance(question, Choice):
-                    raise ValueError("threshold requires a Noul or Score question")
-                upper = len(question.criteria) - 1 if isinstance(question, Score) else 1
-                if not 0 <= node.cutoff <= upper:
-                    raise ValueError(f"cutoff for {node.question} must be between 0 and {upper}")
-            pending.extend(children(node))
-        if used != set(self.questions):
-            raise ValueError("every declared question must be referenced by the tree")
+                domain = domains[node.source]
+                if not isinstance(domain, frozenset) or set(node.cases) != domain:
+                    raise ValueError("switch cases must exactly cover the source categories")
+            elif isinstance(node, Threshold):
+                domain = domains[node.source]
+                if not isinstance(domain, tuple):
+                    raise ValueError("threshold requires a numeric source")
+                if not domain[0] <= node.cutoff <= domain[1]:
+                    raise ValueError(f"cutoff must be within source bounds {domain}")
+            for condition in predicates(node.when):
+                if isinstance(condition, Present):
+                    continue
+                domain = domains[condition.node]
+                if isinstance(condition.value, str) and condition.op == "eq":
+                    if not isinstance(domain, frozenset) or condition.value not in domain:
+                        raise ValueError("equality requires a declared source category")
+                elif not isinstance(domain, tuple) or isinstance(condition.value, str):
+                    raise ValueError("numeric comparison requires a numeric source and value")
         return self
 
-    def check(self, labels: list[str], max_questions: int, max_depth: int) -> None:
-        """Keep the task contract and search bounds outside the mutable candidate."""
-        if len(self.questions) > max_questions:
-            raise ValueError(f"question count exceeds {max_questions}")
-        pending = [(self.root, 0)]
-        while pending:
-            node, depth = pending.pop()
-            if depth > max_depth:
-                raise ValueError(f"tree depth exceeds {max_depth}")
-            if isinstance(node, Return) and node.label not in labels:
-                raise ValueError(f"output label is outside the task: {node.label}")
-            pending.extend((child, depth + 1) for child in children(node))
-
-    def decide(self, values: dict[str, str | float]) -> tuple[str, list[str]]:
-        node = self.root
-        path = []
-        while not isinstance(node, Return):
-            path.append(node.question)
-            value = values[node.question]
-            if isinstance(node, Switch):
-                node = node.cases[value]
-            else:
-                node = node.above if value >= node.cutoff else node.below
-        return node.label, path
+    def check(self, labels: list[str], max_nodes: int, max_depth: int) -> None:
+        """Keep classification targets and search bounds outside mutable candidates."""
+        if len(self.nodes) > max_nodes:
+            raise ValueError(f"node count exceeds {max_nodes}")
+        dependencies, depths = self.dependencies(), {}
+        for key in self.order():
+            depths[key] = 1 + max((depths[p] for p in dependencies[key]), default=0)
+        if max(depths.values(), default=0) > max_depth:
+            raise ValueError(f"graph depth exceeds {max_depth}")
+        label = self.outputs.get("label")
+        domain = None
+        if isinstance(label, LiteralInput):
+            domain = literal_domain(label.value)
+        elif isinstance(label, NodeInput) and label.view == "value" and not label.optional:
+            domain = self.domains()[label.node]
+        if not isinstance(domain, frozenset) or not domain <= set(labels):
+            raise ValueError(
+                "label output must have a required categorical value within task labels"
+            )
 
 
 class Example(StrictModel):

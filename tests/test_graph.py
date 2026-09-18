@@ -8,77 +8,90 @@ from pydantic import ValidationError
 from decision_compose.graph import Plan, Task
 
 
-def binary_plan(cutoff=0.5):
+def ref(node, **kwargs):
+    return {"type": "node", "node": node, **kwargs}
+
+
+def call(instructions="Is the request eligible?", **inputs):
     return {
-        "questions": {"eligible": {"type": "noul", "instructions": "Is the request eligible?"}},
-        "root": {
-            "type": "threshold",
-            "question": "eligible",
-            "cutoff": cutoff,
-            "below": {"type": "return", "label": "review"},
-            "above": {"type": "return", "label": "accept"},
-        },
+        "type": "call",
+        "question": {"type": "noul", "instructions": instructions},
+        "inputs": inputs or {"state": {"type": "state"}},
     }
 
 
-@given(
-    st.floats(min_value=0, max_value=1, allow_nan=False),
-    st.floats(min_value=0, max_value=1, allow_nan=False),
-)
-def test_threshold_partition_and_serialization(value, cutoff):
-    plan = Plan.model_validate(binary_plan(cutoff))
+def binary_plan(cutoff=0.5):
+    return {
+        "nodes": {
+            "eligible": call(),
+            "decision": {
+                "type": "threshold",
+                "source": "eligible",
+                "cutoff": cutoff,
+                "below": "review",
+                "above": "accept",
+            },
+        },
+        "outputs": {"label": ref("decision")},
+    }
+
+
+def constant_plan(label="review"):
+    return {"nodes": {}, "outputs": {"label": {"type": "literal", "value": label}}}
+
+
+@given(st.lists(st.sets(st.integers(min_value=0, max_value=20)), max_size=20))
+def test_arbitrary_dag_order_respects_every_edge_and_survives_serialization(edges):
+    nodes = {}
+    for i, candidates in enumerate(edges):
+        parents = sorted(n for n in candidates if n < i)
+        nodes[str(i)] = (
+            {"type": "merge", "inputs": {str(n): ref(str(n)) for n in parents}}
+            if parents
+            else {"type": "value", "value": i}
+        )
+    outputs = {key: ref(key) for key in nodes} or {"constant": {"type": "literal", "value": 0}}
+    plan = Plan.model_validate({"nodes": nodes, "outputs": outputs})
     restored = Plan.model_validate_json(plan.model_dump_json())
-    label, path = restored.decide({"eligible": value})
-    assert label == ("accept" if value >= cutoff else "review")
-    assert path == ["eligible"]
+    assert restored == plan
+    order = plan.order()
+    assert len(order) == len(set(order)) == len(nodes)
+    positions = {key: i for i, key in enumerate(order)}
+    for child, parents in plan.dependencies().items():
+        assert all(positions[parent] < positions[child] for parent in parents)
+    data = plan.model_dump()
+    data["nodes"] = dict(reversed(list(data["nodes"].items())))
+    assert Plan.model_validate(data).order() == order
 
 
-def test_nested_choice_and_score_select_the_actual_path():
-    plan = Plan.model_validate(
-        {
-            "questions": {
-                "team": {
-                    "type": "choice",
-                    "instructions": "Choose a team.",
-                    "criteria": {"billing": "Payments", "support": "Other requests"},
-                },
-                "severity": {
-                    "type": "score",
-                    "instructions": "Assess severity.",
-                    "criteria": ["Routine", "Disrupted", "Blocked"],
-                },
-            },
-            "root": {
-                "type": "switch",
-                "question": "team",
-                "cases": {
-                    "support": {"type": "return", "label": "review"},
-                    "billing": {
-                        "type": "threshold",
-                        "question": "severity",
-                        "cutoff": 1.5,
-                        "below": {"type": "return", "label": "review"},
-                        "above": {"type": "return", "label": "urgent"},
-                    },
-                },
-            },
-        }
-    )
-    assert plan.decide({"team": "support", "severity": 2}) == ("review", ["team"])
-    assert plan.decide({"team": "billing", "severity": 2}) == ("urgent", ["team", "severity"])
+@given(st.integers(min_value=1, max_value=25))
+def test_cycles_of_every_length_are_rejected(length):
+    nodes = {
+        str(i): {"type": "merge", "inputs": {"parent": ref(str((i + 1) % length))}}
+        for i in range(length)
+    }
+    with pytest.raises(ValidationError, match="cycle"):
+        Plan.model_validate({"nodes": nodes, "outputs": {"result": ref("0")}})
 
 
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda p: p["root"].update(question="missing"),
-        lambda p: p["root"].update(cutoff=1.1),
-        lambda p: p["root"].update(cutoff=float("nan")),
-        lambda p: p["root"].update(typo=True),
-        lambda p: p["questions"]["eligible"].update(instructions="   "),
-        lambda p: p["questions"].update(unused={"type": "noul", "instructions": "Unused?"}),
-        lambda p: p["questions"]["eligible"].update(
-            type="choice", criteria={"yes": "Yes", "no": "No"}
+        lambda p: p["nodes"]["decision"].update(source="missing"),
+        lambda p: p["nodes"]["decision"].update(cutoff=1.1),
+        lambda p: p["nodes"]["decision"].update(cutoff=float("nan")),
+        lambda p: p["nodes"]["decision"].update(typo=True),
+        lambda p: p["nodes"]["eligible"]["question"].update(instructions="   "),
+        lambda p: p["nodes"].update(unused=call()),
+        lambda p: p["nodes"]["eligible"]["question"].update(
+            type="choice", criteria={"a": "A", "b": "B"}
+        ),
+        lambda p: p["outputs"].update(label=ref("missing")),
+        lambda p: p["outputs"].update(label=ref("decision", view="answer")),
+        lambda p: p["nodes"]["eligible"].update(inputs={"x": ref("missing", optional=True)}),
+        lambda p: p["nodes"]["eligible"].update(when={"type": "present", "node": "decision"}),
+        lambda p: p["nodes"]["eligible"].update(
+            when={"type": "compare", "node": "missing", "op": "eq", "value": "x"}
         ),
     ],
 )
@@ -89,33 +102,69 @@ def test_invalid_graphs_are_rejected_before_execution(mutation):
         Plan.model_validate(data)
 
 
-def test_switch_requires_exact_coverage_of_choice_options():
+def test_switch_requires_exact_coverage_and_conditions_are_typed():
     data = {
-        "questions": {
-            "q": {"type": "choice", "instructions": "Choose.", "criteria": {"a": "A", "b": "B"}}
+        "nodes": {
+            "q": {
+                "type": "call",
+                "question": {
+                    "type": "choice",
+                    "instructions": "Choose.",
+                    "criteria": {"a": "A", "b": "B"},
+                },
+                "inputs": {"state": {"type": "state"}},
+            },
+            "result": {"type": "switch", "source": "q", "cases": {"a": "ok"}},
         },
-        "root": {
-            "type": "switch",
-            "question": "q",
-            "cases": {"a": {"type": "return", "label": "ok"}},
-        },
+        "outputs": {"label": ref("result")},
     }
     with pytest.raises(ValidationError, match="cases"):
         Plan.model_validate(data)
-
-
-def test_constant_tree_is_a_valid_baseline():
-    plan = Plan.model_validate({"questions": {}, "root": {"type": "return", "label": "x"}})
-    assert plan.decide({}) == ("x", [])
+    data["nodes"]["result"]["cases"]["b"] = "review"
+    Plan.model_validate(data)
+    data["nodes"]["result"]["when"] = {"type": "compare", "node": "q", "op": "ge", "value": 0.5}
+    with pytest.raises(ValidationError, match="numeric"):
+        Plan.model_validate(data)
 
 
 @pytest.mark.parametrize(
-    "labels,questions,depth",
-    [(["other"], 4, 4), (["accept", "review"], 0, 4), (["accept", "review"], 4, 0)],
+    "labels,nodes,depth",
+    [
+        (["other"], 4, 4),
+        (["accept", "review"], 1, 4),
+        (["accept", "review"], 4, 1),
+    ],
 )
-def test_search_constraints_are_enforced(labels, questions, depth):
+def test_search_constraints_are_enforced(labels, nodes, depth):
     with pytest.raises(ValueError):
-        Plan.model_validate(binary_plan()).check(labels, questions, depth)
+        Plan.model_validate(binary_plan()).check(labels, nodes, depth)
+
+
+def test_generic_graph_outputs_and_task_label_contract_are_separate():
+    data = {
+        "nodes": {"object": {"type": "value", "value": {"x": True}}},
+        "outputs": {"object": ref("object"), "state": {"type": "state"}},
+    }
+    plan = Plan.model_validate(data)
+    with pytest.raises(ValueError, match="label"):
+        plan.check(["accept", "review"], 4, 4)
+    data["outputs"]["label"] = ref("object")
+    with pytest.raises(ValueError, match="label"):
+        Plan.model_validate(data).check(["accept", "review"], 4, 4)
+    Plan.model_validate(constant_plan()).check(["review"], 0, 0)
+
+
+def test_coalesce_label_domain_covers_all_possible_branches():
+    data = {
+        "nodes": {
+            "a": {"type": "value", "value": "accept"},
+            "b": {"type": "value", "value": "outside"},
+            "joined": {"type": "coalesce", "sources": ["a", "b"]},
+        },
+        "outputs": {"label": ref("joined")},
+    }
+    with pytest.raises(ValueError, match="label"):
+        Plan.model_validate(data).check(["accept", "review"], 4, 4)
 
 
 def task_data():

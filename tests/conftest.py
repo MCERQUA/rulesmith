@@ -28,38 +28,42 @@ def pytest_collection_modifyitems(config, items):
 def mixed_plan():
     return Plan.model_validate(
         {
-            "questions": {
+            "nodes": {
                 "team": {
-                    "type": "choice",
-                    "instructions": "Which team should handle this request?",
-                    "criteria": {"billing": "Charges and refunds", "technical": "Product bugs"},
+                    "type": "call",
+                    "question": {
+                        "type": "choice",
+                        "instructions": "Which team should handle this request?",
+                        "criteria": {"billing": "Charges and refunds", "technical": "Product bugs"},
+                    },
+                    "inputs": {"state": {"type": "state"}},
                 },
                 "urgency": {
-                    "type": "score",
-                    "instructions": "How urgent is this request?",
-                    "criteria": ["Routine request", "Immediate assistance needed"],
-                },
-                "refund": {"type": "noul", "instructions": "The customer requests a refund."},
-            },
-            "root": {
-                "type": "switch",
-                "question": "team",
-                "cases": {
-                    "technical": {"type": "return", "label": "review"},
-                    "billing": {
-                        "type": "threshold",
-                        "question": "urgency",
-                        "cutoff": 0.5,
-                        "below": {"type": "return", "label": "review"},
-                        "above": {
-                            "type": "threshold",
-                            "question": "refund",
-                            "cutoff": 0.5,
-                            "below": {"type": "return", "label": "review"},
-                            "above": {"type": "return", "label": "accept"},
-                        },
+                    "type": "call",
+                    "question": {
+                        "type": "score",
+                        "instructions": "How urgent is this request?",
+                        "criteria": ["Routine request", "Immediate assistance needed"],
                     },
+                    "inputs": {"state": {"type": "state"}},
                 },
+                "refund": {
+                    "type": "call",
+                    "question": {"type": "noul", "instructions": "The customer requests a refund."},
+                    "inputs": {"state": {"type": "state"}},
+                },
+                "decision": {
+                    "type": "threshold",
+                    "source": "refund",
+                    "cutoff": 0.5,
+                    "below": "review",
+                    "above": "accept",
+                },
+            },
+            "outputs": {
+                "label": {"type": "node", "node": "decision"},
+                "team": {"type": "node", "node": "team"},
+                "urgency": {"type": "node", "node": "urgency"},
             },
         }
     )
@@ -69,6 +73,8 @@ def mixed_plan():
 def provider():
     fixture = SimpleNamespace(
         requests=[],
+        answers=None,
+        on_request=None,
         status=200,
         completion=None,
         body={
@@ -83,6 +89,18 @@ def provider():
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             fixture.requests.append((self.path, request))
             response = fixture.body
+            if self.path == "/v1/systemone":
+                if fixture.on_request is not None:
+                    fixture.on_request(request)
+                if fixture.answers is not None:
+                    response = {
+                        **fixture.body,
+                        "answers": {
+                            key: fixture.answers[key]
+                            for key in request["questions"]
+                            if key in fixture.answers
+                        },
+                    }
             if self.path == "/v1/chat/completions":
                 response = {
                     "id": "fixture-completion",

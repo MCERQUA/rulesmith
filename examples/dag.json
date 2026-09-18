@@ -1,0 +1,147 @@
+{
+  "nodes": {
+    "department": {
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "Which department should handle the primary request in this support ticket?",
+        "criteria": {
+          "billing": "Questions about existing charges, invoices, payments, or refunds.",
+          "technical": "Product failures, errors, or requests for troubleshooting.",
+          "sales": "Prospective purchases, price quotes, plan comparisons, or product demonstrations."
+        }
+      },
+      "inputs": {
+        "ticket": {
+          "type": "state"
+        }
+      }
+    },
+    "urgency": {
+      "type": "call",
+      "question": {
+        "type": "score",
+        "instructions": "Assess how urgently the ticket needs a response.",
+        "criteria": [
+          "Routine",
+          "Time sensitive",
+          "Blocking essential work"
+        ]
+      },
+      "inputs": {
+        "ticket": {
+          "type": "state"
+        }
+      }
+    },
+    "context": {
+      "type": "merge",
+      "inputs": {
+        "ticket": {
+          "type": "state"
+        },
+        "department": {
+          "type": "node",
+          "node": "department"
+        },
+        "urgency": {
+          "type": "node",
+          "node": "urgency",
+          "view": "answer"
+        }
+      }
+    },
+    "billing_review": {
+      "type": "call",
+      "question": {
+        "type": "noul",
+        "instructions": "Does this ticket describe a duplicate or incorrect charge that needs a billing investigation?"
+      },
+      "inputs": {
+        "context": {
+          "type": "node",
+          "node": "context"
+        }
+      },
+      "when": {
+        "type": "compare",
+        "node": "department",
+        "op": "eq",
+        "value": "billing"
+      }
+    },
+    "technical_review": {
+      "type": "call",
+      "question": {
+        "type": "noul",
+        "instructions": "Does this ticket describe a reproducible product defect rather than a how-to question?"
+      },
+      "inputs": {
+        "context": {
+          "type": "node",
+          "node": "context"
+        }
+      },
+      "when": {
+        "type": "compare",
+        "node": "department",
+        "op": "eq",
+        "value": "technical"
+      }
+    },
+    "sales_review": {
+      "type": "call",
+      "question": {
+        "type": "noul",
+        "instructions": "Does this prospective customer describe a concrete purchase requirement?"
+      },
+      "inputs": {
+        "context": {
+          "type": "node",
+          "node": "context"
+        }
+      },
+      "when": {
+        "type": "compare",
+        "node": "department",
+        "op": "eq",
+        "value": "sales"
+      }
+    },
+    "specialist_result": {
+      "type": "coalesce",
+      "sources": [
+        "billing_review",
+        "technical_review",
+        "sales_review"
+      ]
+    },
+    "assessment": {
+      "type": "merge",
+      "inputs": {
+        "department": {
+          "type": "node",
+          "node": "department"
+        },
+        "urgency": {
+          "type": "node",
+          "node": "urgency"
+        },
+        "specialist_confidence": {
+          "type": "node",
+          "node": "specialist_result"
+        }
+      }
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "department"
+    },
+    "assessment": {
+      "type": "node",
+      "node": "assessment"
+    }
+  }
+}

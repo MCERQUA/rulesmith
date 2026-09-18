@@ -1,7 +1,7 @@
 [project]
 name = "decision-compose"
 version = "0.1.0"
-description = "Evolve typed decision trees with DSPy and GEPA."
+description = "Evolve typed decision DAGs with DSPy and GEPA."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [

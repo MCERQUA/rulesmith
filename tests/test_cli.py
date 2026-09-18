@@ -3,7 +3,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from test_graph import binary_plan, task_data
+
+from decision_compose.graph import Plan
 
 
 def invoke(*args):
@@ -25,13 +28,14 @@ def test_validate_works_without_credentials(tmp_path):
     plan = write(tmp_path / "plan.json", binary_plan())
     result = invoke("validate", task, plan)
     assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)["questions"] == 1
+    assert json.loads(result.stdout)["nodes"] == 2
 
 
 def test_invalid_plan_exits_before_attempting_network(tmp_path):
     task = write(tmp_path / "task.json", task_data())
     plan = write(
-        tmp_path / "plan.json", {"questions": {}, "root": {"type": "return", "label": "bad"}}
+        tmp_path / "plan.json",
+        {"nodes": {}, "outputs": {"label": {"type": "literal", "value": "bad"}}},
     )
     result = invoke("validate", task, plan)
     assert result.returncode != 0
@@ -58,20 +62,23 @@ def test_cli_evaluation_persists_actual_sdk_results(tmp_path, provider, monkeypa
     report = json.loads(output.read_text())
     assert report["split"] == "test" and report["accuracy"] == 1.0
     assert report["examples"][0]["id"] == "c"
-    assert provider.requests[0][1]["state"] == "request C"
+    assert provider.requests[0][1]["state"] == {"state": "request C"}
     assert len(provider.requests) == 1
     repeated = invoke("evaluate", task, plan, "--base-url", provider.url, "--output", output)
     assert repeated.returncode != 0
     assert len(provider.requests) == 1
 
 
-def test_repository_example_matches_the_schema():
+@pytest.mark.parametrize("example", ["seed.json", "dag.json"])
+def test_repository_example_matches_the_schema(example):
     root = Path(__file__).resolve().parents[1]
-    result = invoke("validate", root / "examples/task.json", root / "examples/seed.json")
+    result = invoke("validate", root / "examples/task.json", root / "examples" / example)
     assert result.returncode == 0, result.stderr
 
 
-def test_cli_optimization_uses_dspy_lm_and_saves_a_reloadable_tree(tmp_path, provider, monkeypatch):
+def test_cli_optimization_uses_dspy_lm_and_saves_a_reloadable_graph(
+    tmp_path, provider, monkeypatch
+):
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
     monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
     data = task_data()
@@ -80,8 +87,8 @@ def test_cli_optimization_uses_dspy_lm_and_saves_a_reloadable_tree(tmp_path, pro
     initial = write(
         tmp_path / "initial.json",
         {
-            "questions": {},
-            "root": {"type": "return", "label": "review"},
+            "nodes": {},
+            "outputs": {"label": {"type": "literal", "value": "review"}},
         },
     )
     provider.completion = json.dumps(binary_plan())
@@ -101,17 +108,22 @@ def test_cli_optimization_uses_dspy_lm_and_saves_a_reloadable_tree(tmp_path, pro
         "openai/fixture-model",
         "--reflection-base-url",
         provider.url + "/v1",
+        "--max-workers",
+        2,
         "--max-metric-calls",
         4,
         "--reflection-batch",
         1,
     )
     assert result.returncode == 0, result.stderr
-    assert json.loads((output / "plan.json").read_text()) == binary_plan()
+    assert Plan.model_validate_json((output / "plan.json").read_text()) == Plan.model_validate(
+        binary_plan()
+    )
     report = json.loads((output / "report.json").read_text())
     assert report["validation_accuracy"] == 1.0
     assert report["seed_validation_accuracy"] == 0.0
     assert report["candidates"] == 2
+    assert report["execution"] == {"max_workers": 2}
     assert sum(path == "/v1/chat/completions" for path, _ in provider.requests) == 1
     assert invoke("validate", task, output / "plan.json").returncode == 0
 
@@ -139,3 +151,30 @@ def test_invalid_search_budget_does_not_reserve_output_or_make_calls(
     assert result.returncode != 0
     assert provider.requests == []
     assert not output.exists()
+
+
+def test_cli_run_supports_generic_named_outputs_without_a_task(tmp_path):
+    plan = write(
+        tmp_path / "graph.json",
+        {
+            "nodes": {
+                "joined": {
+                    "type": "merge",
+                    "inputs": {
+                        "request": {"type": "state"},
+                        "policy": {"type": "literal", "value": {"version": 3}},
+                    },
+                }
+            },
+            "outputs": {"payload": {"type": "node", "node": "joined"}},
+        },
+    )
+    state = write(tmp_path / "state.json", {"account": "example"})
+    result = invoke("run", plan, state, "--max-workers", 2)
+    assert result.returncode == 0, result.stderr
+    prediction = json.loads(result.stdout)
+    assert prediction["outputs"] == {
+        "payload": {"request": {"account": "example"}, "policy": {"version": 3}}
+    }
+    assert prediction["calls"] == {}
+    assert "label" not in prediction

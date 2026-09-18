@@ -1,17 +1,17 @@
-"""Validate, execute, evaluate, and evolve a saved decision tree."""
+"""Validate, execute, evaluate, and evolve a saved decision graph."""
 
 import argparse
 import json
 import sys
-from contextlib import redirect_stdout
+from contextlib import nullcontext, redirect_stdout
 from pathlib import Path
 
 import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from decision_compose.graph import Plan, Task
+from decision_compose.graph import Call, Plan, Task
 from decision_compose.optimize import SearchConfig, evaluate_plan, optimize_plan
-from decision_compose.runtime import DecisionProgram
+from decision_compose.runtime import DecisionProgram, ExecutionConfig
 
 
 def parser() -> argparse.ArgumentParser:
@@ -21,7 +21,7 @@ def parser() -> argparse.ArgumentParser:
         command = commands.add_parser(name)
         command.add_argument("task", type=Path)
         command.add_argument("plan", type=Path)
-        command.add_argument("--max-questions", type=int, default=SearchConfig().max_questions)
+        command.add_argument("--max-nodes", type=int, default=SearchConfig().max_nodes)
         command.add_argument("--max-depth", type=int, default=SearchConfig().max_depth)
         if name == "validate":
             continue
@@ -55,6 +55,7 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--model", default="jev-latest")
     command.add_argument("--base-url", help="Override TYPESAFE_BASE_URL")
     command.add_argument("--timeout", type=float, default=60)
+    command.add_argument("--max-workers", type=int, default=ExecutionConfig().max_workers)
 
 
 def dump(value: dict) -> str:
@@ -67,9 +68,9 @@ def main() -> None:
     plan = Plan.model_validate_json(args.plan.read_text())
     if args.command != "run":
         task = Task.model_validate_json(args.task.read_text())
-        plan.check(task.labels, args.max_questions, args.max_depth)
+        plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
-        print(dump({"questions": len(plan.questions), "labels": task.labels}), end="")
+        print(dump({"nodes": len(plan.nodes), "labels": task.labels}), end="")
         return
     if args.command in ("evaluate", "optimize"):
         if args.output.exists():
@@ -77,7 +78,7 @@ def main() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.command == "optimize":
         config = SearchConfig(
-            max_questions=args.max_questions,
+            max_nodes=args.max_nodes,
             max_depth=args.max_depth,
             max_metric_calls=args.max_metric_calls,
             reflection_batch=args.reflection_batch,
@@ -100,22 +101,33 @@ def main() -> None:
                 else reflection(prompt)[0]
             )
 
-    with TypeSafeClient(
-        base_url=args.base_url, timeout=args.timeout, retry=RetryPolicy(max_retries=0)
-    ) as client:
+    execution = ExecutionConfig(max_workers=args.max_workers)
+    needs_client = args.command == "optimize" or any(
+        isinstance(node, Call) for node in plan.nodes.values()
+    )
+    context = (
+        TypeSafeClient(
+            base_url=args.base_url, timeout=args.timeout, retry=RetryPolicy(max_retries=0)
+        )
+        if needs_client
+        else nullcontext(None)
+    )
+    with context as client:
         if args.command == "run":
-            prediction = DecisionProgram(plan, client, args.model)(
+            prediction = DecisionProgram(plan, client, args.model, execution)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")
         elif args.command == "evaluate":
-            report = evaluate_plan(plan, getattr(task, args.split), client, args.model)
+            report = evaluate_plan(plan, getattr(task, args.split), client, args.model, execution)
             report["split"] = args.split
             args.output.write_text(dump(report))
             print(dump({"accuracy": report["accuracy"], "output": str(args.output)}), end="")
         else:
             with redirect_stdout(sys.stderr):
-                best, report = optimize_plan(task, plan, client, args.model, reflect, config)
+                best, report = optimize_plan(
+                    task, plan, client, args.model, reflect, config, execution
+                )
             report["reflection_model"] = args.reflection_model
             args.output.mkdir()
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")

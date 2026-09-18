@@ -1,22 +1,27 @@
 {
-  "questions": {
+  "nodes": {
     "department": {
-      "type": "choice",
-      "instructions": "Which department should handle the primary request in this support ticket?",
-      "criteria": {
-        "billing": "Questions about existing charges, invoices, payments, or refunds.",
-        "technical": "Product failures, errors, or requests for troubleshooting.",
-        "sales": "Prospective purchases, price quotes, plan comparisons, or product demonstrations."
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "Which department should handle the primary request in this support ticket?",
+        "criteria": {
+          "billing": "Questions about existing charges, invoices, payments, or refunds.",
+          "technical": "Product failures, errors, or requests for troubleshooting.",
+          "sales": "Prospective purchases, price quotes, plan comparisons, or product demonstrations."
+        }
+      },
+      "inputs": {
+        "ticket": {
+          "type": "state"
+        }
       }
     }
   },
-  "root": {
-    "type": "switch",
-    "question": "department",
-    "cases": {
-      "billing": {"type": "return", "label": "billing"},
-      "technical": {"type": "return", "label": "technical"},
-      "sales": {"type": "return", "label": "sales"}
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "department"
     }
   }
 }

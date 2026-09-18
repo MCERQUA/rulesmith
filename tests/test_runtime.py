@@ -1,6 +1,7 @@
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from test_graph import binary_plan
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
 from decision_compose.graph import Choice, Noul, Score
@@ -60,3 +61,129 @@ def test_score_rejects_drifted_rubric():
                 confidence=0.4,
             ),
         )
+
+
+@given(
+    st.floats(min_value=0, max_value=1, allow_nan=False),
+    st.floats(min_value=0, max_value=1, allow_nan=False),
+)
+def test_threshold_partition_after_serialization(value, cutoff):
+    from decision_compose.graph import Plan
+    from decision_compose.runtime import resolve_node
+
+    plan = Plan.model_validate(binary_plan(cutoff))
+    restored = Plan.model_validate_json(plan.model_dump_json())
+    result = resolve_node(restored.nodes["decision"], {}, {"eligible": value}, {})
+    assert result == ("accept" if value >= cutoff else "review")
+
+
+def test_pure_graph_preserves_null_and_omits_only_skipped_optional_inputs():
+    from test_graph import ref
+
+    from decision_compose.graph import Plan
+    from decision_compose.runtime import DecisionProgram
+
+    plan = Plan.model_validate(
+        {
+            "nodes": {
+                "null": {"type": "value", "value": None},
+                "absent": {
+                    "type": "value",
+                    "value": "unused",
+                    "when": {"type": "not", "condition": {"type": "present", "node": "null"}},
+                },
+                "required": {"type": "merge", "inputs": {"x": ref("absent")}},
+                "optional": {
+                    "type": "merge",
+                    "inputs": {
+                        "x": ref("absent", optional=True),
+                        "y": ref("null"),
+                        "state": {"type": "state"},
+                    },
+                },
+                "joined": {"type": "coalesce", "sources": ["absent", "null"]},
+            },
+            "outputs": {
+                "required": ref("required", optional=True),
+                "optional": ref("optional"),
+                "joined": ref("joined"),
+                "literal": {"type": "literal", "value": False},
+            },
+        }
+    )
+    result = DecisionProgram(plan, None, "unused")(state=["original"])
+    assert result.outputs == {
+        "optional": {"y": None, "state": ["original"]},
+        "joined": None,
+        "literal": False,
+    }
+    assert set(result.skipped) == {"absent", "required"}
+    assert result.calls == {} and result.input_tokens == result.output_tokens == 0
+
+
+def test_missing_required_output_is_an_execution_error():
+    from test_graph import ref
+
+    from decision_compose.graph import Plan
+    from decision_compose.runtime import DecisionProgram, GraphExecutionError
+
+    plan = Plan.model_validate(
+        {
+            "nodes": {
+                "base": {"type": "value", "value": "yes"},
+                "absent": {
+                    "type": "value",
+                    "value": "x",
+                    "when": {"type": "not", "condition": {"type": "present", "node": "base"}},
+                },
+            },
+            "outputs": {"result": ref("absent")},
+        }
+    )
+    with pytest.raises(GraphExecutionError, match="result"):
+        DecisionProgram(plan, None, "unused")(state="input")
+
+
+def test_execution_limits_reject_nonpositive_concurrency():
+    from pydantic import ValidationError
+
+    from decision_compose.runtime import ExecutionConfig
+
+    with pytest.raises(ValidationError):
+        ExecutionConfig(max_workers=0)
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_runtime_rejects_nonfinite_input_states(value):
+    from pydantic import ValidationError
+
+    from decision_compose.graph import Plan
+    from decision_compose.runtime import DecisionProgram
+
+    plan = Plan.model_validate({"nodes": {}, "outputs": {"original": {"type": "state"}}})
+    with pytest.raises(ValidationError):
+        DecisionProgram(plan, None, "unused")(state={"nested": [value]})
+
+
+def test_mutating_results_cannot_change_graph_literals_or_later_runs():
+    from test_graph import ref
+
+    from decision_compose.graph import Plan
+    from decision_compose.runtime import DecisionProgram
+
+    plan = Plan.model_validate(
+        {
+            "nodes": {"data": {"type": "value", "value": {"items": [1]}}},
+            "outputs": {
+                "node": ref("data"),
+                "literal": {"type": "literal", "value": {"items": [2]}},
+            },
+        }
+    )
+    original = plan.model_dump_json()
+    program = DecisionProgram(plan, None, "unused")
+    first = program(state="input")
+    first.outputs["node"]["items"].append(3)
+    first.outputs["literal"]["items"].append(4)
+    assert plan.model_dump_json() == original
+    assert program(state="input").outputs == {"node": {"items": [1]}, "literal": {"items": [2]}}

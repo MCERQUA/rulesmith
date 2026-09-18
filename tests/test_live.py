@@ -29,7 +29,7 @@ def test_live_jev_returns_all_three_primitives(live_client, mixed_plan):
     )
     assert result.label in {"accept", "review"}
     assert set(result.answers) == {"team", "urgency", "refund"}
-    assert result.model
+    assert result.models
 
 
 def test_live_gepa_returns_a_valid_program(live_client):
@@ -40,8 +40,8 @@ def test_live_gepa_returns_a_valid_program(live_client):
     task = Task.model_validate_json((root / "examples/task.json").read_text())
     initial = Plan.model_validate(
         {
-            "questions": {},
-            "root": {"type": "return", "label": "sales"},
+            "nodes": {},
+            "outputs": {"label": {"type": "literal", "value": "sales"}},
         }
     )
     lm = dspy.LM(reflection_model, temperature=1, max_tokens=4096, num_retries=0, cache=False)
@@ -57,6 +57,6 @@ def test_live_gepa_returns_a_valid_program(live_client):
         reflect,
         SearchConfig(max_metric_calls=12),
     )
-    best.check(task.labels, max_questions=8, max_depth=6)
+    best.check(task.labels, max_nodes=16, max_depth=8)
     assert 0 <= report["validation_accuracy"] <= 1
     assert report["candidates"] >= 2
