@@ -1,10 +1,14 @@
 import json
+import re
+from typing import get_args
 
+import dspy
 import pytest
+from conftest import chat_reply
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
-from decision_compose.graph import Plan, Task
-from decision_compose.optimize import GraphAdapter, SearchConfig, optimize_plan
+from decision_compose.graph import Condition, Node, Plan, Question, Source, Task
+from decision_compose.optimize import GraphAdapter, GraphProposer, SearchConfig, optimize_plan
 from decision_compose.runtime import DecisionProgram, ResponseError
 
 
@@ -495,3 +499,140 @@ def test_switch_routes_to_a_conditional_score_and_rejoins(team, severity, label,
     assert len(provider.requests) == (1 if team == "support" else 2)
     if team == "support":
         assert set(result.skipped) == {"severity", "decision"}
+
+
+def schema_types(annotated):
+    union = get_args(annotated)[0]
+    return {member.model_fields["type"].default for member in get_args(union)}
+
+
+def every_construct_plan():
+    """Uses every node, question, source, and condition type the schema defines."""
+    return {
+        "nodes": {
+            "team": {
+                "type": "call",
+                "question": {
+                    "type": "choice",
+                    "instructions": "Which team owns this request?",
+                    "criteria": {"billing": "Charges", "technical": "Bugs"},
+                },
+                "inputs": {"ticket": {"type": "state"}},
+            },
+            "urgency": {
+                "type": "call",
+                "question": {
+                    "type": "score",
+                    "instructions": "How urgent is it?",
+                    "criteria": ["Routine request", "Immediate assistance needed"],
+                },
+                "inputs": {"ticket": {"type": "state"}},
+            },
+            "refund": {
+                "type": "call",
+                "question": {"type": "noul", "instructions": "Is a refund requested?"},
+                "inputs": {"ticket": {"type": "state"}, "team": ref("team")},
+            },
+            "route": {
+                "type": "switch",
+                "source": "team",
+                "cases": {"billing": "accept", "technical": "review"},
+            },
+            "gate": {
+                "type": "threshold",
+                "source": "refund",
+                "cutoff": 0.5,
+                "below": "review",
+                "above": "accept",
+            },
+            "hold": {
+                "type": "value",
+                "value": "review",
+                "when": {
+                    "type": "all",
+                    "conditions": [
+                        {"type": "present", "node": "team"},
+                        {
+                            "type": "not",
+                            "condition": {
+                                "type": "compare",
+                                "node": "urgency",
+                                "op": "ge",
+                                "value": 0.5,
+                            },
+                        },
+                    ],
+                },
+            },
+            "pick": {
+                "type": "coalesce",
+                "sources": ["hold", "gate", "route"],
+                "when": {
+                    "type": "any",
+                    "conditions": [
+                        {"type": "compare", "node": "team", "op": "eq", "value": "billing"},
+                        {"type": "compare", "node": "refund", "op": "lt", "value": 0.2},
+                    ],
+                },
+            },
+            "summary": {
+                "type": "merge",
+                "inputs": {
+                    "route": ref("route"),
+                    "team": {"type": "node", "node": "team", "view": "answer"},
+                    "held": {"type": "node", "node": "hold", "optional": True},
+                    "policy": {"type": "literal", "value": {"version": 1}},
+                },
+            },
+        },
+        "outputs": {"label": ref("pick"), "summary": ref("summary")},
+    }
+
+
+def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider, client):
+    graph = every_construct_plan()
+    used = set(re.findall(r'"type": "(\w+)"', json.dumps(graph)))
+    language = set().union(*map(schema_types, (Node, Question, Source, Condition)))
+    assert language <= used
+    data = task_data()
+    data["validation"][0]["label"] = "accept"
+    provider.completion = chat_reply(**graph)
+    provider.answers = {
+        "team": {
+            "type": "choice",
+            "choice": "billing",
+            "confidence": 0.8,
+            "probabilities": {"billing": 0.9, "technical": 0.1},
+        },
+        "urgency": {
+            "type": "score",
+            "score": 0.9,
+            "confidence": 0.8,
+            "probabilities": {"0": 0.1, "1": 0.9},
+            "legend": {"0": "Routine request", "1": "Immediate assistance needed"},
+        },
+        "refund": {"type": "noul", "noul": 0.9},
+    }
+    proposer = GraphProposer(
+        dspy.LM(
+            "openai/fixture-model",
+            api_base=provider.url + "/v1",
+            api_key="test-placeholder",
+            cache=False,
+            num_retries=0,
+        )
+    )
+    best, report = optimize_plan(
+        Task.model_validate(data),
+        Plan.model_validate(constant_plan()),
+        client,
+        "fixture-model",
+        proposer,
+        SearchConfig(max_metric_calls=4, reflection_batch=1),
+    )
+    assert best == Plan.model_validate(graph)
+    assert report["validation_score"] == 1.0
+    judged = [body["questions"] for path, body in provider.requests if path == "/v1/systemone"]
+    assert sorted(key for questions in judged for key in questions) == sorted(
+        ["team", "urgency", "refund"] * 2
+    )
