@@ -117,7 +117,7 @@ def test_real_gepa_carries_rejected_graph_feedback_into_next_reflection(provider
         reflections.append(prompt)
         if len(reflections) == 1:
             return invalid
-        assert json.dumps(invalid) in prompt
+        assert invalid in prompt
         assert expected_error in prompt
         if failure == "execution":
             assert '"outputs":' in prompt and '"eligible":' in prompt
@@ -155,7 +155,7 @@ def test_validation_execution_failures_do_not_enter_training_reflection_feedback
         adapter.task.validation, {"graph": json.dumps(data)}, capture_traces=False
     )
     assert batch.scores == [0.0]
-    assert adapter.rejected_candidate_feedback is None
+    assert adapter.proposal_feedback is None
 
 
 def test_real_gepa_keeps_seed_when_train_improvement_regresses_validation(client):
@@ -658,3 +658,28 @@ def test_reflection_prompt_shows_choice_options_mapped_to_descriptions(client):
     criteria = node.question.criteria
     assert set(criteria) == {"accept", "review"}
     assert all(description != option for option, description in criteria.items())
+
+
+def test_a_proposal_that_ties_its_parent_reaches_the_next_reflection(client):
+    tie = {
+        "nodes": {"hold": {"type": "value", "value": "review"}},
+        "outputs": {"label": ref("hold")},
+    }
+    proposals = [json.dumps(tie), Plan.model_validate(constant_plan("accept")).model_dump_json()]
+    prompts = []
+
+    def reflect(prompt):
+        prompts.append(prompt)
+        return proposals[len(prompts) - 1]
+
+    optimize_plan(
+        Task.model_validate(task_data()),
+        Plan.model_validate(constant_plan()),
+        client,
+        "fixture-model",
+        reflect,
+        SearchConfig(max_metric_calls=6, reflection_batch=1),
+    )
+    assert len(prompts) == 2
+    assert json.dumps(tie) in prompts[1]
+    assert "Expected label: accept" in prompts[1].split(json.dumps(tie), 1)[1]

@@ -129,7 +129,10 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         self.execution = execution or ExecutionConfig()
         self.failure: Exception | None = None
         self.resolved_models: set[str] = set()
-        self.rejected_candidate_feedback: dict | None = None
+        # GEPA discards proposals that do not beat their parent, along with their
+        # results; keep the latest one so the next reflection can learn from it.
+        self.proposed: str | None = None
+        self.proposal_feedback: dict | None = None
         self.invalid_candidate_evaluations = 0
 
     def parse(self, candidate: dict[str, str]) -> Plan:
@@ -145,17 +148,12 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
             plan = self.parse(candidate)
         except ValueError as error:
             self.invalid_candidate_evaluations += 1
-            if capture_traces:
-                self.rejected_candidate_feedback = {
-                    "graph": candidate["graph"],
-                    "error": f"Candidate validation failed: {error}",
-                }
-            return EvaluationBatch(
-                outputs=[None] * len(batch),
-                scores=[0.0] * len(batch),
-                trajectories=[{"Feedback": f"Candidate validation failed: {error}"} for _ in batch]
-                if capture_traces
-                else None,
+            feedback = {"Feedback": f"Candidate validation failed: {error}"}
+            return self.batch(
+                candidate,
+                [None] * len(batch),
+                [0.0] * len(batch),
+                [feedback] * len(batch) if capture_traces else None,
             )
         program = DecisionProgram(plan, self.client, self.model, self.execution)
         for example in batch:
@@ -168,17 +166,18 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
             self.resolved_models.update(outcome.models)
             outputs.append(outcome.record)
             scores.append(outcome.score)
-            if capture_traces:
-                records.append(outcome.trace)
-                if outcome.error is not None:
-                    self.rejected_candidate_feedback = {
-                        "graph": candidate["graph"],
-                        "error": outcome.error,
-                        **outcome.trace,
-                    }
-        return EvaluationBatch(
-            outputs=outputs, scores=scores, trajectories=records if capture_traces else None
-        )
+            records.append(outcome.trace)
+        return self.batch(candidate, outputs, scores, records if capture_traces else None)
+
+    def batch(self, candidate, outputs, scores, trajectories) -> EvaluationBatch:
+        if trajectories is not None and candidate["graph"] == self.proposed:
+            self.proposal_feedback = {
+                "graph": candidate["graph"],
+                "scores": scores,
+                "results": trajectories,
+            }
+            self.proposed = None
+        return EvaluationBatch(outputs=outputs, scores=scores, trajectories=trajectories)
 
     def make_reflective_dataset(self, candidate, eval_batch, components_to_update):
         return {component: eval_batch.trajectories for component in components_to_update}
@@ -224,25 +223,30 @@ def optimize_plan(
         nonlocal reflection_calls
         if adapter.failure is not None:
             raise adapter.failure
-        if adapter.rejected_candidate_feedback is not None:
-            # GEPA discards rejected children; retain their errors for the next proposal.
+        previous = adapter.proposal_feedback
+        if previous is not None:
             feedback = (
-                "A previous graph proposal failed. Correct this failure in your next graph:\n"
-                + json.dumps(adapter.rejected_candidate_feedback)
+                "Your previous proposal was scored on training examples (1 is best per "
+                "example) and discarded unless it beat the current graph. Do not repeat its "
+                f"mistakes.\nPrevious proposal:\n{previous['graph']}\n"
+                f"Scores: {previous['scores']}\nResults: {json.dumps(previous['results'])}"
             )
             prompt = (
                 [*prompt, {"role": "user", "content": feedback}]
                 if isinstance(prompt, list)
                 else f"{prompt}\n\n{feedback}"
             )
-            adapter.rejected_candidate_feedback = None
+            adapter.proposal_feedback = None
         try:
             reflection_calls += 1
-            return reflection_lm(prompt)
+            proposal = reflection_lm(prompt)
         except Exception as error:
             # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
             adapter.failure = error
             raise
+        # GEPA strips surrounding whitespace before evaluating the proposal.
+        adapter.proposed = proposal.strip()
+        return proposal
 
     prompt = (
         "Improve this directed acyclic graph using observed execution failures. Return only "
