@@ -31,11 +31,20 @@ def free_port() -> int:
 
 
 def play(
-    task: DoomTask, program: DecisionProgram, episode: int | Episode, game_args: str = ""
+    task: DoomTask,
+    program: DecisionProgram,
+    episode: int | Episode,
+    game_args: str = "",
+    frames: list | None = None,
 ) -> Outcome:
-    """One seat's episode. A seat whose graph fails leaves the game, and its opponent plays on."""
-    with DoomEnvironment(task, game_args=game_args) as env:
-        return Episodes(task, env)(program, episode)
+    """One seat's episode. A seat whose graph fails leaves the game, and its opponent plays on.
+    A frames list, when given, collects every tic this seat rendered."""
+    with DoomEnvironment(task, game_args=game_args, record=frames is not None) as env:
+        try:
+            return Episodes(task, env)(program, episode)
+        finally:
+            if frames is not None:
+                frames += env.frames
 
 
 def duel(
@@ -44,16 +53,19 @@ def duel(
     b: DecisionProgram,
     episode: int | Episode,
     host_first: bool,
+    frames: list | None = None,
 ) -> list[Outcome]:
-    """Both seats' episodes of one deathmatch, a's first, each graph in its own networked game."""
+    """Both seats' episodes of one deathmatch, a's first, each graph in its own networked game.
+    A frames list, when given, collects the tics a's seat rendered."""
     port = free_port()
     order = [a, b] if host_first else [b, a]
     args = [f"-host 2 -port {port} {DEATHMATCH}", f"-join 127.0.0.1 -port {port}"]
+    seats = [frames if program is a else None for program in order]
     # The host waits at init until its opponent joins, so both seats start together.
     with ThreadPoolExecutor(2) as pool:
         futures = [
-            pool.submit(play, task, program, episode, arg)
-            for program, arg in zip(order, args, strict=True)
+            pool.submit(play, task, program, episode, arg, seat)
+            for program, arg, seat in zip(order, args, seats, strict=True)
         ]
     seats = [future.result() for future in futures]
     return seats if host_first else seats[::-1]

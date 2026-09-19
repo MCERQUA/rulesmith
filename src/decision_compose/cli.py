@@ -12,10 +12,11 @@ from pathlib import Path
 
 import dspy
 import imageio_ffmpeg
+import vizdoom as vzd
 from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from decision_compose.arena import Duels, Entrant, tournament
+from decision_compose.arena import Duels, Entrant, duel, tournament
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
 from decision_compose.label import Labeler, Unlabeled, draft_task
@@ -72,7 +73,7 @@ def parser() -> argparse.ArgumentParser:
             continue
         provider_arguments(command)
         command.add_argument("--output", type=Path, required=True)
-        if name in ("evaluate", "optimize"):
+        if name in ("evaluate", "optimize", "record"):
             command.add_argument(
                 "--parallel-examples",
                 type=int,
@@ -261,7 +262,7 @@ def main() -> None:
     if getattr(args, "visible", False) and not isinstance(task, DoomTask):
         cli.error("--visible requires a Doom task")
     deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
-    if args.command in ("evaluate", "optimize") and deathmatch != bool(args.opponent):
+    if args.command in ("evaluate", "optimize", "record") and deathmatch != bool(args.opponent):
         cli.error("--opponent is required for, and only for, deathmatch tasks")
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
         cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")
@@ -305,7 +306,7 @@ def main() -> None:
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
         score = classify
-        if deathmatch and args.command != "record":
+        if deathmatch:
             opponent = Plan.model_validate_json(args.opponent.read_text())
             opponent.check(task.labels, args.max_nodes, args.max_depth)
             score = Duels(task, DecisionProgram(opponent, client, model, execution))
@@ -323,9 +324,13 @@ def main() -> None:
             program = DecisionProgram(plan, client, model, execution)
             frames, episodes = [], []
             for seed in args.seed:
-                episodes.append(score(program, seed).record)
-                frames += env.frames
-            save_video(frames, env.game.get_ticrate(), args.output)
+                if deathmatch:
+                    played, _ = duel(task, program, score.opponent, seed, True, frames)
+                    episodes.append(played.record)
+                else:
+                    episodes.append(score(program, seed).record)
+                    frames += env.frames
+            save_video(frames, vzd.DEFAULT_TICRATE, args.output)
             print(dump({"episodes": episodes, "output": str(args.output)}), end="")
         elif args.command == "evaluate":
             report = evaluate_plan(

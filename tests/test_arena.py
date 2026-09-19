@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from conftest import chat_reply
+from PIL import Image
 from test_cli import invoke, write
 from test_graph import constant_plan
 
@@ -285,3 +286,52 @@ def die_once(task, game_args):
             _, observation = env.step("TURN_LEFT")
             steps += 1
         return steps, env.stats()
+
+
+def test_duels_are_fought_without_monsters_and_with_a_compass_to_the_opponent(client):
+    task = DoomTask.model_validate(
+        duel_data(
+            episode_timeout=300,
+            observe=["target", "compass"],
+            compass_targets=["DoomPlayer", "Zombieman"],
+        )
+    )
+    port = free_port()
+    seats = [f"-host 2 -port {port} {DEATHMATCH}", f"-join 127.0.0.1 -port {port}"]
+    with ThreadPoolExecutor(2) as pool:
+        seen = [pool.submit(sightings, task, args) for args in seats]
+    for future in seen:
+        categories, compass = future.result()
+        # The compass sees the whole map, so a monster would show up wherever it stood.
+        assert not [entry for entry in compass if entry["name"] == "Zombieman"]
+        assert "Monster" not in categories
+        # The opponent is tracked anywhere on the map, and never the player's own body.
+        bearings = [entry for entry in compass if entry["name"] == "DoomPlayer"]
+        assert bearings and all(entry["distance"] > 0 for entry in bearings)
+
+
+def sightings(task, game_args):
+    """Every object category seen, and every compass entry, over one duel."""
+    with DoomEnvironment(task, game_args=game_args) as env:
+        observation, categories, compass = env.reset(SEEN_SEED), set(), []
+        while observation is not None:
+            categories.update(thing["category"] for thing in observation["objects"])
+            compass += observation["compass"]
+            _, observation = env.step("TURN_LEFT")
+        return categories, compass
+
+
+def test_cli_records_a_duel_from_one_graph_s_seat(tmp_path):
+    task = write(tmp_path / "duel.json", duel_data(episode_timeout=200))
+    plan = write(tmp_path / "runner.json", constant_plan("MOVE_FORWARD"))
+    opponent = write(tmp_path / "spinner.json", constant_plan("TURN_LEFT"))
+    output = tmp_path / "duel.gif"
+    completed = invoke(
+        "record", task, plan, "--opponent", opponent, "--seed", SEEN_SEED, "--output", output
+    )
+    assert completed.returncode == 0, completed.stderr
+    (episode,) = json.loads(completed.stdout)["episodes"]
+    tics = DoomTask.model_validate(duel_data()).tics_per_action
+    with Image.open(output) as gif:
+        # Every tic the seat played, less any the timeout cut from its final action.
+        assert episode["steps"] * tics - tics < gif.n_frames <= episode["steps"] * tics

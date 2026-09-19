@@ -140,7 +140,7 @@ CUSTOM_REWARDS = {"explore", "progress"}
 # Deathmatch rules from ViZDoom's competition examples, for whoever hosts a networked game,
 # minus +viz_nocheat: it switches off the labels and objects that graphs observe.
 DEATHMATCH = (
-    "-deathmatch +sv_forcerespawn 1 +sv_noautoaim 1 +sv_respawnprotect 1 "
+    "-deathmatch -nomonsters +sv_forcerespawn 1 +sv_noautoaim 1 +sv_respawnprotect 1 "
     "+sv_spawnfarthest 1 +sv_nocrouch 1"
 )
 
@@ -366,6 +366,9 @@ class DoomEnvironment:
                 if thing.name not in self.task.compass_targets:
                     continue
                 dx, dy = thing.position_x - x, thing.position_y - y
+                # The player's own body stands at its own position and is not a bearing.
+                if not dx and not dy:
+                    continue
                 # Degrees from the facing direction; positive is to the left (counterclockwise).
                 bearing = (math.degrees(math.atan2(dy, dx)) - angle + 180) % 360 - 180
                 targets.append(

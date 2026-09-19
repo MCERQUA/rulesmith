@@ -1,15 +1,98 @@
 {
-  "description": "Win a one-on-one deathmatch against another player: frag them more often than they frag you. Opponents are objects in category Player; the target is the nearest one on screen. The label is your next action.",
+  "description": "Win a one-on-one deathmatch against another player: frag them more often than they frag you. The compass gives the bearing and distance to the opponent and to pickups anywhere on the map, and the target is the nearest opponent on screen. The label is your next action.",
   "scenario": "cig",
-  "map": "MAP03",
   "deathmatch": true,
-  "labels": ["MOVE_FORWARD", "MOVE_FORWARD+TURN_LEFT", "MOVE_FORWARD+TURN_RIGHT", "TURN_LEFT", "TURN_RIGHT", "MOVE_BACKWARD", "ATTACK", "USE", "MOVE_FORWARD+USE"],
-  "reward_range": [-60, 60],
+  "labels": [
+    "MOVE_FORWARD",
+    "MOVE_FORWARD+TURN_LEFT",
+    "MOVE_FORWARD+TURN_RIGHT",
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "MOVE_BACKWARD",
+    "ATTACK",
+    "USE",
+    "MOVE_FORWARD+USE"
+  ],
+  "reward_range": [
+    -60,
+    60
+  ],
   "episode_timeout": 2100,
-  "variables": ["HEALTH", "ARMOR", "SELECTED_WEAPON_AMMO"],
-  "observe": ["memory", "target"],
-  "rewards": {"frag_reward": 1, "death_penalty": 1, "damage_made_reward": 0.01, "damage_taken_penalty": 0.01},
-  "train": [1, 2, 3, 4],
-  "validation": [5, 6],
-  "test": [7, 8, 9, 10, 11, 12]
+  "variables": [
+    "HEALTH",
+    "ARMOR",
+    "SELECTED_WEAPON_AMMO"
+  ],
+  "observe": [
+    "memory",
+    "target",
+    "compass"
+  ],
+  "rewards": {
+    "frag_reward": 1,
+    "death_penalty": 1,
+    "damage_made_reward": 0.01,
+    "damage_taken_penalty": 0.01
+  },
+  "train": [
+    {
+      "seed": 1,
+      "map": "MAP01"
+    },
+    {
+      "seed": 2,
+      "map": "MAP03"
+    },
+    {
+      "seed": 3,
+      "map": "MAP01"
+    },
+    {
+      "seed": 4,
+      "map": "MAP03"
+    }
+  ],
+  "validation": [
+    {
+      "seed": 5,
+      "map": "MAP01"
+    },
+    {
+      "seed": 6,
+      "map": "MAP03"
+    }
+  ],
+  "test": [
+    {
+      "seed": 7,
+      "map": "MAP01"
+    },
+    {
+      "seed": 8,
+      "map": "MAP03"
+    },
+    {
+      "seed": 9,
+      "map": "MAP01"
+    },
+    {
+      "seed": 10,
+      "map": "MAP03"
+    },
+    {
+      "seed": 11,
+      "map": "MAP01"
+    },
+    {
+      "seed": 12,
+      "map": "MAP03"
+    }
+  ],
+  "compass_targets": [
+    "DoomPlayer",
+    "Medikit",
+    "Stimpack",
+    "RocketAmmo",
+    "Shell"
+  ]
 }

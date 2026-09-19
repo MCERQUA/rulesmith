@@ -798,18 +798,20 @@ uv run decision-compose arena examples/doom/duel.json \
   examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
 ```
 
-Three call-free graphs, six seeds per pair (18 one-minute matches, under a
-minute of wall clock):
+Three call-free graphs, six seeds per pair across two maps (18 one-minute
+matches, under a minute of wall clock):
 
 | Graph | Elo | Won | Drawn | Lost | Frags for / against |
 | --- | --- | --- | --- | --- | --- |
-| e1m1-exit | 1588 | 5 | 7 | 0 | 6 / 1 |
-| e1m1-searched | 1500 | 2 | 8 | 2 | 3 / 4 |
-| duel-attack | 1412 | 1 | 5 | 6 | 2 / 6 |
+| e1m1-exit | 1551 | 3 | 9 | 0 | 3 / 0 |
+| e1m1-searched | 1517 | 2 | 9 | 1 | 2 / 1 |
+| duel-attack | 1432 | 0 | 8 | 4 | 0 / 4 |
 
-Neither E1M1 graph was searched for dueling, and most matches end without a
-frag, so the ranking mostly rewards staying alive. Network timing shifts which
-tics the joining player acts on, so frag counts vary between runs.
+[Watch the champion take a frag](docs/assets/doom/duel-e1m1-exit.mp4) on MAP03.
+Neither E1M1 graph was searched for dueling: they walk the map looking for an
+exit that a deathmatch has none of, so 13 of the 18 matches ended without a
+frag and the ranking mostly rewards staying alive. Network timing shifts which
+tics the joining player acts on, so results vary between runs.
 
 Search can then aim at the arena rather than at a scenario's own reward. With
 `--opponent`, every episode is a duel against a fixed graph, so the leader can
