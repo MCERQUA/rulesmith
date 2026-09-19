@@ -24,6 +24,7 @@
   ],
   "tics_per_action": 6,
   "episode_timeout": 3150,
+  "feedback_steps": 3,
   "observe": [
     "pose",
     "rangefinder",
