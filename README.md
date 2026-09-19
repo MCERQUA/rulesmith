@@ -156,8 +156,9 @@ are disabled.
 ### Generate the topology with DSPy
 
 You supply the task and labeled examples. DSPy proposes complete graph structures;
-GEPA runs them through Ruling and selects by validation accuracy. The CLI requires
-a valid starting graph, but that graph can have zero nodes.
+GEPA runs them through Ruling and selects by validation accuracy. Without a seed
+graph, search starts from a call-free graph that always answers the most common
+training label, so the first proposals are generated from the task alone.
 
 1. Copy [examples/task.json](examples/task.json) to `task.json`. Replace its
    `description` with your decision problem and `labels` with the allowed answers.
@@ -167,26 +168,14 @@ a valid starting graph, but that graph can have zero nodes.
    selects the graph, and test examples measure the final result. Include
    representative cases for every label, especially ambiguous and difficult ones.
 
-2. Create `seed.json`. This minimal seed always answers `sales`; replace that
-   value with one of your task's labels:
-
-   ```json
-   {
-     "nodes": {},
-     "outputs": {"label": {"type": "literal", "value": "sales"}}
-   }
-   ```
-
-3. Start Ruling as described above and configure a separate generative model.
+2. Start Ruling as described above and configure a separate generative model.
    For a running local OpenAI-compatible server, set `REFLECTION_MODEL` to
    `openai/<served-model-id>` and `REFLECTION_BASE_URL` to its API base URL ending
    in `/v1`. Configure the credential expected by that server; an unauthenticated
-   local server can use `OPENAI_API_KEY=local-no-auth`. Then validate and search:
+   local server can use `OPENAI_API_KEY=local-no-auth`. Then search:
 
    ```sh
-   uv run decision-compose validate task.json seed.json
-
-   uv run decision-compose optimize task.json seed.json \
+   uv run decision-compose optimize task.json \
      --backend ruling --max-workers 1 \
      --reflection-model "$REFLECTION_MODEL" \
      --reflection-base-url "$REFLECTION_BASE_URL" \
@@ -198,15 +187,16 @@ a valid starting graph, but that graph can have zero nodes.
    introduce conditional branches, and join shared results. The bounds limit
    graph size and depth; increase them when the task needs more structure.
    For a hosted reflection provider, omit `--reflection-base-url` and use that
-   provider's DSPy model ID and credential.
+   provider's DSPy model ID and credential. To start from a graph you wrote,
+   pass it after `task.json`.
 
-4. Inspect `runs/my-task/plan.json` and `runs/my-task/report.json`. Compare
+3. Inspect `runs/my-task/plan.json` and `runs/my-task/report.json`. Compare
    `validation_accuracy` with `seed_validation_accuracy`. If `candidates` is one,
    no new graph reached validation; the saved graph is still the seed. Schema and
    graph-constraint rejections increment `invalid_candidate_evaluations`. A larger search budget
    permits more evaluations but does not guarantee a better graph.
 
-5. Evaluate the selected graph on the untouched test split. To use it on a new
+4. Evaluate the selected graph on the untouched test split. To use it on a new
    input, save that input as JSON in `state.json` and run the same saved graph:
 
    ```sh

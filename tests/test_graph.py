@@ -200,3 +200,16 @@ def test_task_detects_duplicate_json_states_regardless_of_key_order():
     data["test"][0]["state"] = {"b": 2, "a": 1}
     with pytest.raises(ValidationError, match="state"):
         Task.model_validate_json(json.dumps(data))
+
+
+def test_baseline_seed_predicts_the_majority_training_label_without_calls():
+    data = task_data()
+    data["train"] += [
+        {"id": "d", "state": "request D", "label": "review"},
+        {"id": "e", "state": "request E", "label": "review"},
+    ]
+    task = Task.model_validate(data)
+    plan = task.baseline_plan()
+    plan.check(task.labels, max_nodes=1, max_depth=1)
+    assert plan.nodes == {}
+    assert plan.outputs["label"].value == "review"

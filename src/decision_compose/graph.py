@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from graphlib import CycleError, TopologicalSorter
 from typing import Annotated, Literal, Self
 
@@ -315,3 +316,8 @@ class Task(StrictModel):
             ids.add(example.id)
             states.add(state)
         return self
+
+    def baseline_plan(self) -> Plan:
+        """A call-free majority-label seed, so search can start from the task alone."""
+        label = Counter(example.label for example in self.train).most_common(1)[0][0]
+        return Plan(nodes={}, outputs={"label": LiteralInput(value=label)})

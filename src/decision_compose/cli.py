@@ -47,7 +47,12 @@ def parser() -> argparse.ArgumentParser:
     for name in ("validate", "evaluate", "optimize"):
         command = commands.add_parser(name)
         command.add_argument("task", type=Path)
-        command.add_argument("plan", type=Path)
+        if name == "optimize":
+            command.add_argument(
+                "plan", type=Path, nargs="?", help="Seed graph; defaults to the majority label"
+            )
+        else:
+            command.add_argument("plan", type=Path)
         command.add_argument("--max-nodes", type=int, default=SearchConfig().max_nodes)
         command.add_argument("--max-depth", type=int, default=SearchConfig().max_depth)
         if name == "validate":
@@ -93,9 +98,10 @@ def dump(value: dict) -> str:
 def main() -> None:
     cli = parser()
     args = cli.parse_args()
-    plan = Plan.model_validate_json(args.plan.read_text())
     if args.command != "run":
         task = Task.model_validate_json(args.task.read_text())
+    plan = Plan.model_validate_json(args.plan.read_text()) if args.plan else task.baseline_plan()
+    if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
         print(dump({"nodes": len(plan.nodes), "labels": task.labels}), end="")

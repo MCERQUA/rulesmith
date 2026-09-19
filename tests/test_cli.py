@@ -76,28 +76,23 @@ def test_repository_example_matches_the_schema(example):
     assert result.returncode == 0, result.stderr
 
 
-def test_cli_optimization_uses_dspy_lm_and_saves_a_reloadable_graph(
-    tmp_path, provider, monkeypatch
-):
+def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provider, monkeypatch):
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
     monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
     data = task_data()
-    data["validation"][0]["label"] = "accept"
+    data["train"].append({"id": "d", "state": "request D", "label": "review"})
     task = write(tmp_path / "task.json", data)
-    initial = write(
-        tmp_path / "initial.json",
-        {
-            "nodes": {},
-            "outputs": {"label": {"type": "literal", "value": "review"}},
-        },
-    )
     provider.completion = json.dumps(binary_plan())
-    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+
+    def answer_by_request(request):
+        noul = 0.9 if "request A" in json.dumps(request["state"]) else 0.1
+        provider.body["answers"] = {"eligible": {"type": "noul", "noul": noul}}
+
+    provider.on_request = answer_by_request
     output = tmp_path / "run"
     result = invoke(
         "optimize",
         task,
-        initial,
         "--output",
         output,
         "--base-url",
@@ -111,9 +106,9 @@ def test_cli_optimization_uses_dspy_lm_and_saves_a_reloadable_graph(
         "--max-workers",
         2,
         "--max-metric-calls",
-        4,
+        6,
         "--reflection-batch",
-        1,
+        2,
     )
     assert result.returncode == 0, result.stderr
     assert Plan.model_validate_json((output / "plan.json").read_text()) == Plan.model_validate(
