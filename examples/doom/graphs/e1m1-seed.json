@@ -10,15 +10,23 @@
           "clear": "No live monster is on screen, and no compass monster is within 500 units ahead."
         }
       },
-      "inputs": {"observation": {"type": "state"}}
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      }
     },
     "blocked": {
       "type": "call",
       "question": {
         "type": "noul",
-        "instructions": "The way straight ahead is blocked: the middle rangefinder readings are small, or memory shows almost no distance moved while recent actions tried to move forward."
+        "instructions": "The way straight ahead is blocked: the middle (4th of 7) rangefinder reading is below 64 map units."
       },
-      "inputs": {"observation": {"type": "state"}}
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      }
     },
     "hurt": {
       "type": "call",
@@ -26,7 +34,11 @@
         "type": "noul",
         "instructions": "HEALTH is below 40 and a Medikit or Stimpack appears in the compass."
       },
-      "inputs": {"observation": {"type": "state"}}
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      }
     },
     "aim": {
       "type": "call",
@@ -39,8 +51,17 @@
           "TURN_RIGHT": "The target is right of center (x above 0.1), or it is off screen with a negative compass bearing."
         }
       },
-      "inputs": {"observation": {"type": "state"}},
-      "when": {"type": "compare", "node": "threat", "op": "eq", "value": "fight"}
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      },
+      "when": {
+        "type": "compare",
+        "node": "threat",
+        "op": "eq",
+        "value": "fight"
+      }
     },
     "unstick": {
       "type": "call",
@@ -48,18 +69,32 @@
         "type": "choice",
         "instructions": "The way ahead is blocked. Get moving again, using the rangefinder to find open space.",
         "criteria": {
-          "MOVE_FORWARD+USE": "A door or switch is directly ahead and has not just been used.",
-          "TURN_LEFT": "The left rangefinder readings are larger than the right ones.",
-          "TURN_RIGHT": "The right rangefinder readings are larger than the left ones.",
-          "MOVE_BACKWARD": "All readings are small, so back away first."
+          "MOVE_FORWARD+USE": "Something directly ahead may be a door or switch that has not just been used.",
+          "TURN_LEFT": "The left rangefinder readings (first three) are larger than the right ones.",
+          "TURN_RIGHT": "The right rangefinder readings (last three) are larger than the left ones.",
+          "MOVE_BACKWARD": "Every rangefinder reading is below 64, so back away first."
         }
       },
-      "inputs": {"observation": {"type": "state"}},
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      },
       "when": {
         "type": "all",
         "conditions": [
-          {"type": "compare", "node": "threat", "op": "eq", "value": "clear"},
-          {"type": "compare", "node": "blocked", "op": "ge", "value": 0.6}
+          {
+            "type": "compare",
+            "node": "threat",
+            "op": "eq",
+            "value": "clear"
+          },
+          {
+            "type": "compare",
+            "node": "blocked",
+            "op": "ge",
+            "value": 0.6
+          }
         ]
       }
     },
@@ -74,13 +109,32 @@
           "MOVE_FORWARD+TURN_RIGHT": "Its bearing is below -10 degrees."
         }
       },
-      "inputs": {"observation": {"type": "state"}},
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      },
       "when": {
         "type": "all",
         "conditions": [
-          {"type": "compare", "node": "threat", "op": "eq", "value": "clear"},
-          {"type": "compare", "node": "blocked", "op": "lt", "value": 0.6},
-          {"type": "compare", "node": "hurt", "op": "ge", "value": 0.6}
+          {
+            "type": "compare",
+            "node": "threat",
+            "op": "eq",
+            "value": "clear"
+          },
+          {
+            "type": "compare",
+            "node": "blocked",
+            "op": "lt",
+            "value": 0.6
+          },
+          {
+            "type": "compare",
+            "node": "hurt",
+            "op": "ge",
+            "value": 0.6
+          }
         ]
       }
     },
@@ -90,26 +144,58 @@
         "type": "choice",
         "instructions": "Explore new parts of the map. Prefer open space, unvisited cells, items, and doors.",
         "criteria": {
-          "MOVE_FORWARD": "The middle rangefinder readings are large and this cell has few visits.",
-          "MOVE_FORWARD+TURN_LEFT": "There is more open space to the left, or an item has a positive bearing.",
-          "MOVE_FORWARD+TURN_RIGHT": "There is more open space to the right, or an item has a negative bearing.",
+          "MOVE_FORWARD": "The middle rangefinder reading is the largest or near it, and this cell has few visits.",
+          "MOVE_FORWARD+TURN_LEFT": "The left readings are clearly larger than the middle, or an item has a positive bearing.",
+          "MOVE_FORWARD+TURN_RIGHT": "The right readings are clearly larger than the middle, or an item has a negative bearing.",
           "MOVE_FORWARD+USE": "A door or switch is directly ahead."
         }
       },
-      "inputs": {"observation": {"type": "state"}},
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      },
       "when": {
         "type": "all",
         "conditions": [
-          {"type": "compare", "node": "threat", "op": "eq", "value": "clear"},
-          {"type": "compare", "node": "blocked", "op": "lt", "value": 0.6},
-          {"type": "not", "condition": {"type": "compare", "node": "hurt", "op": "ge", "value": 0.6}}
+          {
+            "type": "compare",
+            "node": "threat",
+            "op": "eq",
+            "value": "clear"
+          },
+          {
+            "type": "compare",
+            "node": "blocked",
+            "op": "lt",
+            "value": 0.6
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "hurt",
+              "op": "ge",
+              "value": 0.6
+            }
+          }
         ]
       }
     },
     "action": {
       "type": "coalesce",
-      "sources": ["aim", "unstick", "heal", "explore"]
+      "sources": [
+        "aim",
+        "unstick",
+        "heal",
+        "explore"
+      ]
     }
   },
-  "outputs": {"label": {"type": "node", "node": "action"}}
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "action"
+    }
+  }
 }

@@ -4,9 +4,9 @@ import math
 import os
 import tempfile
 from collections import Counter, deque
-from itertools import pairwise
 from typing import Literal, Self
 
+import numpy as np
 import vizdoom as vzd
 from pydantic import Field, model_validator
 
@@ -35,7 +35,10 @@ class DoomTask(StrictModel):
     observe: list[Literal["pose", "rangefinder", "compass", "memory"]] = Field(
         default_factory=list, description="Extra observations beyond visible objects"
     )
-    rays: int = Field(default=7, ge=1, description="Rangefinder directions across the view")
+    rays: int = Field(default=7, ge=2, description="Rangefinder directions across the view")
+    rangefinder_range: float = Field(
+        default=2048, gt=0, description="Map units reported when no wall is within reach"
+    )
     compass_targets: list[Text] = Field(
         default_factory=list, description="Object names the compass tracks anywhere on the map"
     )
@@ -81,6 +84,30 @@ class DoomTask(StrictModel):
         return Plan.constant(self.labels[0])
 
 
+# Doom's horizontal field of view, and the smallest opening the player fits through.
+FIELD_OF_VIEW = 90
+PLAYER_HEIGHT = 56
+
+
+def cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """The z component of 2-D cross products; NumPy 2 no longer accepts 2-D vectors."""
+    return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+
+
+def walls(state) -> tuple[np.ndarray, np.ndarray]:
+    """Segments that stop the player: solid walls, and gaps too low to pass such as closed doors."""
+    spans: dict[tuple, list] = {}
+    blocking: dict[tuple, bool] = {}
+    for sector in state.sectors:
+        for line in sector.lines:
+            key = tuple(sorted([(line.x1, line.y1), (line.x2, line.y2)]))
+            spans.setdefault(key, []).append(sector.ceiling_height - sector.floor_height)
+            blocking[key] = blocking.get(key, False) or line.is_blocking
+    solid = [key for key, gaps in spans.items() if blocking[key] or min(gaps) < PLAYER_HEIGHT]
+    segments = np.array(solid, dtype=float).reshape(-1, 2, 2)
+    return segments[:, 0], segments[:, 1]
+
+
 class DoomEnvironment:
     """A headless ViZDoom game whose observations are JSON, not pixels."""
 
@@ -96,7 +123,7 @@ class DoomEnvironment:
         self.game.set_window_visible(visible)
         self.game.set_labels_buffer_enabled(True)
         self.game.set_audio_buffer_enabled(False)
-        self.game.set_depth_buffer_enabled("rangefinder" in task.observe)
+        self.game.set_sectors_info_enabled("rangefinder" in task.observe)
         self.game.set_objects_info_enabled("compass" in task.observe)
         self.game.set_screen_format(vzd.ScreenFormat.RGB24)
         if task.map is not None:
@@ -193,12 +220,7 @@ class DoomEnvironment:
         if "pose" in self.task.observe:
             observation["pose"] = {"x": round(x, 1), "y": round(y, 1), "angle": round(angle, 1)}
         if "rangefinder" in self.task.observe:
-            # A band above the weapon sprite; the nearest depth per column slice, left to right.
-            depth = state.depth_buffer[int(self.height * 0.3) : int(self.height * 0.5)]
-            edges = [self.width * ray // self.task.rays for ray in range(self.task.rays + 1)]
-            observation["rangefinder"] = [
-                int(depth[:, start:end].min()) for start, end in pairwise(edges)
-            ]
+            observation["rangefinder"] = self.rangefinder(state, x, y, angle)
         if "compass" in self.task.observe:
             targets = []
             for thing in state.objects:
@@ -224,6 +246,28 @@ class DoomEnvironment:
                 "explored_cells": len(self.visited),
             }
         return observation
+
+    def rangefinder(self, state, x: float, y: float, angle: float) -> list[int]:
+        """Map-unit distance to the nearest wall along rays across the view, left to right."""
+        starts, ends = walls(state)
+        span = FIELD_OF_VIEW / 2
+        step = FIELD_OF_VIEW / (self.task.rays - 1)
+        readings = []
+        for index in range(self.task.rays):
+            heading = math.radians(angle + span - index * step)
+            direction = np.array([math.cos(heading), math.sin(heading)])
+            edges = ends - starts
+            offset = starts - (x, y)
+            denominator = cross(direction, edges)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                distance = cross(offset, edges) / denominator
+                along = cross(offset, direction) / denominator
+            hits = distance[(denominator != 0) & (distance > 0) & (along >= 0) & (along <= 1)]
+            nearest = min(
+                hits.min(initial=self.task.rangefinder_range), self.task.rangefinder_range
+            )
+            readings.append(round(float(nearest)))
+        return readings
 
     def close(self) -> None:
         self.game.close()

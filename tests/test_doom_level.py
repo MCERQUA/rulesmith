@@ -85,10 +85,21 @@ def test_compass_bearings_turn_with_the_player_and_distances_hold(env):
         )
 
 
-def test_rangefinder_reports_one_depth_per_ray(env):
-    rays = env.reset(1)["rangefinder"]
+def test_rangefinder_measures_wall_distance_in_map_units(env):
+    start = settled(env)
+    rays = start["rangefinder"]
     assert len(rays) == level().rays
-    assert all(isinstance(depth, int) and depth >= 0 for depth in rays)
+    center = len(rays) // 2
+    for _ in range(3):
+        _, walked = env.step("MOVE_FORWARD")
+    moved = math.dist(
+        (walked["pose"]["x"], walked["pose"]["y"]), (start["pose"]["x"], start["pose"]["y"])
+    )
+    assert walked["pose"]["angle"] == start["pose"]["angle"] and moved > 10
+    # Walking straight ahead shortens the center ray by exactly the distance walked.
+    assert start["rangefinder"][center] - walked["rangefinder"][center] == pytest.approx(
+        moved, abs=1.5
+    )
 
 
 def test_memory_counts_revisits_and_recent_actions(env):
