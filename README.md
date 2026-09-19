@@ -188,6 +188,27 @@ uv run decision-compose evaluate examples/doom/basic.json runs/doom/plan.json \
 `--visible` opens the game window so you can watch it play. See [Doom](docs/doom.md)
 for the task format and scenarios.
 
+## Results
+
+![Search fitness: best validation score after each search round](docs/assets/fitness.svg)
+
+**`basic`**: search started from a graph that only strafes left. Within three
+rounds it found a graph that strafes toward the monster and fires once it is
+centered. On held-out test seeds it killed every monster:
+
+| Judge | Validation | Test | Test rewards (best possible ≈ 97) |
+| --- | --- | --- | --- |
+| Qwen3.6-35B-A3B via Ruling (local) | 0.33 → 0.97 | 0.94 | 79, 38, 83 |
+| Jev (`jev-1.13.0`, hosted) | 0.33 → 0.97 | 0.94 | 75, 38, 83 |
+
+![The found graph killing the monster on test seed 12](docs/assets/doom/basic-seed12.gif)
+
+[All 12 seeds back to back](docs/assets/doom/basic-reel.mp4): 12 of 12 kills.
+
+**E1M1**: work in progress. Graphs fight, open doors, and follow the route toward
+the exit, but none has finished the level yet.
+[A minute of the current graph](docs/assets/doom/e1m1-target.mp4).
+
 ## Use from Python
 
 A graph runs as a `dspy.Module`:
