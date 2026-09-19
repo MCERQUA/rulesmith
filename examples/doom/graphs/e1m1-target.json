@@ -1,0 +1,339 @@
+{
+  "nodes": {
+    "target_x": {
+      "type": "read",
+      "path": [
+        "target",
+        "x"
+      ],
+      "bounds": [
+        -1,
+        1
+      ]
+    },
+    "ahead": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        3
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "left": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        1
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "right": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        5
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "visits": {
+      "type": "read",
+      "path": [
+        "memory",
+        "visits_here"
+      ],
+      "bounds": [
+        0,
+        100000
+      ]
+    },
+    "fire": {
+      "type": "value",
+      "value": "ATTACK",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "target_width",
+            "op": "ge",
+            "value": 0.03
+          },
+          {
+            "type": "compare",
+            "node": "target_x",
+            "op": "ge",
+            "value": -0.25
+          },
+          {
+            "type": "compare",
+            "node": "target_x",
+            "op": "lt",
+            "value": 0.25
+          }
+        ]
+      }
+    },
+    "aim_left": {
+      "type": "value",
+      "value": "TURN_LEFT",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "target_width",
+            "op": "ge",
+            "value": 0.03
+          },
+          {
+            "type": "compare",
+            "node": "target_x",
+            "op": "lt",
+            "value": -0.25
+          }
+        ]
+      }
+    },
+    "aim_right": {
+      "type": "value",
+      "value": "TURN_RIGHT",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "target_width",
+            "op": "ge",
+            "value": 0.03
+          },
+          {
+            "type": "compare",
+            "node": "target_x",
+            "op": "ge",
+            "value": 0.25
+          }
+        ]
+      }
+    },
+    "door": {
+      "type": "call",
+      "question": {
+        "type": "noul",
+        "instructions": "The blocked view straight ahead is a door or switch that could be opened with USE, not a plain wall. Consider whether USE was among the recent actions without effect."
+      },
+      "inputs": {
+        "observation": {
+          "type": "state"
+        }
+      },
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "target_width",
+              "op": "ge",
+              "value": 0.03
+            }
+          },
+          {
+            "type": "compare",
+            "node": "ahead",
+            "op": "lt",
+            "value": 96
+          }
+        ]
+      }
+    },
+    "open_door": {
+      "type": "value",
+      "value": "MOVE_FORWARD+USE",
+      "when": {
+        "type": "compare",
+        "node": "door",
+        "op": "ge",
+        "value": 0.5
+      }
+    },
+    "turn_left": {
+      "type": "value",
+      "value": "TURN_LEFT",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "target_width",
+              "op": "ge",
+              "value": 0.03
+            }
+          },
+          {
+            "type": "compare",
+            "node": "ahead",
+            "op": "lt",
+            "value": 96
+          },
+          {
+            "type": "compare",
+            "node": "left",
+            "op": "ge",
+            "value": 128
+          }
+        ]
+      }
+    },
+    "turn_right": {
+      "type": "value",
+      "value": "TURN_RIGHT",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "target_width",
+              "op": "ge",
+              "value": 0.03
+            }
+          },
+          {
+            "type": "compare",
+            "node": "ahead",
+            "op": "lt",
+            "value": 96
+          }
+        ]
+      }
+    },
+    "forward": {
+      "type": "value",
+      "value": "MOVE_FORWARD",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "target_width",
+              "op": "ge",
+              "value": 0.03
+            }
+          },
+          {
+            "type": "compare",
+            "node": "ahead",
+            "op": "ge",
+            "value": 96
+          },
+          {
+            "type": "compare",
+            "node": "visits",
+            "op": "lt",
+            "value": 6
+          }
+        ]
+      }
+    },
+    "veer": {
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_RIGHT",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "target_width",
+              "op": "ge",
+              "value": 0.03
+            }
+          },
+          {
+            "type": "compare",
+            "node": "ahead",
+            "op": "ge",
+            "value": 96
+          },
+          {
+            "type": "compare",
+            "node": "right",
+            "op": "ge",
+            "value": 128
+          }
+        ]
+      }
+    },
+    "veer_left": {
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_LEFT",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "not",
+            "condition": {
+              "type": "compare",
+              "node": "target_width",
+              "op": "ge",
+              "value": 0.03
+            }
+          },
+          {
+            "type": "compare",
+            "node": "ahead",
+            "op": "ge",
+            "value": 96
+          }
+        ]
+      }
+    },
+    "action": {
+      "type": "coalesce",
+      "sources": [
+        "fire",
+        "aim_left",
+        "aim_right",
+        "open_door",
+        "turn_left",
+        "turn_right",
+        "forward",
+        "veer",
+        "veer_left"
+      ]
+    },
+    "target_width": {
+      "type": "read",
+      "path": [
+        "target",
+        "width"
+      ],
+      "bounds": [
+        0,
+        1
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "action"
+    }
+  }
+}

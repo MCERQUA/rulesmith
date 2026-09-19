@@ -32,7 +32,7 @@ class DoomTask(StrictModel):
     variables: list[Text] = Field(
         default_factory=list, description="Game variables to add, e.g. HEALTH or AMMO2"
     )
-    observe: list[Literal["pose", "rangefinder", "compass", "memory"]] = Field(
+    observe: list[Literal["pose", "rangefinder", "compass", "memory", "target"]] = Field(
         default_factory=list, description="Extra observations beyond visible objects"
     )
     rays: int = Field(default=7, ge=2, description="Rangefinder directions across the view")
@@ -216,6 +216,12 @@ class DoomEnvironment:
         values = state.game_variables if self.variables else []
         variables = dict(zip(self.variables, map(float, values), strict=True))
         observation = {"objects": objects, "variables": variables}
+        monsters = [o for o in objects if o["category"] == "Monster"]
+        if "target" in self.task.observe and monsters:
+            # Killed monsters leave the labels, so every on-screen Monster is alive; the
+            # widest one is the nearest.
+            nearest = max(monsters, key=lambda monster: monster["width"])
+            observation["target"] = {key: nearest[key] for key in ("name", "x", "width")}
         x, y, angle = self.pose()
         if "pose" in self.task.observe:
             observation["pose"] = {"x": round(x, 1), "y": round(y, 1), "angle": round(angle, 1)}
@@ -269,6 +275,17 @@ class DoomEnvironment:
             readings.append(round(float(nearest)))
         return readings
 
+    def stats(self) -> dict:
+        """Level progress counters; ViZDoom keeps them readable after the episode ends."""
+        variable = self.game.get_game_variable
+        GV = vzd.GameVariable
+        return {
+            "kills": int(variable(GV.KILLCOUNT)),
+            "items": int(variable(GV.ITEMCOUNT)),
+            "secrets": int(variable(GV.SECRETCOUNT)),
+            "explored_cells": len(self.visited),
+        }
+
     def close(self) -> None:
         self.game.close()
         self.scratch.cleanup()
@@ -307,17 +324,19 @@ class Episodes:
             raise ValueError(f"episode reward {total} is outside reward_range {[low, high]}")
         score = 0.0 if error else (total - low) / (high - low)
         actions = Counter(step["action"] for step in steps)
+        stats = self.env.stats()
         record = {
             "seed": seed,
             "reward": total,
             "score": score,
             "steps": len(steps),
             "actions": dict(actions),
+            "stats": stats,
             "error": error,
         }
         feedback = error or (
             f"Episode reward {total} in range {[low, high]} (score {score:.3f}) "
-            f"after {len(steps)} actions. Higher reward is better."
+            f"after {len(steps)} actions, with {stats}. Higher reward is better."
         )
         return Outcome(
             score=score,

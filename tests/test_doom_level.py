@@ -157,3 +157,26 @@ def test_tasks_can_add_game_variables_the_scenario_lacks():
         assert env.reset(1)["variables"] == {"HEALTH": 100.0, "ARMOR": 0.0}
     with pytest.raises(ValidationError):
         level(variables=["NOT_A_VARIABLE"])
+
+
+def test_target_is_the_nearest_live_monster_on_screen():
+    task = level(scenario="basic", map=None, labels=["ATTACK", "MOVE_LEFT"], observe=["target"])
+    task = task.model_copy(update={"compass_targets": [], "episode_timeout": None})
+    with DoomEnvironment(task) as env:
+        observation = env.reset(7)
+        (monster,) = [o for o in observation["objects"] if o["category"] == "Monster"]
+        assert observation["target"] == {k: monster[k] for k in ("name", "x", "width")}
+    with DoomEnvironment(level(observe=["target"], compass_targets=[])) as env:
+        assert "target" not in env.reset(1)
+
+
+def test_episode_records_report_game_statistics():
+    kwargs = {"scenario": "defend_the_center", "map": None, "observe": [], "episode_timeout": None}
+    task = level(**kwargs, labels=["ATTACK", "TURN_LEFT"], reward_range=[-100, 100])
+    with DoomEnvironment(task) as env:
+        program = DecisionProgram(Plan.constant("ATTACK"), None, "none")
+        outcome = Episodes(task, env)(program, 7)
+        stats = outcome.record["stats"]
+        assert stats["kills"] == env.game.get_game_variable(vzd.GameVariable.KILLCOUNT) > 0
+        assert stats["explored_cells"] == len(env.visited)
+    assert "kills" in outcome.trace["Feedback"]

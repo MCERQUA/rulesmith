@@ -318,4 +318,5 @@ GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").g
 @pytest.mark.parametrize("path", GRAPHS, ids=lambda path: path.stem)
 def test_repository_doom_graphs_validate_against_their_task(path):
     task = path.parents[1] / f"{path.stem.split('-')[0]}.json"
-    assert invoke("validate", task, path).returncode == 0
+    # Hand-built level graphs exceed the default search bound on node count.
+    assert invoke("validate", task, path, "--max-nodes", 32).returncode == 0
