@@ -74,8 +74,8 @@ def test_real_gepa_evolves_structure_through_the_official_sdk(provider, client):
     )
     assert len(reflections) == 1
     assert plan == proposed
-    assert report["validation_accuracy"] == 1.0
-    assert report["seed_validation_accuracy"] == 0.0
+    assert report["validation_score"] == 1.0
+    assert report["seed_validation_score"] == 0.0
     assert report["candidates"] == 2
     assert report["metric_calls"] == 4
     assert len(provider.requests) == 6
@@ -128,7 +128,7 @@ def test_real_gepa_carries_rejected_graph_feedback_into_next_reflection(provider
         SearchConfig(max_metric_calls=6, reflection_batch=1),
     )
     assert best == proposed
-    assert report["validation_accuracy"] == 1
+    assert report["validation_score"] == 1
     assert report["reflection_calls"] == len(reflections) == 2
     assert report["invalid_candidate_evaluations"] == int(failure == "schema")
     assert report["metric_calls"] == 6
@@ -168,7 +168,7 @@ def test_real_gepa_keeps_seed_when_train_improvement_regresses_validation(client
     )
     assert best == initial
     assert report["validation_scores"] == [1.0, 0.0]
-    assert report["validation_accuracy"] == report["seed_validation_accuracy"] == 1
+    assert report["validation_score"] == report["seed_validation_score"] == 1
 
 
 def test_constant_program_never_calls_provider(provider, client):

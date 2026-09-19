@@ -191,7 +191,7 @@ def main() -> None:
             report["split"] = args.split
             report["backend"] = args.backend
             args.output.write_text(dump(report))
-            print(dump({"accuracy": report["accuracy"], "output": str(args.output)}), end="")
+            print(dump({"score": report["score"], "output": str(args.output)}), end="")
         else:
             with redirect_stdout(sys.stderr):
                 best, report = optimize_plan(task, plan, client, model, reflect, config, execution)

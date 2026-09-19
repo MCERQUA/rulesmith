@@ -136,8 +136,8 @@ def test_real_gepa_evaluates_a_fixed_graph_proposal_with_ruling(
     best.check(task.labels, max_nodes=16, max_depth=8)
     assert reflections
     assert report["resolved_models"] == [ruling_model]
-    assert report["seed_validation_accuracy"] == 0
-    assert 0 <= report["validation_accuracy"] <= 1
+    assert report["seed_validation_score"] == 0
+    assert 0 <= report["validation_score"] <= 1
     assert all(example.state not in json.dumps(reflections) for example in task.test)
 
 
@@ -185,4 +185,4 @@ def test_dspy_generates_a_graph_that_gepa_evaluates_on_ruling(
     assert generations, "DSPy did not generate any graph proposals"
     assert report["resolved_models"] == [ruling_model], "no generated graph called Ruling"
     assert report["candidates"] >= 2, "no generated graph reached validation evaluation"
-    assert report["validation_accuracy"] >= report["seed_validation_accuracy"]
+    assert report["validation_score"] >= report["seed_validation_score"]

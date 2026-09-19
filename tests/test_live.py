@@ -55,5 +55,5 @@ def test_live_gepa_returns_a_valid_program(live_client):
         SearchConfig(max_metric_calls=12),
     )
     best.check(task.labels, max_nodes=16, max_depth=8)
-    assert 0 <= report["validation_accuracy"] <= 1
+    assert 0 <= report["validation_score"] <= 1
     assert report["candidates"] >= 2

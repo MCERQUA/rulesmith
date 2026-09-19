@@ -2,8 +2,10 @@
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from importlib.metadata import version
+from typing import Protocol
 
 import dspy
 import gepa
@@ -12,7 +14,7 @@ from gepa.core.adapter import EvaluationBatch, GEPAAdapter
 from pydantic import Field, JsonValue, ValidationError
 from typesafe_sdk import TypeSafeClient
 
-from decision_compose.graph import Example, Plan, StrictModel, Task
+from decision_compose.graph import Example, Plan, StrictModel
 from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
 
 
@@ -45,6 +47,55 @@ class GraphProposer(dspy.Module):
             return json.dumps({"generation_error": str(error)})
 
 
+@dataclass(frozen=True)
+class Outcome:
+    """One scored example: its report row and the record reflection sees."""
+
+    score: float
+    record: dict
+    trace: dict
+    models: list[str]
+    error: str | None = None
+
+
+def classify(program: DecisionProgram, example: Example) -> Outcome:
+    try:
+        prediction, error = program(state=example.state), None
+    except GraphExecutionError as failure:
+        prediction, error = failure.prediction, f"Graph execution failed: {failure}"
+    score = float(error is None and prediction.label == example.label)
+    return Outcome(
+        score=score,
+        record={
+            "id": example.id,
+            "expected": example.label,
+            "correct": bool(score),
+            **dict(prediction),
+        },
+        trace={
+            "Inputs": example.state,
+            "Generated Outputs": dict(prediction),
+            "Feedback": error or f"Expected label: {example.label}. Exact-match score: {score}.",
+        },
+        models=prediction.models,
+        error=error,
+    )
+
+
+Scorer = Callable[[DecisionProgram, object], Outcome]
+
+
+class SearchTask(Protocol):
+    """What search needs from a task; scoring its examples is the scorer's job."""
+
+    description: str
+    labels: list[str]
+    train: Sequence
+    validation: Sequence
+
+    def model_dump_json(self) -> str: ...
+
+
 class SearchConfig(StrictModel):
     max_metric_calls: int = Field(default=100, ge=1)
     max_nodes: int = Field(default=16, ge=1)
@@ -53,16 +104,18 @@ class SearchConfig(StrictModel):
     seed: int = 0
 
 
-class GraphAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
+class GraphAdapter(GEPAAdapter[object, dict, dict]):
     def __init__(
         self,
-        task: Task,
+        task: SearchTask,
         client: TypeSafeClient,
         model: str,
         config: SearchConfig,
         execution: ExecutionConfig | None = None,
+        score: Scorer = classify,
     ):
         self.task = task
+        self.score = score
         self.client = client
         self.model = model
         self.config = config
@@ -100,42 +153,22 @@ class GraphAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
         program = DecisionProgram(plan, self.client, self.model, self.execution)
         for example in batch:
             try:
-                prediction = program(state=example.state)
-            except GraphExecutionError as error:
-                self.resolved_models.update(error.prediction.models)
-                outputs.append(error.prediction)
-                scores.append(0.0)
-                if capture_traces:
-                    self.rejected_candidate_feedback = {
-                        "graph": candidate["graph"],
-                        "error": f"Graph execution failed: {error}",
-                        "input": example.state,
-                        "outputs": dict(error.prediction),
-                    }
-                    records.append(
-                        {
-                            "Inputs": example.state,
-                            "Generated Outputs": dict(error.prediction),
-                            "Feedback": f"Graph execution failed: {error}",
-                        }
-                    )
-                continue
+                outcome = self.score(program, example)
             except Exception as error:
                 # GEPA catches some adapter failures internally, even with raise_on_exception.
                 self.failure = error
                 raise
-            score = float(prediction.label == example.label)
-            self.resolved_models.update(prediction.models)
-            outputs.append(prediction)
-            scores.append(score)
+            self.resolved_models.update(outcome.models)
+            outputs.append(outcome.record)
+            scores.append(outcome.score)
             if capture_traces:
-                records.append(
-                    {
-                        "Inputs": example.state,
-                        "Generated Outputs": dict(prediction),
-                        "Feedback": f"Expected label: {example.label}. Exact-match score: {score}.",
+                records.append(outcome.trace)
+                if outcome.error is not None:
+                    self.rejected_candidate_feedback = {
+                        "graph": candidate["graph"],
+                        "error": outcome.error,
+                        **outcome.trace,
                     }
-                )
         return EvaluationBatch(
             outputs=outputs, scores=scores, trajectories=records if capture_traces else None
         )
@@ -145,20 +178,21 @@ class GraphAdapter(GEPAAdapter[Example, dict, dspy.Prediction]):
 
 
 def optimize_plan(
-    task: Task,
+    task: SearchTask,
     initial: Plan,
     client: TypeSafeClient,
     model: str,
     reflection_lm: Callable,
     config: SearchConfig,
     execution: ExecutionConfig | None = None,
+    score: Scorer = classify,
 ) -> tuple[Plan, dict]:
     initial.check(task.labels, config.max_nodes, config.max_depth)
     batch_size = min(config.reflection_batch, len(task.train))
     minimum_budget = 2 * (len(task.validation) + batch_size)
     if config.max_metric_calls < minimum_budget:
         raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
-    adapter = GraphAdapter(task, client, model, config, execution)
+    adapter = GraphAdapter(task, client, model, config, execution, score)
     reflection_calls = 0
     syntax_example = Plan.model_validate(
         {
@@ -220,7 +254,7 @@ def optimize_plan(
         "Switch cases must cover the source's categorical values; threshold uses >= for above. "
         "The label output must have a statically known domain within the allowed labels. "
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
-        f"Task: {task.description}\nAllowed output labels: {json.dumps(task.labels)}\n"
+        f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
         f"JSON schema: {json.dumps(Plan.model_json_schema())}\n"
         "Minimal syntax example using two labels (not a solution):\n"
@@ -254,8 +288,8 @@ def optimize_plan(
         "versions": {name: version(name) for name in ("dspy", "gepa", "typesafe-sdk")},
         "search": config.model_dump(),
         "execution": adapter.execution.model_dump(),
-        "seed_validation_accuracy": result.val_aggregate_scores[0],
-        "validation_accuracy": result.val_aggregate_scores[result.best_idx],
+        "seed_validation_score": result.val_aggregate_scores[0],
+        "validation_score": result.val_aggregate_scores[result.best_idx],
         "validation_scores": result.val_aggregate_scores,
         "candidates": len(result.candidates),
         "reflection_calls": reflection_calls,
@@ -267,21 +301,15 @@ def optimize_plan(
 
 def evaluate_plan(
     plan: Plan,
-    examples: list[Example],
+    examples: Sequence,
     client: TypeSafeClient | None,
     model: str,
     execution: ExecutionConfig | None = None,
+    score: Scorer = classify,
 ) -> dict:
     program = DecisionProgram(plan, client, model, execution)
-    rows = []
-    for example in examples:
-        prediction = program(state=example.state)
-        rows.append(
-            {
-                "id": example.id,
-                "expected": example.label,
-                "correct": prediction.label == example.label,
-                **dict(prediction),
-            }
-        )
-    return {"accuracy": sum(row["correct"] for row in rows) / len(rows), "examples": rows}
+    outcomes = [score(program, example) for example in examples]
+    return {
+        "score": sum(outcome.score for outcome in outcomes) / len(outcomes),
+        "examples": [outcome.record for outcome in outcomes],
+    }

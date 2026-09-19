@@ -60,7 +60,7 @@ def test_cli_evaluation_persists_actual_sdk_results(tmp_path, provider, monkeypa
     )
     assert result.returncode == 0, result.stderr
     report = json.loads(output.read_text())
-    assert report["split"] == "test" and report["accuracy"] == 1.0
+    assert report["split"] == "test" and report["score"] == 1.0
     assert report["examples"][0]["id"] == "c"
     assert provider.requests[0][1]["state"] == {"state": "request C"}
     assert len(provider.requests) == 1
@@ -115,8 +115,8 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
         binary_plan()
     )
     report = json.loads((output / "report.json").read_text())
-    assert report["validation_accuracy"] == 1.0
-    assert report["seed_validation_accuracy"] == 0.0
+    assert report["validation_score"] == 1.0
+    assert report["seed_validation_score"] == 0.0
     assert report["candidates"] == 2
     assert report["execution"] == {"max_workers": 2}
     assert sum(path == "/v1/chat/completions" for path, _ in provider.requests) == 1
