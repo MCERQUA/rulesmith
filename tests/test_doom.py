@@ -2,6 +2,9 @@
 
 import json
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -320,3 +323,40 @@ def test_repository_doom_graphs_validate_against_their_task(path):
     task = path.parents[1] / f"{path.stem.split('-')[0]}.json"
     # Hand-built level graphs exceed the default search bound on node count.
     assert invoke("validate", task, path, "--max-nodes", 32).returncode == 0
+
+
+def test_terminating_the_cli_shuts_down_its_game_engine(tmp_path):
+    import signal
+
+    task = write(tmp_path / "doom.json", doom_data(episode_timeout=35 * 600, validation=[3]))
+    plan = write(tmp_path / "plan.json", constant_plan("MOVE_LEFT"))
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "decision_compose.cli",
+            "evaluate",
+            str(task),
+            str(plan),
+            "--split",
+            "validation",
+            "--output",
+            str(tmp_path / "out.json"),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    engines = []
+    for _ in range(600):
+        engines = subprocess.run(
+            ["pgrep", "-P", str(process.pid)], capture_output=True, text=True
+        ).stdout.split()
+        if engines:
+            break
+        process.wait(timeout=0.05) if process.poll() is not None else None
+        time.sleep(0.05)
+    assert engines, "the game engine never started"
+    process.send_signal(signal.SIGTERM)
+    process.wait(timeout=30)
+    alive = [pid for pid in engines if subprocess.run(["kill", "-0", pid]).returncode == 0]
+    assert alive == []

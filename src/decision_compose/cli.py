@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import signal
 import sys
 from collections import Counter
 from contextlib import ExitStack, redirect_stdout
@@ -172,6 +173,9 @@ def load_task(path: Path) -> Task | DoomTask:
 
 
 def main() -> None:
+    # The default SIGTERM action skips cleanup, which leaves ViZDoom engines running (they
+    # ignore SIGTERM themselves); exiting normally closes every environment on the way out.
+    signal.signal(signal.SIGTERM, lambda number, _: sys.exit(128 + number))
     cli = parser()
     args = cli.parse_args()
     if args.command == "draft-labels":
