@@ -30,6 +30,15 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.skip(reason="local model check requires --ruling-url"))
 
 
+def chat_reply(**fields):
+    """A completion in DSPy's ChatAdapter field format."""
+    body = "".join(
+        f"[[ ## {name} ## ]]\n{value if isinstance(value, str) else json.dumps(value)}\n\n"
+        for name, value in fields.items()
+    )
+    return body + "[[ ## completed ## ]]"
+
+
 @pytest.fixture
 def mixed_plan():
     return Plan.model_validate(
@@ -83,6 +92,8 @@ def provider():
         on_request=None,
         status=200,
         completion=None,
+        # LM Studio, for one, rejects OpenAI's JSON mode.
+        json_mode=True,
         body={
             "model": "fixture-model",
             "answers": {},
@@ -122,8 +133,14 @@ def provider():
                     ],
                     "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},
                 }
+            status = fixture.status
+            if not fixture.json_mode and request.get("response_format", {}).get("type") == (
+                "json_object"
+            ):
+                status = 400
+                response = {"error": "'response_format.type' must be 'json_schema' or 'text'"}
             body = json.dumps(response).encode()
-            self.send_response(fixture.status)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()

@@ -1,7 +1,7 @@
-import json
-
 import dspy
 import pytest
+from conftest import chat_reply
+from dspy.utils.exceptions import AdapterParseError
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
@@ -35,7 +35,7 @@ def test_split_sizes_are_checked_before_any_label_is_requested():
 
 
 def test_labeler_rejects_a_label_outside_the_task(provider):
-    provider.completion = json.dumps({"label": "invented"})
+    provider.completion = chat_reply(label="invented")
     labeler = Labeler(
         dspy.LM(
             "openai/fixture-model",
@@ -47,5 +47,5 @@ def test_labeler_rejects_a_label_outside_the_task(provider):
         "Classify requests.",
         ["accept", "review"],
     )
-    with pytest.raises(ValueError, match="invented"):
+    with pytest.raises(AdapterParseError, match="invented"):
         labeler("request A")

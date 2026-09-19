@@ -8,6 +8,7 @@ import dspy
 from pydantic import Field
 
 from decision_compose.graph import State, StrictModel, Task, Text
+from decision_compose.optimize import text_adapter
 
 
 class Unlabeled(StrictModel):
@@ -31,7 +32,7 @@ class Labeler(dspy.Module):
         self.predict = dspy.Predict(signature)
 
     def forward(self, state: State) -> str:
-        with dspy.context(lm=self.lm, adapter=dspy.JSONAdapter()):
+        with dspy.context(lm=self.lm, adapter=text_adapter()):
             return self.predict(state=state).label
 
 

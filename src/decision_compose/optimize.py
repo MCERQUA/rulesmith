@@ -18,6 +18,11 @@ from decision_compose.graph import Example, Plan, StrictModel
 from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
 
 
+def text_adapter() -> dspy.ChatAdapter:
+    """Plain-text fields work on any chat endpoint; JSON mode is not universal (LM Studio)."""
+    return dspy.ChatAdapter(use_json_adapter_fallback=False)
+
+
 class GraphProposal(dspy.Signature):
     """Design a complete decision DAG that satisfies the supplied schema and feedback."""
 
@@ -34,8 +39,7 @@ class GraphProposer(dspy.Module):
 
     def forward(self, prompt: str | list[dict]) -> str:
         request = prompt if isinstance(prompt, str) else json.dumps(prompt)
-        # Open mappings need JSON mode; native strict schemas can prohibit new node IDs.
-        with dspy.context(lm=self.lm, adapter=dspy.JSONAdapter()):
+        with dspy.context(lm=self.lm, adapter=text_adapter()):
             try:
                 result = self.predict(request=request)
             except (AdapterParseError, ValidationError) as error:

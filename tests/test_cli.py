@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from conftest import chat_reply
 from test_graph import binary_plan, task_data
 
 from decision_compose.graph import Plan, Task
@@ -82,7 +83,7 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
     data = task_data()
     data["train"].append({"id": "d", "state": "request D", "label": "review"})
     task = write(tmp_path / "task.json", data)
-    provider.completion = json.dumps(binary_plan())
+    provider.completion = chat_reply(**binary_plan())
 
     def answer_by_request(request):
         noul = 0.9 if "request A" in json.dumps(request["state"]) else 0.1
@@ -130,7 +131,7 @@ def test_cli_drafts_a_reviewable_task_from_unlabeled_inputs(tmp_path, provider, 
         tmp_path / "inputs.json",
         {"description": "Classify requests.", "labels": ["accept", "review"], "inputs": states},
     )
-    provider.completion = json.dumps({"label": "review"})
+    provider.completion = chat_reply(label="review")
     output = tmp_path / "task.json"
     result = invoke(
         "draft-labels",
