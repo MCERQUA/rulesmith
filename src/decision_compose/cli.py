@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import dspy
+import imageio_ffmpeg
 from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
@@ -70,7 +71,9 @@ def parser() -> argparse.ArgumentParser:
         provider_arguments(command)
         command.add_argument("--output", type=Path, required=True)
         if name == "record":
-            command.add_argument("--seed", type=int, required=True, help="Doom episode seed")
+            command.add_argument(
+                "--seed", type=int, nargs="+", required=True, help="Episode seeds, played in order"
+            )
         elif name == "evaluate":
             command.add_argument("--split", choices=("train", "validation", "test"), default="test")
             command.add_argument(
@@ -145,7 +148,15 @@ def draft_labels(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None
     print(dump({"labels": dict(counts), "output": str(args.output)}), end="")
 
 
-def save_gif(frames: list, fps: int, path: Path) -> None:
+def save_video(frames: list, fps: int, path: Path) -> None:
+    if path.suffix == ".mp4":
+        height, width, _ = frames[0].shape
+        writer = imageio_ffmpeg.write_frames(str(path), (width, height), fps=fps)
+        writer.send(None)
+        for frame in frames:
+            writer.send(frame)
+        writer.close()
+        return
     first, *rest = (Image.fromarray(frame) for frame in frames)
     # GIF delays are whole centiseconds, so round to 10 ms rather than truncate.
     delay = round(100 / fps) * 10
@@ -175,6 +186,8 @@ def main() -> None:
         cli.error("--visible requires a Doom task")
     if args.command == "record" and not isinstance(task, DoomTask):
         cli.error("record requires a Doom task")
+    if args.command == "record" and args.output.suffix not in (".gif", ".mp4"):
+        cli.error("record writes .gif or .mp4")
     if args.command in ("evaluate", "optimize", "record"):
         if args.output.exists():
             cli.error(f"output already exists: {args.output}")
@@ -224,9 +237,13 @@ def main() -> None:
             )
             print(dump(dict(prediction)), end="")
         elif args.command == "record":
-            outcome = score(DecisionProgram(plan, client, model, execution), args.seed)
-            save_gif(env.frames, env.game.get_ticrate(), args.output)
-            print(dump(outcome.record | {"output": str(args.output)}), end="")
+            program = DecisionProgram(plan, client, model, execution)
+            frames, episodes = [], []
+            for seed in args.seed:
+                episodes.append(score(program, seed).record)
+                frames += env.frames
+            save_video(frames, env.game.get_ticrate(), args.output)
+            print(dump({"episodes": episodes, "output": str(args.output)}), end="")
         elif args.command == "evaluate":
             report = evaluate_plan(plan, getattr(task, args.split), client, model, execution, score)
             report["split"] = args.split

@@ -283,12 +283,30 @@ def test_cli_records_an_episode_as_a_gif(tmp_path):
     output = tmp_path / "episode.gif"
     result = invoke("record", task, plan, "--seed", 7, "--output", output)
     assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)["reward"] == reference_reward("MOVE_LEFT", 7, 4, tmp_path)
+    (episode,) = json.loads(result.stdout)["episodes"]
+    assert episode["reward"] == reference_reward("MOVE_LEFT", 7, 4, tmp_path)
     with Image.open(output) as gif:
         playback = 0
         for index in range(gif.n_frames):
             gif.seek(index)
             playback += gif.info["duration"]
     # GIF delays are whole centiseconds; playback should still run at game speed.
-    game_seconds = json.loads(result.stdout)["steps"] * 4 / 35
+    game_seconds = episode["steps"] * 4 / 35
     assert playback / 1000 == pytest.approx(game_seconds, rel=0.15)
+
+
+def test_cli_records_several_episodes_back_to_back_as_mp4(tmp_path):
+    import imageio_ffmpeg
+
+    plan = write(tmp_path / "plan.json", constant_plan("MOVE_LEFT"))
+    task = write(tmp_path / "doom.json", doom_data())
+    output = tmp_path / "reel.mp4"
+    result = invoke("record", task, plan, "--seed", 7, 8, "--output", output)
+    assert result.returncode == 0, result.stderr
+    episodes = json.loads(result.stdout)["episodes"]
+    assert [e["seed"] for e in episodes] == [7, 8]
+    reader = imageio_ffmpeg.read_frames(str(output))
+    meta = next(reader)
+    frames = sum(1 for _ in reader)
+    assert frames == sum(e["steps"] * 4 for e in episodes)
+    assert meta["fps"] == pytest.approx(35)
