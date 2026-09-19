@@ -130,7 +130,7 @@ def test_real_gepa_carries_rejected_graph_feedback_into_next_reflection(provider
         client,
         "fixture-model",
         reflect,
-        SearchConfig(max_metric_calls=6, reflection_batch=1),
+        SearchConfig(max_metric_calls=6, reflection_batch=1, repair_attempts=0),
     )
     assert best == proposed
     assert report["validation_score"] == 1
@@ -722,3 +722,28 @@ def test_proposals_containing_code_fences_reach_search_intact(provider, client):
     )
     assert best == proposal
     assert report["invalid_candidate_evaluations"] == 0
+
+
+def test_invalid_proposals_are_repaired_before_search_scores_them(client):
+    broken = {"nodes": {}, "outputs": {"label": {"node": "missing"}}}
+    fixed = Plan.model_validate(constant_plan("accept"))
+    prompts = []
+
+    def reflect(prompt):
+        prompts.append(prompt)
+        return json.dumps(broken) if len(prompts) == 1 else fixed.model_dump_json()
+
+    data = task_data()
+    data["validation"][0]["label"] = "accept"
+    best, report = optimize_plan(
+        Task.model_validate(data),
+        Plan.model_validate(constant_plan()),
+        client,
+        "fixture-model",
+        reflect,
+        SearchConfig(max_metric_calls=4, reflection_batch=1, repair_attempts=1),
+    )
+    assert best == fixed
+    assert report["invalid_candidate_evaluations"] == 0
+    assert report["repairs"] == 1
+    assert json.dumps(broken) in prompts[1] and "type" in prompts[1]

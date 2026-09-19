@@ -108,6 +108,9 @@ class SearchConfig(StrictModel):
     max_nodes: int = Field(default=16, ge=1)
     max_depth: int = Field(default=8, ge=1)
     reflection_batch: int = Field(default=3, ge=1)
+    repair_attempts: int = Field(
+        default=2, ge=0, description="Times an invalid proposal is sent back with its error"
+    )
     seed: int = 0
 
 
@@ -200,6 +203,7 @@ def optimize_plan(
         raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
     adapter = GraphAdapter(task, client, model, config, execution, score)
     reflection_calls = 0
+    repairs = 0
     syntax_example = Plan.model_validate(
         {
             "nodes": {
@@ -237,14 +241,33 @@ def optimize_plan(
                 else f"{prompt}\n\n{feedback}"
             )
             adapter.proposal_feedback = None
-        try:
-            reflection_calls += 1
-            proposal = reflection_lm(prompt)
-        except Exception as error:
-            # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
-            adapter.failure = error
-            raise
-        adapter.proposed = proposal.strip()
+        nonlocal repairs
+        for attempt in range(config.repair_attempts + 1):
+            try:
+                reflection_calls += 1
+                proposal = reflection_lm(prompt).strip()
+            except Exception as error:
+                # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
+                adapter.failure = error
+                raise
+            try:
+                adapter.parse({"graph": proposal})
+                break
+            except ValueError as error:
+                if attempt == config.repair_attempts:
+                    break
+                repairs += 1
+                # Validation is instant, so fix schema slips before spending episodes on them.
+                repair = (
+                    f"This graph failed validation and was not run:\n{proposal}\n"
+                    f"Error: {error}\nReturn the complete corrected graph."
+                )
+                prompt = (
+                    [*prompt, {"role": "user", "content": repair}]
+                    if isinstance(prompt, list)
+                    else f"{prompt}\n\n{repair}"
+                )
+        adapter.proposed = proposal
         # GEPA keeps only the text between the first and last ``` of a reply, so fence the
         # proposal ourselves; backticks inside the graph then survive intact.
         return f"```\n{adapter.proposed}\n```"
@@ -321,6 +344,7 @@ def optimize_plan(
         "validation_scores": result.val_aggregate_scores,
         "candidates": len(result.candidates),
         "reflection_calls": reflection_calls,
+        "repairs": repairs,
         "invalid_candidate_evaluations": adapter.invalid_candidate_evaluations,
         "metric_calls": result.total_metric_calls,
     }

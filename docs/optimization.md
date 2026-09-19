@@ -37,6 +37,7 @@ uv run decision-compose evaluate task.json runs/my-task/plan.json --split test \
 | `--reflection-base-url` | — | Proposer endpoint, e.g. a local server's `/v1` |
 | `--max-metric-calls` | 100 | Budget in example evaluations |
 | `--reflection-batch` | 3 | Training examples per reflection |
+| `--repair-attempts` | 2 | Times an invalid proposal goes back to the proposer with its validation error before search sees it |
 | `--max-nodes` / `--max-depth` | 16 / 8 | Limits on generated graphs |
 | `--seed` | 0 | Search seed |
 

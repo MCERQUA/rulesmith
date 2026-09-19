@@ -93,6 +93,9 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument(
                 "--reflection-batch", type=int, default=SearchConfig().reflection_batch
             )
+            command.add_argument(
+                "--repair-attempts", type=int, default=SearchConfig().repair_attempts
+            )
             command.add_argument("--seed", type=int, default=SearchConfig().seed)
     draft = commands.add_parser("draft-labels", help="Label raw inputs for review as a task")
     draft.add_argument("inputs", type=Path, help="JSON with description, labels, and inputs")
@@ -198,6 +201,7 @@ def main() -> None:
             max_depth=args.max_depth,
             max_metric_calls=args.max_metric_calls,
             reflection_batch=args.reflection_batch,
+            repair_attempts=args.repair_attempts,
             seed=args.seed,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
