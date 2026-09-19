@@ -220,6 +220,28 @@ is 27 nodes of reads and routing with no judge calls, and it **finishes the leve
 Episodes were capped at 6 minutes. Two of the deaths came within 260 units of the
 exit switch; the rest came in the first minute's fights.
 
+The graph search found, drawn as its priority list. Each box stands for the
+rule nodes of one kind; the final `coalesce` node takes the first rule whose
+conditions hold:
+
+```mermaid
+flowchart TD
+  OBS(["Observation, every 6 tics"]) --> READS["10 read nodes<br/>health · ammo · wall ahead<br/>route: next, bearing, distance<br/>target: x, distance<br/>memory: moved, visits here"]
+  READS --> P1
+  subgraph PRIORITY["Rules in priority order: the first that applies wins"]
+    direction TB
+    P1["1 · Survive<br/>no ammo, monster within 150 → back up<br/>health under 15, ammo under 5, monster near → back up"]
+    P2["2 · Fight a monster within 450<br/>centered, |x| under 0.15 → ATTACK<br/>left of center → turn left · right → turn right"]
+    P3["3 · Get unstuck<br/>barely moved, visited here 20+ times → back up<br/>barely moved, visited 6+ times → turn toward the route"]
+    P4["4 · Doors and exit<br/>exit switch within 100, ahead ±20° → forward + USE<br/>door within 90, ahead ±20° → forward + USE"]
+    P5["5 · Wall under 64 ahead<br/>turn toward the route's side"]
+    P6["6 · Follow the route<br/>bearing 35°+ → turn · 10–35° → forward and turn"]
+    P7["7 · Otherwise → forward"]
+    P1 -.->|no| P2 -.->|no| P3 -.->|no| P4 -.->|no| P5 -.->|no| P6 -.->|no| P7
+  end
+  PRIORITY ==> ACT(["Action: one of 9 buttons or combos"])
+```
+
 ## Use from Python
 
 A graph runs as a `dspy.Module`:
