@@ -259,6 +259,11 @@ def optimize_plan(
         "which is the value the node outputs, to a description of when it applies. "
         "Never put instructions or criteria "
         'beside question. Original input uses {"type":"state"}; it is not a node named input. '
+        'Every input and output source needs its type, e.g. {"type":"node","node":"decision"}; '
+        "a source without type is rejected. A choice call's value is the option it picks; a "
+        "score call's value is the expected position on its ordered levels; a noul call's value "
+        "is the probability that its yes/no statement is true. Calls judge; they cannot extract "
+        "or compute numbers from their inputs. "
         "Only declared node IDs may be referenced; there is no input_wiring field. "
         "Use view=value for a label output, not view=answer (which returns an object). "
         "Node and control references must form a DAG; every node must feed an output. "
