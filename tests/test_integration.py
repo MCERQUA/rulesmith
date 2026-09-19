@@ -636,3 +636,25 @@ def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider
     assert sorted(key for questions in judged for key in questions) == sorted(
         ["team", "urgency", "refund"] * 2
     )
+
+
+def test_reflection_prompt_shows_choice_options_mapped_to_descriptions(client):
+    prompts = []
+
+    def reflect(prompt):
+        prompts.append(prompt)
+        return Plan.model_validate(constant_plan("accept")).model_dump_json()
+
+    optimize_plan(
+        Task.model_validate(task_data()),
+        Plan.model_validate(constant_plan()),
+        client,
+        "fixture-model",
+        reflect,
+        SearchConfig(max_metric_calls=4, reflection_batch=1),
+    )
+    example = re.search(r"not a solution\):\n(.*)\n", prompts[0]).group(1)
+    (node,) = Plan.model_validate_json(example).nodes.values()
+    criteria = node.question.criteria
+    assert set(criteria) == {"accept", "review"}
+    assert all(description != option for option, description in criteria.items())

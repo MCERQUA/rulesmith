@@ -209,7 +209,9 @@ def optimize_plan(
                     "question": {
                         "type": "choice",
                         "instructions": task.description,
-                        "criteria": {label: label for label in task.labels[:2]},
+                        "criteria": {
+                            label: f"When the input calls for {label}." for label in task.labels[:2]
+                        },
                     },
                     "inputs": {"request": {"type": "state"}},
                 }
@@ -249,7 +251,9 @@ def optimize_plan(
         "which can reference original state, literal data, or earlier node values/answers. "
         "Each call is a separate request; independent ready calls run concurrently. "
         "A call's question MUST be an object nested inside the call, containing lowercase "
-        "type, instructions, and criteria when applicable. Never put instructions or criteria "
+        "type, instructions, and criteria when applicable. Choice criteria map each option, "
+        "which is the value the node outputs, to a description of when it applies. "
+        "Never put instructions or criteria "
         'beside question. Original input uses {"type":"state"}; it is not a node named input. '
         "Only declared node IDs may be referenced; there is no input_wiring field. "
         "Use view=value for a label output, not view=answer (which returns an object). "
