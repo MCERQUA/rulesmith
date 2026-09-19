@@ -41,6 +41,11 @@ class DoomTask(StrictModel):
     )
     feedback_steps: int = Field(default=8, ge=1)
     map: Text | None = Field(default=None, description="Map to load, e.g. E1M1")
+    deathmatch: bool = Field(
+        default=False,
+        description="Played only as networked duels in the arena; deathmatch maps such as "
+        "cig's have no single-player start",
+    )
     variables: list[Text] = Field(
         default_factory=list, description="Game variables to add, e.g. HEALTH or AMMO2"
     )
@@ -132,6 +137,19 @@ def walls(state) -> tuple[np.ndarray, np.ndarray]:
 
 
 CUSTOM_REWARDS = {"explore", "progress"}
+# Deathmatch rules from ViZDoom's competition examples, for whoever hosts a networked game,
+# minus +viz_nocheat: it switches off the labels and objects that graphs observe.
+DEATHMATCH = (
+    "-deathmatch +sv_forcerespawn 1 +sv_noautoaim 1 +sv_respawnprotect 1 "
+    "+sv_spawnfarthest 1 +sv_nocrouch 1"
+)
+
+
+def scenario_config(scenario: str) -> str:
+    config = os.path.join(vzd.scenarios_path, f"{scenario}.cfg")
+    if not os.path.isfile(config):
+        raise ValueError(f"unknown ViZDoom scenario: {scenario}")
+    return config
 
 
 def setting(config: str, key: str) -> str | None:
@@ -166,9 +184,16 @@ def level_file(config: str, map_name: str) -> Path:
 class DoomEnvironment:
     """A headless ViZDoom game whose observations are JSON, not pixels."""
 
-    def __init__(self, task: DoomTask, visible: bool = False, record: bool = False):
+    def __init__(
+        self, task: DoomTask, visible: bool = False, record: bool = False, game_args: str = ""
+    ):
+        """game_args hosts or joins a networked game, such as an arena duel."""
         self.task = task
         self.visible = visible
+        self.game_args = game_args
+        if task.deathmatch and not game_args:
+            # ViZDoom segfaults starting a deathmatch-only map without a network game.
+            raise ValueError("deathmatch tasks are played in the arena, not alone")
         # ViZDoom otherwise writes _vizdoom.ini into the working directory.
         self.scratch = tempfile.TemporaryDirectory()
         self.game = None
@@ -177,19 +202,27 @@ class DoomEnvironment:
         # Every rendered tic while recording, as height x width x RGB arrays.
         self.frames: list | None = [] if record else None
         self.tics = task.tics_per_action
-        self.start(task.scenario)
+        # A networked game waits for every player at init, and each of its episodes needs a
+        # fresh game, so it starts with its first episode instead.
+        if not self.game_args:
+            self.start(task.scenario)
 
-    def start(self, scenario: str) -> None:
+    def start(self, scenario: str, map_name: str = "", seed: int | None = None) -> None:
         """Start a game for the scenario; each episode then picks its own map."""
-        config = os.path.join(vzd.scenarios_path, f"{scenario}.cfg")
-        if not os.path.isfile(config):
-            raise ValueError(f"unknown ViZDoom scenario: {scenario}")
+        config = scenario_config(scenario)
         if self.game is not None:
             self.game.close()
         task = self.task
         self.config = config
         self.game = vzd.DoomGame()
         self.game.load_config(config)
+        # Graphs take as long as they need per action, so the game always waits for them.
+        self.game.set_mode(vzd.Mode.PLAYER)
+        if map_name:
+            self.game.set_doom_map(map_name)
+        if seed is not None:
+            self.game.set_seed(seed)
+        self.game.add_game_args(self.game_args)
         self.game.set_doom_config_path(os.path.join(self.scratch.name, "_vizdoom.ini"))
         self.game.set_window_visible(self.visible)
         self.game.set_labels_buffer_enabled(True)
@@ -219,18 +252,24 @@ class DoomEnvironment:
 
     def reset(self, episode: int | Episode) -> dict:
         episode = self.task.episode(episode)
-        if episode.scenario != self.scenario:
-            self.start(episode.scenario)
-        map_name = (episode.map or setting(self.config, "doom_map") or "").upper()
-        if map_name:
-            self.game.set_doom_map(map_name)
+        config = scenario_config(episode.scenario)
+        map_name = (episode.map or setting(config, "doom_map") or "").upper()
+        if self.game_args:
+            # Networked players cannot change maps or restart episodes on their own, so every
+            # episode is a new game that everyone joins at init.
+            self.start(episode.scenario, map_name, episode.seed)
+        else:
+            if episode.scenario != self.scenario:
+                self.start(episode.scenario)
+            if map_name:
+                self.game.set_doom_map(map_name)
+            self.game.set_seed(episode.seed)
+            self.game.new_episode()
         self.level = None
         if "route" in self.task.observe or "progress" in self.task.rewards:
             if not map_name:
                 raise ValueError(f"routing needs a map name for {episode.scenario}")
             self.level = load_level(level_file(self.config, map_name), map_name)
-        self.game.set_seed(episode.seed)
-        self.game.new_episode()
         if self.frames is not None:
             self.frames = [self.game.get_state().screen_buffer.copy()]
         self.visited = Counter()
@@ -278,6 +317,9 @@ class DoomEnvironment:
         self.recent.append(action)
         if self.game.is_episode_finished():
             return reward, None
+        # Only deathmatch outlives a death; single-player episodes end above.
+        if self.game.is_player_dead():
+            self.game.respawn_player()
         if self.visit():
             reward += self.task.rewards.get("explore", 0.0)
         self.plot()
@@ -353,8 +395,9 @@ class DoomEnvironment:
         return observation
 
     def target(self, state, objects: list[dict], x: float, y: float) -> dict | None:
-        """The nearest live monster on screen, with its map distance."""
-        # Killed monsters leave the labels, so every on-screen Monster is alive. Labels share
+        """The nearest live monster or opponent on screen, with its map distance."""
+        # Killed monsters and players leave the labels, so every one on screen is alive; the
+        # player's own body is category Self and never listed. Labels share
         # IDs with map objects, whose positions give each visible monster's distance.
         places = {thing.id: thing for thing in state.objects}
         visible = [label for label in state.labels if label.object_category != "Self"]
@@ -366,7 +409,7 @@ class DoomEnvironment:
                 entry,
             )
             for label, entry in zip(visible, objects, strict=True)
-            if entry["category"] == "Monster" and label.object_id in places
+            if entry["category"] in ("Monster", "Player") and label.object_id in places
         ]
         if not ranged:
             return None
@@ -404,15 +447,20 @@ class DoomEnvironment:
         """Level progress counters; ViZDoom keeps them readable after the episode ends."""
         variable = self.game.get_game_variable
         GV = vzd.GameVariable
-        return {
+        stats = {
             "kills": int(variable(GV.KILLCOUNT)),
             "items": int(variable(GV.ITEMCOUNT)),
             "secrets": int(variable(GV.SECRETCOUNT)),
             "explored_cells": len(self.visited),
         }
+        if self.game_args:
+            stats["frags"] = int(variable(GV.FRAGCOUNT))
+            stats["deaths"] = int(variable(GV.DEATHCOUNT))
+        return stats
 
     def close(self) -> None:
-        self.game.close()
+        if self.game is not None:
+            self.game.close()
         self.scratch.cleanup()
 
     def __enter__(self) -> Self:

@@ -225,7 +225,12 @@ def test_cli_optimizes_and_evaluates_a_doom_task(tmp_path, provider, monkeypatch
     assert report["examples"][0]["reward"] > 0
 
 
-EXAMPLES = sorted((Path(__file__).resolve().parents[1] / "examples/doom").glob("*.json"))
+# Deathmatch examples only play networked; test_arena covers them.
+EXAMPLES = [
+    path
+    for path in sorted((Path(__file__).resolve().parents[1] / "examples/doom").glob("*.json"))
+    if not json.loads(path.read_text()).get("deathmatch")
+]
 
 
 @pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.stem)

@@ -37,6 +37,7 @@ A Doom task replaces labeled examples with episode seeds. See
 | `tics_per_action` | Game tics each chosen button is held (default 4) |
 | `episode_timeout` | Tics before an episode ends (default: the scenario's own). Cap scenarios that otherwise run until death |
 | `feedback_steps` | Final steps shown to the proposer per episode (default 8) |
+| `deathmatch` | Arena-only: episodes are networked duels between graphs (default false) |
 | `train`, `validation`, `test` | Distinct episode seeds |
 
 ## Scenarios
@@ -102,6 +103,37 @@ uv run decision-compose evaluate examples/doom/basic.json runs/doom/plan.json \
 
 The game waits for each decision, so play runs at the judge's speed.
 
+## Arena
+
+`arena` ranks graphs by playing them against each other:
+
+```sh
+uv run decision-compose arena examples/doom/duel.json a.json b.json c.json --output runs/arena.json
+```
+
+- Every pair plays one deathmatch per episode in the task's `--split` (default
+  `test`). Each graph runs its own ViZDoom instance, joined over a local network
+  game. The engines run in lockstep, so a graph that waits on judge calls slows
+  the match rather than losing turns.
+- The graph with more frags wins; equal frags is a draw. A graph that fails to
+  produce an action forfeits.
+- The joining player sometimes loses a tic to network latency, getting up to
+  about 10% fewer turns. Hosting alternates between episodes, so each pair
+  shares that handicap evenly when it plays an even number of episodes.
+  The same timing makes matches vary slightly from run to run.
+- Ratings are a Bradley–Terry fit to all results at once, reported on the Elo
+  scale: a 400-point gap means 10:1 odds and the field averages 1500. The fit
+  ignores match order. Every pair also shares one virtual draw, which keeps an
+  unbeaten graph's rating finite.
+- Entrants are named by file stem, so two entrants' files need different names.
+
+Opponents appear in `objects` with category `Player`, and `target` reports the
+nearest one on screen. [examples/doom/duel.json](../examples/doom/duel.json)
+scores frags minus deaths and sets `deathmatch`, which marks a task as
+arena-only: deathmatch maps have no single-player start, so `evaluate` and
+`optimize` refuse it. ZDoom's built-in bots are left out: under ViZDoom's
+synchronous play they barely fire, even with perfect skill settings.
+
 ## Limits
 
 - Graphs keep no memory between steps; each action sees only the current observation.
@@ -111,3 +143,5 @@ The game waits for each decision, so play runs at the judge's speed.
   campaign maps, are out of reach for now.
 - Each step costs at least one judge call per call node, and episodes are
   evaluated one at a time.
+- `rangefinder` crashes ViZDoom 1.3.0 on some maps, including E1M6 and the
+  `cig` deathmatch maps, because it turns on sectors info. Leave it out there.

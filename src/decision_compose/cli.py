@@ -6,7 +6,7 @@ import os
 import signal
 import sys
 from collections import Counter
-from contextlib import ExitStack, redirect_stdout
+from contextlib import ExitStack, nullcontext, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +15,7 @@ import imageio_ffmpeg
 from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
+from decision_compose.arena import Entrant, tournament
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
 from decision_compose.label import Labeler, Unlabeled, draft_task
@@ -111,6 +112,14 @@ def parser() -> argparse.ArgumentParser:
     draft.add_argument("--validation", type=int, required=True, help="Validation example count")
     draft.add_argument("--test", type=int, required=True, help="Test example count")
     draft.add_argument("--seed", type=int, default=0, help="Split shuffle seed")
+    arena = commands.add_parser("arena", help="Rank Doom graphs by Elo from deathmatch duels")
+    arena.add_argument("task", type=Path, help="Doom task whose episodes are the matches")
+    arena.add_argument("plans", type=Path, nargs="+", help="Entrants, named by file stem")
+    arena.add_argument("--split", choices=("train", "validation", "test"), default="test")
+    arena.add_argument("--max-nodes", type=int, default=SearchConfig().max_nodes)
+    arena.add_argument("--max-depth", type=int, default=SearchConfig().max_depth)
+    arena.add_argument("--output", type=Path, required=True)
+    provider_arguments(arena)
     run = commands.add_parser("run")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
@@ -127,6 +136,45 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
         "--retries", type=int, default=0, help="Retries for failed or timed-out judge requests"
     )
     command.add_argument("--max-workers", type=int, default=ExecutionConfig().max_workers)
+
+
+def judge(args: argparse.Namespace, needed: bool):
+    """The judge model, and a client for it when some graph calls it."""
+    model, connection = resolve_backend(args.backend, args.model, args.base_url)
+    if not needed:
+        return model, nullcontext()
+    retry = RetryPolicy(max_retries=args.retries)
+    return model, TypeSafeClient(**connection, timeout=args.timeout, retry=retry)
+
+
+def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    task = load_task(args.task)
+    if not isinstance(task, DoomTask) or not task.deathmatch:
+        cli.error("arena requires a Doom task with deathmatch set")
+    if args.output.exists():
+        cli.error(f"output already exists: {args.output}")
+    plans = {}
+    for path in args.plans:
+        if path.stem in plans:
+            cli.error(f"entrants share the name {path.stem}; rename a plan file")
+        plans[path.stem] = Plan.model_validate_json(path.read_text())
+        plans[path.stem].check(task.labels, args.max_nodes, args.max_depth)
+    if len(plans) < 2:
+        cli.error("the arena needs at least two entrants")
+    calls = any(isinstance(node, Call) for plan in plans.values() for node in plan.nodes.values())
+    model, judge_client = judge(args, calls)
+    execution = ExecutionConfig(max_workers=args.max_workers)
+    with judge_client as client:
+        entrants = [
+            Entrant(name, DecisionProgram(plan, client, model, execution))
+            for name, plan in plans.items()
+        ]
+        report = tournament(task, entrants, getattr(task, args.split))
+    report["split"] = args.split
+    report["backend"] = args.backend
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(dump(report))
+    print(dump({"ratings": report["ratings"], "output": str(args.output)}), end="")
 
 
 def dump(value: dict) -> str:
@@ -187,6 +235,9 @@ def main() -> None:
     if args.command == "draft-labels":
         draft_labels(cli, args)
         return
+    if args.command == "arena":
+        arena(cli, args)
+        return
     if args.command != "run":
         task = load_task(args.task)
     plan = Plan.model_validate_json(args.plan.read_text()) if args.plan else task.baseline_plan()
@@ -228,21 +279,13 @@ def main() -> None:
 
         reflect = GraphProposer(reflection)
 
-    model, connection = resolve_backend(args.backend, args.model, args.base_url)
     execution = ExecutionConfig(max_workers=args.max_workers)
-    needs_client = args.command == "optimize" or any(
-        isinstance(node, Call) for node in plan.nodes.values()
+    model, judge_client = judge(
+        args,
+        args.command == "optimize" or any(isinstance(node, Call) for node in plan.nodes.values()),
     )
     with ExitStack() as stack:
-        client = (
-            stack.enter_context(
-                TypeSafeClient(
-                    **connection, timeout=args.timeout, retry=RetryPolicy(max_retries=args.retries)
-                )
-            )
-            if needs_client
-            else None
-        )
+        client = stack.enter_context(judge_client)
         score = classify
         if args.command != "run" and isinstance(task, DoomTask):
             env = DoomEnvironment(

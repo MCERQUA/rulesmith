@@ -788,6 +788,29 @@ flowchart TD
 
 </details>
 
+**Arena**: graphs can also play each other. `arena` runs a round-robin of
+one-on-one deathmatches on ViZDoom's `cig` competition map and ranks the
+entrants by Elo:
+
+```sh
+uv run decision-compose arena examples/doom/duel.json \
+  examples/doom/graphs/e1m1-exit.json examples/doom/graphs/e1m1-searched.json \
+  examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
+```
+
+Three call-free graphs, six seeds per pair (18 matches, 45 seconds):
+
+| Graph | Elo | Won | Drawn | Lost | Frags for / against |
+| --- | --- | --- | --- | --- | --- |
+| e1m1-exit | 1609 | 6 | 6 | 0 | 10 / 4 |
+| e1m1-searched | 1500 | 2 | 8 | 2 | 7 / 7 |
+| duel-attack | 1392 | 0 | 6 | 6 | 1 / 7 |
+
+Neither E1M1 graph was searched for dueling, and 10 of the 18 matches were
+draws. Network timing shifts which tics the joining player acts on, so frag
+counts vary between runs; in two runs the records and ratings came out the same. See [Doom](docs/doom.md#arena) for how
+matches are played and scored.
+
 ## Use from Python
 
 A graph runs as a `dspy.Module`:
