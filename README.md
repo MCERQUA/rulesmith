@@ -2,20 +2,127 @@
 
 ![decision-compose — Design and optimize decision graphs](image.png)
 
-Build and optimize typed directed acyclic graphs of Ruling or hosted Jev calls.
-DSPy proposes complete graphs, GEPA searches and selects them, and a DSPy module
-executes them through TypeSafe's official SDK against either compatible backend.
+**decision-compose lets DSPy build decision graphs for you.** Give it a
+classification task and labeled examples. A generative model proposes graphs of
+small typed judgments (Choice, Score, Noul), [GEPA](https://github.com/gepa-ai/gepa)
+scores them against a local Ruling or hosted Jev judge, and the best graph
+is saved as plain JSON you can run, inspect, and edit.
 
-Graphs support arbitrary finite acyclic topology over the supported node types:
-sequential calls, parallel fan-out, shared dependencies, conditional branches,
-joins, and multiple outputs. Each call can consume the original input and earlier
-answers. A saved graph runs without the reflection model. Execution supports
-named JSON outputs; optimization currently scores classification accuracy against
-a required `label` output.
+This is an independent research prototype, not affiliated with TypeSafe. It
+optimizes graphs and question instructions, not model weights.
 
-This independent research prototype is not affiliated with TypeSafe. It optimizes
-graphs and question instructions; it does not train model weights. No benchmark
-improvement is claimed.
+## Installation
+
+Requires Python 3.12–3.14 and [uv](https://docs.astral.sh/uv/).
+
+```sh
+uv sync --locked
+```
+
+## Getting started
+
+You need example inputs. Expected outputs (labels) are optional: if you don't
+have them, a strong model drafts them for you to review.
+
+```mermaid
+flowchart LR
+  I["inputs.json<br/>inputs only"] -->|"draft-labels"| R["task.json<br/>review the labels"]
+  L["task.json<br/>inputs + labels"] --> O
+  R --> O["optimize"]
+  O --> P["plan.json<br/>your graph"]
+  P --> RUN["run / evaluate"]
+```
+
+**1. Start a judge.** Ruling runs locally and needs no account:
+
+```sh
+cd ../ruling && uv sync && uv run ruling serve
+```
+
+**2. Configure a proposer.** This is the generative model that writes graphs.
+Any [DSPy model identifier](https://dspy.ai/learn/programming/language_models/)
+works. For a local OpenAI-compatible server:
+
+```sh
+export REFLECTION_MODEL=openai/<served-model-id>
+export REFLECTION_BASE_URL=http://127.0.0.1:8080/v1
+export OPENAI_API_KEY=local-no-auth
+```
+
+**3. Describe the task.** Pick the case that matches your data.
+
+<details open>
+<summary><b>I only have inputs</b></summary>
+
+List the allowed labels and your raw inputs in `inputs.json`:
+
+```json
+{
+  "description": "Route each support ticket to billing, technical, or sales.",
+  "labels": ["billing", "technical", "sales"],
+  "inputs": ["I was charged twice this month.", "The export button returns a 500 error."]
+}
+```
+
+Then have the proposer model label them. `--validation` and `--test` set how
+many inputs are held out for selection and final scoring:
+
+```sh
+uv run decision-compose draft-labels inputs.json --output task.json \
+  --labeler-model "$REFLECTION_MODEL" --labeler-base-url "$REFLECTION_BASE_URL" \
+  --validation 10 --test 10
+```
+
+> [!IMPORTANT]
+> Review and correct `task.json` before optimizing. Search learns to agree with
+> these labels, including their mistakes.
+
+This is DSPy's teacher–student pattern: a large model labels, and the small
+judge is fit to its judgment.
+
+</details>
+
+<details>
+<summary><b>I have labeled examples</b></summary>
+
+Write `task.json` directly, like [examples/task.json](examples/task.json):
+
+```json
+{
+  "description": "Route each support ticket to billing, technical, or sales.",
+  "labels": ["billing", "technical", "sales"],
+  "train": [{"id": "t1", "state": "I was charged twice.", "label": "billing"}],
+  "validation": [...],
+  "test": [...]
+}
+```
+
+`train` drives proposals, `validation` picks the winner, and `test` is scored once at the end.
+
+</details>
+
+**4. Build the graph.**
+
+```sh
+uv run decision-compose optimize task.json \
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" \
+  --output runs/my-task
+```
+
+This writes `runs/my-task/plan.json` (the graph) and `report.json` (scores).
+Compare `validation_accuracy` with `seed_validation_accuracy`.
+
+**5. Evaluate and run it.** The proposer is not needed from here on.
+
+```sh
+uv run decision-compose evaluate task.json runs/my-task/plan.json \
+  --backend ruling --max-workers 1 --split test --output runs/my-task/test.json
+
+uv run decision-compose run runs/my-task/plan.json examples/state.json \
+  --backend ruling --max-workers 1
+```
 
 ## How it works
 
@@ -30,358 +137,38 @@ flowchart LR
 ```
 
 The proposer sees where the current graph answered wrong and writes a complete
-replacement. A proposal is kept only if it beats its parent on the training
-batch, and the graph with the best validation accuracy is saved. The saved graph
-then runs on the backend alone, without the proposer.
+replacement: new calls, rewritten questions, branches, and joins. A proposal is
+kept only if it beats its parent on the training batch, and the graph with the
+best validation accuracy is saved. The test split never reaches the optimizer.
 
-## Quick start
+Graphs can grow into real DAGs. This one ([examples/dag.json](examples/dag.json))
+asks two questions in parallel, then runs only the specialist that matches:
 
-With [Ruling running locally](#use-the-local-ruling-repo) and a generative model
-for the proposer (`REFLECTION_MODEL`, and `REFLECTION_BASE_URL` for a local
-server):
-
-```sh
-uv sync --locked
-cp examples/task.json task.json   # or draft one from unlabeled inputs with draft-labels
-
-uv run decision-compose optimize task.json \
-  --backend ruling --max-workers 1 \
-  --reflection-model "$REFLECTION_MODEL" \
-  --reflection-base-url "$REFLECTION_BASE_URL" \
-  --output runs/my-task
-
-uv run decision-compose run runs/my-task/plan.json state.json \
-  --backend ruling --max-workers 1
+```mermaid
+flowchart LR
+  IN(["ticket"]) --> D["department<br/>choice"]
+  IN --> U["urgency<br/>score"]
+  D --> C["context<br/>merge"]
+  U --> C
+  IN --> C
+  C -.->|"if billing"| B["billing_review"]
+  C -.->|"if technical"| T["technical_review"]
+  C -.->|"if sales"| S["sales_review"]
+  B --> CO["specialist_result<br/>coalesce"]
+  T --> CO
+  S --> CO
+  D --> A["assessment<br/>merge"]
+  U --> A
+  CO --> A
+  D ==> LBL(["label"])
+  A ==> AS(["assessment"])
 ```
 
-`state.json` holds one input to classify. The full walkthrough is in
-[Make a graph for your task](#make-a-graph-for-your-task).
+See [Graph format](docs/graphs.md) for the JSON behind each node.
 
-## Install and run
+## Use from Python
 
-Requires Python 3.12–3.14 and [uv](https://docs.astral.sh/uv/).
-
-```sh
-uv sync --locked
-uv run decision-compose validate examples/task.json examples/seed.json
-uv run decision-compose validate examples/task.json examples/dag.json
-```
-
-Validation and default tests need no credentials. Local Ruling calls need no
-TypeSafe account. Hosted Jev calls require `TYPESAFE_API_KEY` in your shell.
-The SDK reads the environment. DSPy's LiteLLM dependency can also load `.env`
-files on import (its default `DEV` mode does), so do not assume shell variables
-are the only configuration source. Commands that execute hosted model calls may
-incur provider charges.
-
-### Use the local Ruling repo
-
-With `ruling` and `decision-compose` checked out as sibling directories, start
-Ruling in another terminal:
-
-```sh
-cd ../ruling
-uv sync
-uv run ruling serve
-```
-
-From the `decision-compose` checkout, execute the bundled graph and input:
-
-```sh
-uv run decision-compose run examples/dag.json examples/state.json \
-  --backend ruling --max-workers 1
-
-uv run decision-compose evaluate examples/task.json examples/seed.json \
-  --backend ruling --max-workers 1 --split validation \
-  --output runs/ruling-validation.json
-```
-
-`--backend ruling` uses `RULING_BASE_URL` (default `http://127.0.0.1:8010`),
-`RULING_API_KEY` if server authentication is enabled, and the `default` model
-alias. `--base-url` and `--model` override the endpoint and requested model.
-Ruling's `RULING_MODEL` selects the model loaded by the server; changing the graph
-CLI's `--model` does not load another model. The response records the actual
-loaded model ID.
-
-No TypeSafe credential is required. For a server with authentication disabled,
-the SDK receives an unused placeholder key because its constructor requires one.
-The Ruling backend does not reuse `TYPESAFE_API_KEY` or `TYPESAFE_BASE_URL`.
-
-The current Ruling MLX server serializes requests, so `--max-workers 1` avoids
-queuing concurrent requests. Its within-request question batching is not used by
-this executor: each executed call node makes a separate request.
-
-GEPA can optimize the same graph with Ruling evaluating candidates:
-
-```sh
-uv run decision-compose optimize examples/task.json examples/seed.json \
-  --backend ruling --max-workers 1 \
-  --reflection-model "$REFLECTION_MODEL" \
-  --max-metric-calls 100 --output runs/ruling-search
-```
-
-Ruling supplies typed decisions, not generated graph JSON. Reflection needs a
-separate generative model, configured through DSPy. That can be a local
-OpenAI-compatible text-generation server via `--reflection-base-url`, or a
-hosted provider with its own credential and charges.
-
-### Examples and hosted Jev
-
-`examples/task.json` contains 12 authored support tickets: six training, three
-validation, and three test examples. This is a wiring example, not a benchmark.
-`seed.json` uses one Choice call. `dag.json` demonstrates concurrent department
-and urgency calls, a shared context join, a conditional specialist call that sees
-the earlier answers, and a final join:
-
-```text
-                department ─┐                 billing_review ─┐
-input ────────<             ├─ context ──────< technical_review ├─ coalesce ─┐
-                urgency ────┘                 sales_review ────┘            ├─ assessment
-                department + urgency ──────────────────────────────────────┘
-```
-
-Only the specialist matching the department runs. The label and assessment are
-separate outputs; the classifier's label is the department.
-
-To execute any graph, put its input state in a JSON file:
-
-```sh
-uv run decision-compose run examples/dag.json examples/state.json --backend typesafe
-```
-
-To evaluate or optimize a classification task:
-
-```sh
-uv run decision-compose evaluate examples/task.json examples/seed.json \
-  --split validation --output runs/seed-validation.json
-
-uv run decision-compose optimize examples/task.json examples/seed.json \
-  --reflection-model "$REFLECTION_MODEL" \
-  --max-nodes 16 --max-depth 8 --max-workers 4 \
-  --max-metric-calls 100 --seed 0 --output runs/search
-
-uv run decision-compose evaluate examples/task.json runs/search/plan.json \
-  --split test --output runs/test.json
-```
-
-Set `REFLECTION_MODEL` to a valid [DSPy model identifier](https://dspy.ai/learn/programming/language_models/)
-and configure its provider credential. `GraphProposer` uses `dspy.Predict` with
-typed `nodes` and `outputs` dictionaries and `JSONAdapter`. Open dictionaries
-allow new node IDs and wiring; graph validation enforces the complete schema.
-The selected backend executes the generated graphs' typed judgments. GEPA can
-change nodes, instructions, connections, input mappings, conditions, and outputs.
-
-The new search directory contains `plan.json` and `report.json`. Reports include
-validation scores, search and execution settings, example evaluation counts,
-resolved provider model IDs, dependency versions, and task/seed fingerprints.
-`reflection_calls` counts proposer invocations; `invalid_candidate_evaluations`
-counts adapter evaluations rejected by schema or graph constraints. `candidates`
-counts graphs admitted to validation evaluation, including the seed, rather than
-every proposal.
-Existing output paths are refused before requests are sent. Selection uses
-validation accuracy; improvement is not guaranteed. The test split is never sent
-to the optimizer. Evaluate it after selecting the graph.
-
-All network commands accept `--backend ruling|typesafe`, `--model`, `--base-url`,
-`--timeout`, and `--max-workers`. The backend defaults to `typesafe`, whose model
-alias defaults to `jev-latest`; `--base-url` overrides its `TYPESAFE_BASE_URL`.
-Pin a supported model version for reproducible experiments.
-`--reflection-base-url` configures the separate reflection endpoint. CLI retries
-are disabled.
-
-## Make a graph for your task
-
-### Generate the topology with DSPy
-
-You supply the task and labeled examples. DSPy proposes complete graph structures;
-GEPA runs them through Ruling and selects by validation accuracy. Without a seed
-graph, search starts from a call-free graph that always answers the most common
-training label, so the first proposals are generated from the task alone.
-
-1. Copy [examples/task.json](examples/task.json) to `task.json`. Replace its
-   `description` with your decision problem and `labels` with the allowed answers.
-   Populate `train`, `validation`, and `test` with distinct labeled examples.
-   Each example has an `id`, a `state` (string, object, or array), and a `label`
-   from your allowed answers. Training examples drive proposals, validation
-   selects the graph, and test examples measure the final result. Include
-   representative cases for every label, especially ambiguous and difficult ones.
-
-   Without labeled examples, have a strong generative model draft the labels
-   instead. Put your raw inputs in a JSON file:
-
-   ```json
-   {
-     "description": "Route each support ticket to the department that should handle it.",
-     "labels": ["billing", "technical", "sales"],
-     "inputs": ["I was charged twice this month.", "The export button returns a 500 error."]
-   }
-   ```
-
-   Then draft the task, choosing how many inputs go to validation and test:
-
-   ```sh
-   uv run decision-compose draft-labels inputs.json --output task.json \
-     --labeler-model "$REFLECTION_MODEL" \
-     --labeler-base-url "$REFLECTION_BASE_URL" \
-     --validation 10 --test 10
-   ```
-
-   Inputs are shuffled with `--seed` and split before labeling; a label outside
-   `labels` aborts the run. **Review and correct `task.json` before searching.**
-   Search can only learn to agree with these labels, so the labeler's mistakes
-   become the graph's target. This follows DSPy's teacher–student pattern: a
-   large model labels, and the small Ruling judge is fit to its judgment.
-
-2. Start Ruling as described above and configure a separate generative model.
-   For a running local OpenAI-compatible server, set `REFLECTION_MODEL` to
-   `openai/<served-model-id>` and `REFLECTION_BASE_URL` to its API base URL ending
-   in `/v1`. Configure the credential expected by that server; an unauthenticated
-   local server can use `OPENAI_API_KEY=local-no-auth`. Then search:
-
-   ```sh
-   uv run decision-compose optimize task.json \
-     --backend ruling --max-workers 1 \
-     --reflection-model "$REFLECTION_MODEL" \
-     --reflection-base-url "$REFLECTION_BASE_URL" \
-     --max-nodes 16 --max-depth 8 \
-     --max-metric-calls 100 --output runs/my-task
-   ```
-
-   DSPy may add calls, rewrite questions, connect earlier answers to later calls,
-   introduce conditional branches, and join shared results. The bounds limit
-   graph size and depth; increase them when the task needs more structure.
-   For a hosted reflection provider, omit `--reflection-base-url` and use that
-   provider's DSPy model ID and credential. To start from a graph you wrote,
-   pass it after `task.json`.
-
-3. Inspect `runs/my-task/plan.json` and `runs/my-task/report.json`. Compare
-   `validation_accuracy` with `seed_validation_accuracy`. If `candidates` is one,
-   no new graph reached validation; the saved graph is still the seed. Schema and
-   graph-constraint rejections increment `invalid_candidate_evaluations`. A larger search budget
-   permits more evaluations but does not guarantee a better graph.
-
-4. Evaluate the selected graph on the untouched test split. To use it on a new
-   input, save that input as JSON in `state.json` and run the same saved graph:
-
-   ```sh
-   uv run decision-compose evaluate task.json runs/my-task/plan.json \
-     --backend ruling --max-workers 1 --split test \
-     --output runs/my-task/test.json
-
-   uv run decision-compose run runs/my-task/plan.json state.json \
-     --backend ruling --max-workers 1
-   ```
-
-   Execution uses Ruling; the generative model is needed only during search.
-   Use a new output directory for each search. Keep the test split out of further
-   tuning decisions if you want it to remain an independent evaluation.
-
-### Write or edit a graph yourself
-
-Start with [examples/seed.json](examples/seed.json) for one Choice call, or
-[examples/dag.json](examples/dag.json) for branches and joins. Give each node a
-unique ID and define its operation. Connect nodes by referencing those IDs in
-`inputs`, `source`, `sources`, or `when`, as appropriate for the node type.
-References create the dependency edges; there is no separate edge list.
-
-Point each named `outputs` entry at a source. Classification search requires an output
-named `label`. Every node must contribute to an output, and references must not
-form cycles. Validate your edited graph with `decision-compose validate`, then
-run it directly or use it as the seed for optimization. The format below defines
-each operation and connection type.
-
-## Graph format
-
-A plan contains `nodes`, keyed by unique IDs, and `outputs`, keyed by output names.
-Earlier `questions`/`root` plans must be rewritten in this schema. The order of
-JSON keys does not determine execution. For example:
-
-```json
-{
-  "nodes": {
-    "eligible": {
-      "type": "call",
-      "question": {
-        "type": "noul",
-        "instructions": "Does the supplied policy explicitly make this request eligible?"
-      },
-      "inputs": {"request": {"type": "state"}}
-    },
-    "decision": {
-      "type": "threshold",
-      "source": "eligible",
-      "cutoff": 0.8,
-      "below": "review",
-      "above": "accept"
-    }
-  },
-  "outputs": {"label": {"type": "node", "node": "decision"}}
-}
-```
-
-The cutoff is illustrative, not calibrated. Every `call` sends its mapped input
-object as the SDK request's `state` and its own question in a separate request.
-Independent ready calls execute concurrently, bounded by `max_workers` (default
-4). Dependencies become available as requests finish; there is no layer-wide
-barrier. An executed shared node runs once per execution, even when several
-nodes use it.
-Independent questions are not batched into one provider request. All call nodes
-use the model selected for the program.
-
-| Node | Behavior |
-| --- | --- |
-| `call` | Run a `choice`, `score`, or `noul` question on mapped `inputs`. |
-| `switch` | Map a categorical `source` value through exhaustive string `cases`. |
-| `threshold` | Return string `below` or `above`; `>= cutoff` selects `above`. |
-| `merge` | Assemble mapped `inputs` into an object without a model call. |
-| `coalesce` | After all `sources` settle, choose the first available value in declared order. |
-| `value` | Produce a literal JSON `value`. |
-
-A Choice value is its selected category; a Noul value is its yes probability; a
-Score value is its expected rubric position. Score is not a probability of
-success. Choice supports 2–255 options; Score supports 2–10 distinct levels. This
-project exposes a subset of the provider's question schema.
-
-Input mappings and graph outputs use these sources:
-
-| Source | JSON |
-| --- | --- |
-| Original input | `{"type": "state"}` |
-| Constant | `{"type": "literal", "value": {"policy": "example"}}` |
-| Earlier node value | `{"type": "node", "node": "eligible"}` |
-| Full validated call answer | `{"type": "node", "node": "eligible", "view": "answer"}` |
-| Optional earlier value | `{"type": "node", "node": "eligible", "optional": true}` |
-
-`view: "answer"` is allowed only for call nodes. It passes the validated answer
-record, including its distribution where supplied, instead of the scalar value.
-
-Every node can have a `when` condition. Comparisons use a node's scalar value:
-
-```json
-{"type": "compare", "node": "department", "op": "eq", "value": "billing"}
-```
-
-Numeric comparisons also support `lt` and `ge`. Compose conditions using
-`{"type": "all", "conditions": [...]}`, `{"type": "any", "conditions": [...]}`,
-`{"type": "not", "condition": ...}`, or `{"type": "present", "node": "id"}`.
-A comparison against a skipped node is false; `present` tests availability.
-Negation follows ordinary Boolean rules, so negating a skipped comparison is true.
-
-A node waits for all data and condition dependencies to settle. A false condition
-skips it. The condition gates that node, not its upstream dependencies, which
-may already have run. A skipped required input skips its consumer; an optional
-skipped input is omitted from the input object. Optional skipped outputs are omitted from the
-output object. A required skipped graph output raises `GraphExecutionError`.
-`coalesce` skips when all its sources skip. Its declared source order, not request
-completion order, determines which available value it returns.
-
-Validation rejects cycles, missing references, unused nodes, incompatible types,
-nonexhaustive switches, invalid cutoffs, and unknown fields. Disconnected
-components are allowed when they feed separate outputs. Search limits count all
-nodes and the longest dependency/control path; roots have depth one. Literal-only
-outputs need no nodes or model requests.
-
-## Python and optimization
+A graph runs as a `dspy.Module`:
 
 ```python
 from pathlib import Path
@@ -389,129 +176,33 @@ from pathlib import Path
 from typesafe_sdk import TypeSafeClient
 
 from decision_compose.graph import Plan
-from decision_compose.runtime import DecisionProgram, ExecutionConfig
+from decision_compose.runtime import DecisionProgram
 
-plan = Plan.model_validate_json(Path("examples/dag.json").read_text())
-with TypeSafeClient() as client:
-    program = DecisionProgram(
-        plan, client, model="jev-latest", execution=ExecutionConfig(max_workers=4)
-    )
+plan = Plan.model_validate_json(Path("runs/my-task/plan.json").read_text())
+with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") as client:
+    program = DecisionProgram(plan, client, model="default")
     result = program(state="Please correct the duplicate charge on my invoice.")
-    print(result.outputs, result.calls, result.skipped)
+    print(result.label, result.answers)
 ```
 
-`DecisionProgram` is a `dspy.Module`. Predictions contain named `outputs`, executed
-node `node_values`, validated call `answers`, skipped node IDs, per-call model/token
-metadata, resolved `models`, and token totals. A `label` attribute is included
-when the outputs contain `label`. Execution traces use a stable graph order,
-independent of concurrent completion order.
+## Backends
 
-Generic execution supports arbitrary named JSON outputs. The current task,
-evaluation, and optimization interface remains supervised classification: it
-requires a `label` output with a statically known categorical domain within the
-task's labels and scores exact-match accuracy. Duplicate example IDs and states
-with identical JSON serialization after sorting object keys are rejected across
-splits. This catches exact duplicates, not semantic equivalence: `1` and `1.0`,
-for example, remain distinct.
+| Backend | Flag | Endpoint | Credential |
+| --- | --- | --- | --- |
+| Ruling (local) | `--backend ruling` | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
+| Jev (hosted) | `--backend typesafe` (default) | `TYPESAFE_BASE_URL` | `TYPESAFE_API_KEY` |
 
-`optimize_plan` accepts the task, seed plan, TypeSafe-protocol client, model ID, reflection
-callable, `SearchConfig`, and optional `ExecutionConfig`. The reflection callable
-returns a JSON graph. A custom `GraphAdapter` exposes that complete graph to
-GEPA; no generated Python is executed. Invalid graphs and unavailable required
-outputs get zero scores and feedback, including any partial execution trace.
-A failed training proposal and its error also reach the next reflection, even
-when GEPA rejects that graph. This uses the existing search budget; it does not
-add retry calls. Validation and test examples are not included in this feedback.
-Malformed generated graphs receive zero scores and their parse errors become
-feedback. Provider failures and malformed decision responses stop optimization
-instead of becoming task-performance scores. Optimization reports save scores
-and metadata, not complete execution traces; evaluation reports include
-per-example node answers.
+Ruling serializes requests, so use `--max-workers 1`. Hosted calls may incur
+charges; the search budget counts examples, not requests or dollars.
 
-The seed remains eligible for selection. A graph that improves training but
-regresses on validation does not displace a better seed. Perfect training
-minibatches can skip reflection, and equal training scores can reject a proposed
-structure. More elaborate DAGs are useful only when they improve the task score;
-structural complexity alone is not rewarded.
+## Learn more
 
-## Verification and limits
+- [Graph format](docs/graphs.md): nodes, inputs, conditions, execution, and writing graphs by hand.
+- [Optimization](docs/optimization.md): search settings, reports, testing, and limits.
+
+## Development
 
 ```sh
 uv run pytest -q
-uv run ruff check src tests
-uv run ruff format --check src tests
-uv build
+uv run ruff check src tests && uv run ruff format --check src tests
 ```
-
-Unit tests cover graph validation and execution semantics. Integration tests
-exercise the official SDK over local HTTP, DSPy's module and LM interfaces, the
-real GEPA search engine, and CLI artifacts. Protocol fixtures and fixed proposals
-verify wiring, not hosted-service compatibility or live model quality. Paid
-hosted checks are opt-in. A separate suite runs actual inference against your
-Ruling server, including dependent DAG calls, the CLI, and GEPA evaluation:
-
-```sh
-uv run pytest tests/test_ruling.py --ruling-url http://127.0.0.1:8010 -q
-```
-
-These tests use the server's loaded model. The GEPA test supplies a fixed graph
-proposal to verify optimizer/executor wiring; it does not validate a generative
-reflection model or demonstrate improved accuracy. They ran successfully against
-Ruling with `mlx-community/Qwen3.5-0.8B-4bit`. An explicit `--ruling-url` is required;
-default tests do not contact a local model server.
-
-To exercise actual DSPy graph generation as well, pass a local generative model
-and endpoint explicitly:
-
-```sh
-uv run pytest tests/test_ruling.py --ruling-url http://127.0.0.1:8010 \
-  --ruling-reflection-model "$REFLECTION_MODEL" \
-  --ruling-reflection-url "$REFLECTION_BASE_URL" -q
-```
-
-That test requires a generated candidate to reach validation, call the real
-Ruling model, and preserve or improve the seed's validation score. It fails if
-the proposer only emits invalid graphs; it does not silently count retaining the
-seed as successful generation.
-
-A local smoke run used `mlx-community/Qwen3.5-9B-4bit` for DSPy generation and
-Ruling's default `mlx-community/Qwen3.5-4B-4bit` judge (three answer orderings,
-no prior debiasing). Starting from an always-`sales` graph, GEPA selected a
-generated one-Choice graph: validation improved from 1/3 to 3/3, and subsequent
-test evaluation improved from 1/3 to 3/3. The run used all six training examples
-per reflection batch and 48 metric calls, with one proposal and no invalid
-candidates. The test split was excluded from search. This demonstrates the
-complete local path on 12 authored examples, not a benchmark gain, superiority
-over a hand-written classifier, or evidence that a complex DAG is necessary.
-The smaller 0.8B judge did not improve over the constant seed in an earlier run.
-
-To check the hosted providers:
-
-```sh
-# Configure TYPESAFE_API_KEY and your reflection provider's credential first.
-export DECISION_COMPOSE_REFLECTION_MODEL="$REFLECTION_MODEL"
-uv run pytest --live tests/test_live.py -q
-```
-
-- Graphs are finite and static. No cycles, dynamic node expansion, arbitrary
-  tools, generated code, durable execution, or UI are implemented.
-- GEPA's soft metric-call budget counts example evaluations, not backend requests.
-  Each example can make many requests. The budget may exceed its target by an
-  iteration and excludes reflection calls; it is **not a dollar cap**.
-- A failed request cannot undo independent requests already in flight. Provider
-  failures abort execution; skipped branches are an explicit control-flow result.
-- Resolved node inputs and question instructions go to the selected backend.
-  Training examples and execution feedback go to the reflection provider.
-  Evaluation reports contain model answers.
-- Optimizer seeds do not make hosted models deterministic. Use representative
-  data, provider spending limits, and a final untouched test split.
-
-## Sources
-
-- [TypeSafe Choice](https://docs.typesafe.ai/primitives/choice)
-- [TypeSafe Score semantics](https://docs.typesafe.ai/primitives/score)
-- [TypeSafe question semantics](https://docs.typesafe.ai/cookbooks/parallel_questions)
-- [DSPy modules](https://dspy.ai/learn/programming/modules/)
-- [DSPy JSONAdapter](https://dspy.ai/api/adapters/JSONAdapter/)
-- [GEPA custom adapters](https://gepa-ai.github.io/gepa/guides/adapters/)
-- [GEPA full-program evolution](https://gepa-ai.github.io/gepa/tutorials/dspy_full_program_evolution/)
