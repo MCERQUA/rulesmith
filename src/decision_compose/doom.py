@@ -153,7 +153,7 @@ class DoomEnvironment:
         self.game.set_labels_buffer_enabled(True)
         self.game.set_audio_buffer_enabled(False)
         self.game.set_sectors_info_enabled("rangefinder" in task.observe)
-        self.game.set_objects_info_enabled("compass" in task.observe)
+        self.game.set_objects_info_enabled(bool({"compass", "target"} & set(task.observe)))
         self.game.set_screen_format(vzd.ScreenFormat.RGB24)
         if task.map is not None:
             self.game.set_doom_map(task.map)
@@ -267,13 +267,11 @@ class DoomEnvironment:
         values = state.game_variables if self.variables else []
         variables = dict(zip(self.variables, map(float, values), strict=True))
         observation = {"objects": objects, "variables": variables}
-        monsters = [o for o in objects if o["category"] == "Monster"]
-        if "target" in self.task.observe and monsters:
-            # Killed monsters leave the labels, so every on-screen Monster is alive; the
-            # widest one is the nearest.
-            nearest = max(monsters, key=lambda monster: monster["width"])
-            observation["target"] = {key: nearest[key] for key in ("name", "x", "width")}
         x, y, angle = self.pose()
+        if "target" in self.task.observe:
+            target = self.target(state, objects, x, y)
+            if target is not None:
+                observation["target"] = target
         if "pose" in self.task.observe:
             observation["pose"] = {"x": round(x, 1), "y": round(y, 1), "angle": round(angle, 1)}
         if "rangefinder" in self.task.observe:
@@ -314,6 +312,32 @@ class DoomEnvironment:
                 "explored_cells": len(self.visited),
             }
         return observation
+
+    def target(self, state, objects: list[dict], x: float, y: float) -> dict | None:
+        """The nearest live monster on screen, with its map distance."""
+        # Killed monsters leave the labels, so every on-screen Monster is alive. Labels share
+        # IDs with map objects, whose positions give each visible monster's distance.
+        places = {thing.id: thing for thing in state.objects}
+        visible = [label for label in state.labels if label.object_category != "Self"]
+        ranged = [
+            (
+                math.hypot(
+                    places[label.object_id].position_x - x, places[label.object_id].position_y - y
+                ),
+                entry,
+            )
+            for label, entry in zip(visible, objects, strict=True)
+            if entry["category"] == "Monster" and label.object_id in places
+        ]
+        if not ranged:
+            return None
+        distance, nearest = min(ranged, key=lambda pair: pair[0])
+        return {
+            "name": nearest["name"],
+            "x": nearest["x"],
+            "width": nearest["width"],
+            "distance": round(distance),
+        }
 
     def rangefinder(self, state, x: float, y: float, angle: float) -> list[int]:
         """Map-unit distance to the nearest wall along rays across the view, left to right."""

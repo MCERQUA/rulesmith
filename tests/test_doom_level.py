@@ -167,7 +167,9 @@ def test_target_is_the_nearest_live_monster_on_screen():
     with DoomEnvironment(task) as env:
         observation = env.reset(7)
         (monster,) = [o for o in observation["objects"] if o["category"] == "Monster"]
-        assert observation["target"] == {k: monster[k] for k in ("name", "x", "width")}
+        assert {k: observation["target"][k] for k in ("name", "x", "width")} == {
+            k: monster[k] for k in ("name", "x", "width")
+        }
     with DoomEnvironment(level(observe=["target"], compass_targets=[])) as env:
         assert "target" not in env.reset(1)
 
@@ -216,3 +218,14 @@ def test_every_position_along_a_walk_has_a_route(env):
         bearing = observation["route"]["bearing"]
         turn = "TURN_LEFT" if bearing > 15 else "TURN_RIGHT" if bearing < -15 else None
         _, observation = env.step(turn or "MOVE_FORWARD")
+
+
+def test_target_distance_matches_the_monsters_map_position():
+    task = level(scenario="basic", map=None, labels=["ATTACK", "MOVE_LEFT"], observe=["target"])
+    task = task.model_copy(update={"compass_targets": [], "episode_timeout": None})
+    with DoomEnvironment(task) as env:
+        target = env.reset(7)["target"]
+        x, y, _ = env.pose()
+        (monster,) = [o for o in env.game.get_state().objects if o.name == target["name"]]
+        expected = math.hypot(monster.position_x - x, monster.position_y - y)
+        assert target["distance"] == pytest.approx(expected, abs=0.5)
