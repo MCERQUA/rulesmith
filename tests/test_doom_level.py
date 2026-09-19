@@ -139,3 +139,10 @@ def test_native_rewards_are_applied_by_name():
 def test_invalid_level_settings_are_rejected(change):
     with pytest.raises((ValidationError, ValueError)):
         DoomEnvironment(level(**change))
+
+
+def test_tasks_can_add_game_variables_the_scenario_lacks():
+    with DoomEnvironment(level(variables=["HEALTH", "ARMOR"])) as env:
+        assert env.reset(1)["variables"] == {"HEALTH": 100.0, "ARMOR": 0.0}
+    with pytest.raises(ValidationError):
+        level(variables=["NOT_A_VARIABLE"])

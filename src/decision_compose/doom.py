@@ -29,6 +29,9 @@ class DoomTask(StrictModel):
     )
     feedback_steps: int = Field(default=8, ge=1)
     map: Text | None = Field(default=None, description="Map to load, e.g. E1M1")
+    variables: list[Text] = Field(
+        default_factory=list, description="Game variables to add, e.g. HEALTH or AMMO2"
+    )
     observe: list[Literal["pose", "rangefinder", "compass", "memory"]] = Field(
         default_factory=list, description="Extra observations beyond visible objects"
     )
@@ -56,6 +59,9 @@ class DoomTask(StrictModel):
         seeds = self.train + self.validation + self.test
         if len(set(seeds)) != len(seeds):
             raise ValueError("episode seeds must be distinct across splits")
+        missing = {name for name in self.variables if not hasattr(vzd.GameVariable, name)}
+        if missing:
+            raise ValueError(f"unknown ViZDoom game variables: {sorted(missing)}")
         if "compass" in self.observe and not self.compass_targets:
             raise ValueError("the compass needs compass_targets")
         unknown = {
@@ -95,6 +101,8 @@ class DoomEnvironment:
         self.game.set_screen_format(vzd.ScreenFormat.RGB24)
         if task.map is not None:
             self.game.set_doom_map(task.map)
+        for name in task.variables:
+            self.game.add_available_game_variable(getattr(vzd.GameVariable, name))
         for name, value in task.rewards.items():
             if name != "explore":
                 getattr(self.game, f"set_{name}")(value)

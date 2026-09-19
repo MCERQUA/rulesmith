@@ -1,0 +1,115 @@
+{
+  "nodes": {
+    "threat": {
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "Decide whether to fight. Live monsters have category Monster and no Dead in their name.",
+        "criteria": {
+          "fight": "A live monster is on screen, or a compass monster is within 500 units with a bearing between -60 and 60 degrees.",
+          "clear": "No live monster is on screen, and no compass monster is within 500 units ahead."
+        }
+      },
+      "inputs": {"observation": {"type": "state"}}
+    },
+    "blocked": {
+      "type": "call",
+      "question": {
+        "type": "noul",
+        "instructions": "The way straight ahead is blocked: the middle rangefinder readings are small, or memory shows almost no distance moved while recent actions tried to move forward."
+      },
+      "inputs": {"observation": {"type": "state"}}
+    },
+    "hurt": {
+      "type": "call",
+      "question": {
+        "type": "noul",
+        "instructions": "HEALTH is below 40 and a Medikit or Stimpack appears in the compass."
+      },
+      "inputs": {"observation": {"type": "state"}}
+    },
+    "aim": {
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "Aim at the nearest live monster, then fire. TURN_LEFT moves on-screen objects right; TURN_RIGHT moves them left.",
+        "criteria": {
+          "ATTACK": "The nearest live on-screen monster has x between -0.1 and 0.1.",
+          "TURN_LEFT": "The target is left of center (x below -0.1), or it is off screen with a positive compass bearing.",
+          "TURN_RIGHT": "The target is right of center (x above 0.1), or it is off screen with a negative compass bearing."
+        }
+      },
+      "inputs": {"observation": {"type": "state"}},
+      "when": {"type": "compare", "node": "threat", "op": "eq", "value": "fight"}
+    },
+    "unstick": {
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "The way ahead is blocked. Get moving again, using the rangefinder to find open space.",
+        "criteria": {
+          "MOVE_FORWARD+USE": "A door or switch is directly ahead and has not just been used.",
+          "TURN_LEFT": "The left rangefinder readings are larger than the right ones.",
+          "TURN_RIGHT": "The right rangefinder readings are larger than the left ones.",
+          "MOVE_BACKWARD": "All readings are small, so back away first."
+        }
+      },
+      "inputs": {"observation": {"type": "state"}},
+      "when": {
+        "type": "all",
+        "conditions": [
+          {"type": "compare", "node": "threat", "op": "eq", "value": "clear"},
+          {"type": "compare", "node": "blocked", "op": "ge", "value": 0.6}
+        ]
+      }
+    },
+    "heal": {
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "Walk to the nearest Medikit or Stimpack in the compass.",
+        "criteria": {
+          "MOVE_FORWARD": "Its bearing is between -10 and 10 degrees.",
+          "MOVE_FORWARD+TURN_LEFT": "Its bearing is above 10 degrees.",
+          "MOVE_FORWARD+TURN_RIGHT": "Its bearing is below -10 degrees."
+        }
+      },
+      "inputs": {"observation": {"type": "state"}},
+      "when": {
+        "type": "all",
+        "conditions": [
+          {"type": "compare", "node": "threat", "op": "eq", "value": "clear"},
+          {"type": "compare", "node": "blocked", "op": "lt", "value": 0.6},
+          {"type": "compare", "node": "hurt", "op": "ge", "value": 0.6}
+        ]
+      }
+    },
+    "explore": {
+      "type": "call",
+      "question": {
+        "type": "choice",
+        "instructions": "Explore new parts of the map. Prefer open space, unvisited cells, items, and doors.",
+        "criteria": {
+          "MOVE_FORWARD": "The middle rangefinder readings are large and this cell has few visits.",
+          "MOVE_FORWARD+TURN_LEFT": "There is more open space to the left, or an item has a positive bearing.",
+          "MOVE_FORWARD+TURN_RIGHT": "There is more open space to the right, or an item has a negative bearing.",
+          "MOVE_FORWARD+USE": "A door or switch is directly ahead."
+        }
+      },
+      "inputs": {"observation": {"type": "state"}},
+      "when": {
+        "type": "all",
+        "conditions": [
+          {"type": "compare", "node": "threat", "op": "eq", "value": "clear"},
+          {"type": "compare", "node": "blocked", "op": "lt", "value": 0.6},
+          {"type": "not", "condition": {"type": "compare", "node": "hurt", "op": "ge", "value": 0.6}}
+        ]
+      }
+    },
+    "action": {
+      "type": "coalesce",
+      "sources": ["aim", "unstick", "heal", "explore"]
+    }
+  },
+  "outputs": {"label": {"type": "node", "node": "action"}}
+}

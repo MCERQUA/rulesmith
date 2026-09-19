@@ -1,0 +1,66 @@
+{
+  "description": "Play Freedoom level E1M1 as far as you can: explore the map, kill monsters, pick up items, open doors, and reach the exit switch. Reward: +20 per kill, +2 per item, +1 per newly explored 64-unit map cell, -1 per point of damage taken, -200 for dying, +2000 for exiting. Each step the graph receives an observation and its label output is the next action; each action lasts 6 tics (about a sixth of a second). Observation fields: objects lists what is on screen, with a category such as Monster, Health, or Gore, x from -1 (left edge) to 1 (right edge), and width as a fraction of the screen (nearer is larger); corpses have Dead in their name. variables holds HEALTH, ARMOR, and SELECTED_WEAPON_AMMO. pose gives map position and facing angle in degrees. rangefinder lists 7 depth readings across the view from left to right; small numbers mean a wall or object is close, and 0 means touching. compass lists the nearest tracked monsters and items anywhere on the map, with bearing in degrees from where you face (positive is to your left) and distance in map units. memory gives your recent actions, how far you moved over them (near 0 means stuck), how often you have visited your current cell, and how many cells you have explored. Actions: TURN_LEFT and TURN_RIGHT rotate about 10 degrees (TURN_LEFT moves on-screen objects right); MOVE_FORWARD and MOVE_BACKWARD walk; + presses buttons together; USE opens doors and presses switches directly ahead; ATTACK fires.",
+  "scenario": "freedoom1",
+  "map": "E1M1",
+  "variables": [
+    "HEALTH",
+    "ARMOR",
+    "SELECTED_WEAPON_AMMO"
+  ],
+  "labels": [
+    "MOVE_FORWARD",
+    "MOVE_FORWARD+TURN_LEFT",
+    "MOVE_FORWARD+TURN_RIGHT",
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "MOVE_BACKWARD",
+    "ATTACK",
+    "USE",
+    "MOVE_FORWARD+USE"
+  ],
+  "reward_range": [
+    -1000,
+    6500
+  ],
+  "tics_per_action": 6,
+  "episode_timeout": 2100,
+  "observe": [
+    "pose",
+    "rangefinder",
+    "compass",
+    "memory"
+  ],
+  "compass_targets": [
+    "Zombieman",
+    "ShotgunGuy",
+    "DoomImp",
+    "Demon",
+    "Medikit",
+    "Stimpack",
+    "Shell",
+    "ShellBox",
+    "Clip",
+    "BlueCard"
+  ],
+  "compass_size": 6,
+  "rewards": {
+    "kill_reward": 20,
+    "item_reward": 2,
+    "explore": 1,
+    "damage_taken_penalty": 1,
+    "death_penalty": 200,
+    "map_exit_reward": 2000
+  },
+  "train": [
+    1,
+    2
+  ],
+  "validation": [
+    3,
+    4
+  ],
+  "test": [
+    5,
+    6
+  ]
+}

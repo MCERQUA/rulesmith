@@ -310,3 +310,12 @@ def test_cli_records_several_episodes_back_to_back_as_mp4(tmp_path):
     frames = sum(1 for _ in reader)
     assert frames == sum(e["steps"] * 4 for e in episodes)
     assert meta["fps"] == pytest.approx(35)
+
+
+GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").glob("*.json"))
+
+
+@pytest.mark.parametrize("path", GRAPHS, ids=lambda path: path.stem)
+def test_repository_doom_graphs_validate_against_their_task(path):
+    task = path.parents[1] / f"{path.stem.split('-')[0]}.json"
+    assert invoke("validate", task, path).returncode == 0
