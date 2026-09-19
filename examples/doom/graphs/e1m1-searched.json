@@ -1,0 +1,595 @@
+{
+  "nodes": {
+    "r_mid": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        3
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "r_left": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        0
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "r_right": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        6
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "r_target_x": {
+      "type": "read",
+      "path": [
+        "target",
+        "x"
+      ],
+      "bounds": [
+        -1,
+        1
+      ]
+    },
+    "r_target_width": {
+      "type": "read",
+      "path": [
+        "target",
+        "width"
+      ],
+      "bounds": [
+        0,
+        1
+      ]
+    },
+    "r_route_bearing": {
+      "type": "read",
+      "path": [
+        "route",
+        "bearing"
+      ],
+      "bounds": [
+        -180,
+        180
+      ]
+    },
+    "r_route_distance": {
+      "type": "read",
+      "path": [
+        "route",
+        "distance"
+      ],
+      "bounds": [
+        0,
+        6000
+      ]
+    },
+    "r_route_next": {
+      "type": "read",
+      "path": [
+        "route",
+        "next"
+      ],
+      "categories": [
+        "opening",
+        "door",
+        "exit"
+      ]
+    },
+    "r_visits": {
+      "type": "read",
+      "path": [
+        "memory",
+        "visits_here"
+      ],
+      "bounds": [
+        1,
+        10000
+      ]
+    },
+    "r_ammo": {
+      "type": "read",
+      "path": [
+        "variables",
+        "SELECTED_WEAPON_AMMO"
+      ],
+      "bounds": [
+        0,
+        400
+      ]
+    },
+    "v_attack": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "r_target_x"
+          },
+          {
+            "type": "present",
+            "node": "r_target_width"
+          },
+          {
+            "type": "present",
+            "node": "r_ammo"
+          },
+          {
+            "type": "compare",
+            "node": "r_ammo",
+            "op": "ge",
+            "value": 1
+          },
+          {
+            "type": "compare",
+            "node": "r_target_width",
+            "op": "ge",
+            "value": 0.03
+          },
+          {
+            "type": "compare",
+            "node": "r_target_x",
+            "op": "ge",
+            "value": -0.25
+          },
+          {
+            "type": "compare",
+            "node": "r_target_x",
+            "op": "lt",
+            "value": 0.25
+          }
+        ]
+      },
+      "value": "ATTACK"
+    },
+    "v_aim_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "r_target_x"
+          },
+          {
+            "type": "present",
+            "node": "r_target_width"
+          },
+          {
+            "type": "compare",
+            "node": "r_target_width",
+            "op": "ge",
+            "value": 0.03
+          },
+          {
+            "type": "compare",
+            "node": "r_target_x",
+            "op": "lt",
+            "value": -0.25
+          }
+        ]
+      },
+      "value": "TURN_LEFT"
+    },
+    "v_aim_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "r_target_x"
+          },
+          {
+            "type": "present",
+            "node": "r_target_width"
+          },
+          {
+            "type": "compare",
+            "node": "r_target_width",
+            "op": "ge",
+            "value": 0.03
+          },
+          {
+            "type": "compare",
+            "node": "r_target_x",
+            "op": "ge",
+            "value": 0.25
+          }
+        ]
+      },
+      "value": "TURN_RIGHT"
+    },
+    "v_use_door": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "r_route_next"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_next",
+            "op": "eq",
+            "value": "door"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_distance",
+            "op": "lt",
+            "value": 80
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "ge",
+            "value": -20
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "lt",
+            "value": 20
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+USE"
+    },
+    "v_use_exit": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "r_route_next"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_next",
+            "op": "eq",
+            "value": "exit"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_distance",
+            "op": "lt",
+            "value": 80
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "ge",
+            "value": -20
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "lt",
+            "value": 20
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+USE"
+    },
+    "v_stuck_turn": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_visits"
+          },
+          {
+            "type": "compare",
+            "node": "r_visits",
+            "op": "ge",
+            "value": 15
+          }
+        ]
+      },
+      "value": "TURN_LEFT"
+    },
+    "v_stuck_backward": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_visits"
+          },
+          {
+            "type": "compare",
+            "node": "r_visits",
+            "op": "ge",
+            "value": 6
+          }
+        ]
+      },
+      "value": "MOVE_BACKWARD"
+    },
+    "v_blocked_route_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "ge",
+            "value": 0
+          }
+        ]
+      },
+      "value": "TURN_LEFT"
+    },
+    "v_blocked_route_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "lt",
+            "value": 0
+          }
+        ]
+      },
+      "value": "TURN_RIGHT"
+    },
+    "v_blocked_no_route_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "present",
+              "node": "r_route_bearing"
+            }
+          },
+          {
+            "type": "compare",
+            "node": "r_left",
+            "op": "ge",
+            "value": 200
+          }
+        ]
+      },
+      "value": "TURN_LEFT"
+    },
+    "v_blocked_no_route_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "present",
+              "node": "r_route_bearing"
+            }
+          },
+          {
+            "type": "compare",
+            "node": "r_right",
+            "op": "ge",
+            "value": 200
+          }
+        ]
+      },
+      "value": "TURN_RIGHT"
+    },
+    "v_blocked_backward": {
+      "type": "value",
+      "when": {
+        "type": "compare",
+        "node": "r_mid",
+        "op": "lt",
+        "value": 64
+      },
+      "value": "MOVE_BACKWARD"
+    },
+    "v_route_forward": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "ge",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "ge",
+            "value": -15
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "lt",
+            "value": 15
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD"
+    },
+    "v_route_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "ge",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "ge",
+            "value": 15
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+TURN_LEFT"
+    },
+    "v_route_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "ge",
+            "value": 64
+          },
+          {
+            "type": "present",
+            "node": "r_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "r_route_bearing",
+            "op": "lt",
+            "value": -15
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+TURN_RIGHT"
+    },
+    "v_explore_forward": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "r_mid",
+            "op": "ge",
+            "value": 64
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "present",
+              "node": "r_route_bearing"
+            }
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD"
+    },
+    "v_default": {
+      "type": "value",
+      "value": "MOVE_FORWARD"
+    },
+    "decision": {
+      "type": "coalesce",
+      "sources": [
+        "v_attack",
+        "v_aim_left",
+        "v_aim_right",
+        "v_use_door",
+        "v_use_exit",
+        "v_stuck_turn",
+        "v_stuck_backward",
+        "v_blocked_route_left",
+        "v_blocked_route_right",
+        "v_blocked_no_route_left",
+        "v_blocked_no_route_right",
+        "v_blocked_backward",
+        "v_route_forward",
+        "v_route_left",
+        "v_route_right",
+        "v_explore_forward",
+        "v_default"
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "decision",
+      "view": "value",
+      "optional": false
+    }
+  }
+}

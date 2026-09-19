@@ -205,9 +205,13 @@ centered. On held-out test seeds it killed every monster:
 
 [All 12 seeds back to back](docs/assets/doom/basic-reel.mp4): 12 of 12 kills.
 
-**E1M1**: work in progress. Graphs fight, open doors, and follow the route toward
-the exit, but none has finished the level yet.
-[A minute of the current graph](docs/assets/doom/e1m1-target.mp4).
+**E1M1**: search started from a graph that only walks forward, with Claude Sonnet 5
+proposing graphs and the local 4B judge. Its best graph so far
+([examples/doom/graphs/e1m1-searched.json](examples/doom/graphs/e1m1-searched.json))
+is 28 nodes of reads and routing with no judge calls. On an unseen test seed it
+survived the full 90 seconds with 6 kills, 4 items, and 50 map cells explored,
+for a reward of 2,090 against about 960 for walking forward. It has not reached
+the exit yet. [Watch it](docs/assets/doom/e1m1-searched.mp4).
 
 ## Use from Python
 
