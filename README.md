@@ -220,69 +220,48 @@ is 27 nodes of reads and routing with no judge calls, and it **finishes the leve
 Episodes were capped at 6 minutes. Two of the deaths came within 260 units of the
 exit switch; the rest came in the first minute's fights.
 
-The graph search found, drawn as its priority list. Each box stands for the
-rule nodes of one kind; the final `coalesce` node takes the first rule whose
-conditions hold:
+How the graph decides: each step it reads 10 values from the observation
+(health · ammo · wall ahead · next on route · route bearing · waypoint distance · monster x · monster distance · recent movement · visits here), then checks 16 rules in order. The first rule whose
+conditions all hold sets the action.
 
 ```mermaid
 flowchart TD
-  OBS(["Observation, every 6 tics"]) --> READS["10 read nodes<br/>health · ammo · wall ahead<br/>route: next, bearing, distance<br/>target: x, distance<br/>memory: moved, visits here"]
-  READS --> P1
-  subgraph PRIORITY["Rules in priority order: the first that applies wins"]
-    direction TB
-    P1["1 · Survive<br/>no ammo, monster within 150 → back up<br/>health under 15, ammo under 5, monster near → back up"]
-    P2["2 · Fight a monster within 450<br/>centered, |x| under 0.15 → ATTACK<br/>left of center → turn left · right → turn right"]
-    P3["3 · Get unstuck<br/>barely moved, visited here 20+ times → back up<br/>barely moved, visited 6+ times → turn toward the route"]
-    P4["4 · Doors and exit<br/>exit switch within 100, ahead ±20° → forward + USE<br/>door within 90, ahead ±20° → forward + USE"]
-    P5["5 · Wall under 64 ahead<br/>turn toward the route's side"]
-    P6["6 · Follow the route<br/>bearing 35°+ → turn · 10–35° → forward and turn"]
-    P7["7 · Otherwise → forward"]
-    P1 -.->|no| P2 -.->|no| P3 -.->|no| P4 -.->|no| P5 -.->|no| P6 -.->|no| P7
-  end
-  PRIORITY ==> ACT(["Action: one of 9 buttons or combos"])
+  OBS(["Each step: read 10 values from the observation"])
+  G0["<b>Survive</b><br/>rules 1–2"]
+  OBS --> G0
+  G1["<b>Fight</b><br/>rules 3–5"]
+  G0 -.->|none fired| G1
+  G2["<b>Get unstuck</b><br/>rules 6–7"]
+  G1 -.->|none fired| G2
+  G3["<b>Doors and exit</b><br/>rules 8–9"]
+  G2 -.->|none fired| G3
+  G4["<b>Wall ahead</b><br/>rules 10–11"]
+  G3 -.->|none fired| G4
+  G5["<b>Follow the route</b><br/>rules 12–15"]
+  G4 -.->|none fired| G5
+  G6["<b>Default</b><br/>rule 16"]
+  G5 -.->|none fired| G6
+  G0 & G1 & G2 & G3 & G4 & G5 & G6 ==> ACT(["first rule that fires sets the action"])
 ```
 
-The full graph: every read node with its path and declared range, and every rule
-with its exact condition and action. Edge numbers give the order the final
-`coalesce` checks them in.
-
-```mermaid
-flowchart LR
-  OBS(["observation"]) --> READS["<b>10 read nodes</b><br/>read_health: variables.HEALTH [0, 200]<br/>read_ammo: variables.SELECTED_WEAPON_AMMO [0, 400]<br/>read_rf_mid: rangefinder.3 [0, 2048]<br/>read_route_next: route.next ['path', 'door', 'exit']<br/>read_route_bearing: route.bearing [-180, 180]<br/>read_route_distance: route.distance [0, 6000]<br/>read_target_x: target.x [-1, 1]<br/>read_target_distance: target.distance [0, 6000]<br/>read_memory_moved: memory.distance_moved [0, 600]<br/>read_visits: memory.visits_here [1, 10000]"]
-  READS --- flee_no_ammo["<b>flee_no_ammo</b><br/>when target.x visible and variables.SELECTED_WEAPON_AMMO < 1 and target.distance < 150<br/>→ MOVE_BACKWARD"]
-  READS --- retreat_critical["<b>retreat_critical</b><br/>when target.x visible and variables.HEALTH < 15 and variables.SELECTED_WEAPON_AMMO < 5 and target.distance < 150<br/>→ MOVE_BACKWARD"]
-  READS --- combat_attack["<b>combat_attack</b><br/>when target.x visible and variables.SELECTED_WEAPON_AMMO ≥ 1 and target.distance < 450 and target.x ≥ -0.15 and target.x < 0.15<br/>→ ATTACK"]
-  READS --- combat_aim_left["<b>combat_aim_left</b><br/>when target.x visible and variables.SELECTED_WEAPON_AMMO ≥ 1 and target.distance < 450 and target.x < -0.15<br/>→ TURN_LEFT"]
-  READS --- combat_aim_right["<b>combat_aim_right</b><br/>when target.x visible and variables.SELECTED_WEAPON_AMMO ≥ 1 and target.distance < 450 and target.x ≥ 0.15<br/>→ TURN_RIGHT"]
-  READS --- very_stuck_backward["<b>very_stuck_backward</b><br/>when memory.distance_moved < 3 and memory.visits_here ≥ 20<br/>→ MOVE_BACKWARD"]
-  READS --- stuck_turn["<b>stuck_turn</b><br/>when memory.distance_moved < 3 and memory.visits_here ≥ 6<br/>→ TURN_LEFT if route.bearing ≥ 0, else TURN_RIGHT"]
-  READS --- route_exit_use["<b>route_exit_use</b><br/>when route.next = exit and route.distance < 100 and route.bearing ≥ -20 and route.bearing < 20<br/>→ MOVE_FORWARD+USE"]
-  READS --- route_door_use["<b>route_door_use</b><br/>when route.next = door and route.distance < 90 and route.bearing ≥ -20 and route.bearing < 20<br/>→ MOVE_FORWARD+USE"]
-  READS --- blocked_turn_left["<b>blocked_turn_left</b><br/>when rangefinder.3 < 64 and route.bearing ≥ 0<br/>→ TURN_LEFT"]
-  READS --- blocked_turn_right["<b>blocked_turn_right</b><br/>when rangefinder.3 < 64 and route.bearing < 0<br/>→ TURN_RIGHT"]
-  READS --- route_turn_left["<b>route_turn_left</b><br/>when route.bearing ≥ 35<br/>→ TURN_LEFT"]
-  READS --- route_turn_right["<b>route_turn_right</b><br/>when route.bearing < -35<br/>→ TURN_RIGHT"]
-  READS --- route_forward_left["<b>route_forward_left</b><br/>when route.bearing ≥ 10 and route.bearing < 35<br/>→ MOVE_FORWARD+TURN_LEFT"]
-  READS --- route_forward_right["<b>route_forward_right</b><br/>when route.bearing ≥ -35 and route.bearing < -10<br/>→ MOVE_FORWARD+TURN_RIGHT"]
-  READS --- default_forward["<b>default_forward</b><br/>when always<br/>→ MOVE_FORWARD"]
-  flee_no_ammo -->|1| decision
-  retreat_critical -->|2| decision
-  combat_attack -->|3| decision
-  combat_aim_left -->|4| decision
-  combat_aim_right -->|5| decision
-  very_stuck_backward -->|6| decision
-  stuck_turn -->|7| decision
-  route_exit_use -->|8| decision
-  route_door_use -->|9| decision
-  blocked_turn_left -->|10| decision
-  blocked_turn_right -->|11| decision
-  route_turn_left -->|12| decision
-  route_turn_right -->|13| decision
-  route_forward_left -->|14| decision
-  route_forward_right -->|15| decision
-  default_forward -->|16| decision
-  decision{"decision<br/>coalesce: first rule that fired"} ==> LABEL(["label = action"])
-```
+| # | Purpose | When | Action |
+| ---: | --- | --- | --- |
+| 1 | Survive | monster visible, ammo < 1, monster distance < 150 | back up |
+| 2 | Survive | monster visible, health < 15, ammo < 5, monster distance < 150 | back up |
+| 3 | Fight | monster visible, ammo ≥ 1, monster distance < 450, -0.15 ≤ monster x < 0.15 | fire |
+| 4 | Fight | monster visible, ammo ≥ 1, monster distance < 450, monster x < -0.15 | turn left |
+| 5 | Fight | monster visible, ammo ≥ 1, monster distance < 450, monster x ≥ 0.15 | turn right |
+| 6 | Get unstuck | recent movement < 3, visits here ≥ 20 | back up |
+| 7 | Get unstuck | recent movement < 3, visits here ≥ 6 | turn left if route bearing ≥ 0, else turn right |
+| 8 | Doors and exit | next on route = exit, waypoint distance < 100, -20 ≤ route bearing < 20 | forward + use |
+| 9 | Doors and exit | next on route = door, waypoint distance < 90, -20 ≤ route bearing < 20 | forward + use |
+| 10 | Wall ahead | wall ahead < 64, route bearing ≥ 0 | turn left |
+| 11 | Wall ahead | wall ahead < 64, route bearing < 0 | turn right |
+| 12 | Follow the route | route bearing ≥ 35 | turn left |
+| 13 | Follow the route | route bearing < -35 | turn right |
+| 14 | Follow the route | 10 ≤ route bearing < 35 | forward + left |
+| 15 | Follow the route | -35 ≤ route bearing < -10 | forward + right |
+| 16 | Default | always | forward |
 
 <details>
 <summary>The graph as JSON</summary>
