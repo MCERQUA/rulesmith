@@ -129,7 +129,8 @@ uv run decision-compose arena examples/doom/duel.json a.json b.json c.json --out
 
 Opponents appear in `objects` with category `Player`, and `target` reports the
 nearest one on screen. [examples/doom/duel.json](../examples/doom/duel.json)
-scores frags minus deaths and sets `deathmatch`: deathmatch maps have no
+scores frags minus deaths, plus a smaller reward for damage dealt and taken so that
+a graph that lands hits scores above one that never connects, and sets `deathmatch`: deathmatch maps have no
 single-player start, so `evaluate` and `optimize` play each episode as a duel
 against the graph given by `--opponent`, alternating hosts by seed. Searching
 against the arena's current leader breeds a challenger:
