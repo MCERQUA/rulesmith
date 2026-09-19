@@ -275,7 +275,10 @@ def optimize_plan(
     prompt = (
         "Improve this directed acyclic graph using observed execution failures. Return only "
         "the complete replacement JSON object, with nodes and outputs. Add, remove, or rewrite "
-        "nodes, questions, input wiring, and conditions. Each call receives its mapped inputs, "
+        "nodes, questions, input wiring, and conditions. Start from the current graph: keep "
+        "the nodes, IDs, and conditions that work, and change only what the feedback shows is "
+        "failing, since rewriting a working graph from scratch usually loses what worked. "
+        "Each call receives its mapped inputs, "
         "which can reference original state, literal data, or earlier node values/answers. "
         "Ready calls with identical inputs share one request; others run concurrently. "
         "A call's question MUST be an object nested inside the call, containing lowercase "
