@@ -593,9 +593,11 @@ def every_construct_plan():
                     ],
                 },
             },
+            "priority": {"type": "read", "path": ["priority"], "categories": ["low", "high"]},
             "summary": {
                 "type": "merge",
                 "inputs": {
+                    "priority": {"type": "node", "node": "priority", "optional": True},
                     "route": ref("route"),
                     "team": {"type": "node", "node": "team", "view": "answer"},
                     "held": {"type": "node", "node": "hold", "optional": True},

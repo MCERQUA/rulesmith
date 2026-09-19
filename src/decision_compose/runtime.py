@@ -26,6 +26,7 @@ from decision_compose.graph import (
     Plan,
     Present,
     Question,
+    Read,
     Score,
     Source,
     State,
@@ -142,6 +143,30 @@ def resolve_inputs(inputs: dict[str, Source], state: State, values: dict, answer
     return result
 
 
+class DomainError(ValueError):
+    """A read found a value its node's declared domain does not allow."""
+
+
+def read_path(node: Read, state: State):
+    value = state
+    for step in node.path:
+        if isinstance(step, int) and isinstance(value, list) and -len(value) <= step < len(value):
+            value = value[step]
+        elif isinstance(step, str) and isinstance(value, dict) and step in value:
+            value = value[step]
+        else:
+            return MISSING
+    if node.categories is not None:
+        allowed = isinstance(value, str) and value in node.categories
+    else:
+        low, high = node.bounds
+        allowed = isinstance(value, int | float) and not isinstance(value, bool)
+        allowed = allowed and low <= value <= high
+    if not allowed:
+        raise DomainError(f"read {node.path} found {value!r}, outside its declared domain")
+    return value
+
+
 def resolve_node(node: Node, state: State, values: dict, answers: dict):
     """Resolve deterministic values, or a call's input object; skipped nodes stay absent."""
     if not matches(node.when, values):
@@ -152,6 +177,8 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict):
         return resolve_inputs(node.inputs, state, values, answers)
     if isinstance(node, Coalesce):
         return next((values[source] for source in node.sources if source in values), MISSING)
+    if isinstance(node, Read):
+        return read_path(node, state)
     if node.source not in values:
         return MISSING
     value = values[node.source]
@@ -201,40 +228,45 @@ class DecisionProgram(dspy.Module):
         sorter = TopologicalSorter(self.plan.dependencies())
         sorter.prepare()
         ready, running = [], {}
-        with ThreadPoolExecutor(max_workers=self.execution.max_workers) as pool:
-            while sorter.is_active():
-                # Drain locally executable nodes before waiting on network work.
-                progressed = True
-                while progressed:
-                    ready.extend(sorter.get_ready())
-                    deferred, progressed, requests = [], False, {}
-                    for key in sorted(ready):
-                        node = self.plan.nodes[key]
-                        value = resolve_node(node, state, values, answers)
-                        if value is MISSING:
-                            sorter.done(key)
-                            progressed = True
-                        elif isinstance(node, Call):
-                            group = json.dumps(value, sort_keys=True)
-                            requests.setdefault(group, (value, []))[1].append((key, node))
-                        else:
-                            values[key] = value
-                            sorter.done(key)
-                            progressed = True
-                    for value, group in requests.values():
-                        if len(running) < self.execution.max_workers:
-                            running[pool.submit(self._ask, group, value)] = group[0][0]
-                        else:
-                            deferred.extend(key for key, _ in group)
-                    ready = deferred
-                if running:
-                    completed, _ = wait(running, return_when=FIRST_COMPLETED)
-                    for future in sorted(completed, key=running.get):
-                        running.pop(future)
-                        for key, (answer, usage) in sorted(future.result().items()):
-                            answers[key], calls[key] = answer, usage
-                            values[key] = answer["value"]
-                            sorter.done(key)
+        failure = None
+        try:
+            with ThreadPoolExecutor(max_workers=self.execution.max_workers) as pool:
+                while sorter.is_active():
+                    # Drain locally executable nodes before waiting on network work.
+                    progressed = True
+                    while progressed:
+                        ready.extend(sorter.get_ready())
+                        deferred, progressed, requests = [], False, {}
+                        for key in sorted(ready):
+                            node = self.plan.nodes[key]
+                            value = resolve_node(node, state, values, answers)
+                            if value is MISSING:
+                                sorter.done(key)
+                                progressed = True
+                            elif isinstance(node, Call):
+                                group = json.dumps(value, sort_keys=True)
+                                requests.setdefault(group, (value, []))[1].append((key, node))
+                            else:
+                                values[key] = value
+                                sorter.done(key)
+                                progressed = True
+                        for value, group in requests.values():
+                            if len(running) < self.execution.max_workers:
+                                running[pool.submit(self._ask, group, value)] = group[0][0]
+                            else:
+                                deferred.extend(key for key, _ in group)
+                        ready = deferred
+                    if running:
+                        completed, _ = wait(running, return_when=FIRST_COMPLETED)
+                        for future in sorted(completed, key=running.get):
+                            running.pop(future)
+                            for key, (answer, usage) in sorted(future.result().items()):
+                                answers[key], calls[key] = answer, usage
+                                values[key] = answer["value"]
+                                sorter.done(key)
+        except DomainError as error:
+            # Leaving the pool waits for requests already in flight.
+            failure = str(error)
 
         outputs, missing = {}, []
         for name, source in self.plan.outputs.items():
@@ -257,6 +289,8 @@ class DecisionProgram(dspy.Module):
         if "label" in outputs:
             result["label"] = outputs["label"]
         prediction = dspy.Prediction(**result)
+        if failure is not None:
+            raise GraphExecutionError(failure, prediction)
         if missing:
             raise GraphExecutionError(f"required graph outputs were skipped: {missing}", prediction)
         return prediction

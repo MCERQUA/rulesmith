@@ -1,11 +1,17 @@
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError
 from test_graph import binary_plan
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
-from decision_compose.graph import Choice, Noul, Score
-from decision_compose.runtime import ResponseError, read_answer
+from decision_compose.graph import Choice, Noul, Plan, Score
+from decision_compose.runtime import (
+    DecisionProgram,
+    GraphExecutionError,
+    ResponseError,
+    read_answer,
+)
 
 
 @given(st.floats(min_value=0, max_value=1, allow_nan=False))
@@ -187,3 +193,69 @@ def test_mutating_results_cannot_change_graph_literals_or_later_runs():
     first.outputs["literal"]["items"].append(4)
     assert plan.model_dump_json() == original
     assert program(state="input").outputs == {"node": {"items": [1]}, "literal": {"items": [2]}}
+
+
+def read_plan(**read):
+    return Plan.model_validate(
+        {
+            "nodes": {
+                "ahead": {"type": "read", "path": ["rangefinder", 3], "bounds": [0, 2048]} | read,
+                "move": {
+                    "type": "threshold",
+                    "source": "ahead",
+                    "cutoff": 64,
+                    "below": "TURN_LEFT",
+                    "above": "MOVE_FORWARD",
+                },
+            },
+            "outputs": {"label": {"type": "node", "node": "move"}},
+        }
+    )
+
+
+def test_read_nodes_take_values_from_the_input_without_a_model_call():
+    program = DecisionProgram(read_plan(), None, "none")
+    assert program(state={"rangefinder": [9, 9, 9, 500, 9, 9, 9]}).label == "MOVE_FORWARD"
+    assert program(state={"rangefinder": [900, 900, 900, 20, 900, 900, 900]}).label == "TURN_LEFT"
+
+
+def test_a_missing_read_path_skips_the_node():
+    program = DecisionProgram(read_plan(), None, "none")
+    with pytest.raises(GraphExecutionError, match="label"):
+        program(state={"rangefinder": [1, 2]})
+
+
+@pytest.mark.parametrize(
+    "state", [{"rangefinder": [0, 0, 0, 9000]}, {"rangefinder": [0, 0, 0, "far"]}]
+)
+def test_values_outside_a_reads_declared_domain_are_execution_errors(state):
+    with pytest.raises(GraphExecutionError, match="outside"):
+        DecisionProgram(read_plan(), None, "none")(state=state)
+
+
+def test_categorical_reads_drive_switches():
+    plan = Plan.model_validate(
+        {
+            "nodes": {
+                "kind": {
+                    "type": "read",
+                    "path": ["objects", 0, "category"],
+                    "categories": ["Monster", "Health"],
+                },
+                "act": {
+                    "type": "switch",
+                    "source": "kind",
+                    "cases": {"Monster": "ATTACK", "Health": "MOVE_FORWARD"},
+                },
+            },
+            "outputs": {"label": {"type": "node", "node": "act"}},
+        }
+    )
+    program = DecisionProgram(plan, None, "none")
+    assert program(state={"objects": [{"category": "Monster"}]}).label == "ATTACK"
+
+
+@pytest.mark.parametrize("read", [{"bounds": None}, {"categories": ["a", "b"]}])
+def test_reads_declare_exactly_one_domain(read):
+    with pytest.raises(ValidationError):
+        read_plan(**read)

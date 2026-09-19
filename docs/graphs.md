@@ -38,6 +38,7 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 | `merge` | Build an object from mapped `inputs`, with no model call. |
 | `coalesce` | After all `sources` settle, return the first available one in listed order. |
 | `value` | Return a literal JSON `value`. |
+| `read` | Take one value from the original input by `path`, declaring `bounds` (numbers) or `categories` (strings). A missing path skips the node; a value outside the declared domain is an execution error. |
 
 ## Questions
 

@@ -265,6 +265,10 @@ def optimize_plan(
         "score call's value is the expected position on its ordered levels; a noul call's value "
         "is the probability that its yes/no statement is true. Calls judge; they cannot extract "
         "or compute numbers from their inputs. "
+        "A read node takes one value from the original input by path, e.g. "
+        '{"type":"read","path":["rangefinder",3],"bounds":[0,2048]}, declaring bounds or '
+        "categories; use reads plus threshold, switch, and conditions for exact checks, and "
+        "calls only for judgment. "
         "Only declared node IDs may be referenced; there is no input_wiring field. "
         "Use view=value for a label output, not view=answer (which returns an object). "
         "Node and control references must form a DAG; every node must feed an output. "

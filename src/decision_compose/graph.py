@@ -144,7 +144,26 @@ class Value(Guarded):
     value: JsonValue
 
 
-Node = Annotated[Call | Switch | Threshold | Merge | Coalesce | Value, Field(discriminator="type")]
+class Read(Guarded):
+    """A value taken from the original input by path, with its declared domain."""
+
+    type: Literal["read"] = "read"
+    path: list[str | int] = Field(min_length=1)
+    bounds: tuple[float, float] | None = None
+    categories: list[Text] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def one_domain(self) -> Self:
+        if (self.bounds is None) == (self.categories is None):
+            raise ValueError("a read declares exactly one of bounds or categories")
+        if self.bounds is not None and self.bounds[0] > self.bounds[1]:
+            raise ValueError("read bounds must be increasing")
+        return self
+
+
+Node = Annotated[
+    Call | Switch | Threshold | Merge | Coalesce | Value | Read, Field(discriminator="type")
+]
 Domain = frozenset[str] | tuple[float, float] | None
 
 
@@ -200,6 +219,8 @@ class Plan(StrictModel):
                 domain = frozenset([node.below, node.above])
             elif isinstance(node, Value):
                 domain = literal_domain(node.value)
+            elif isinstance(node, Read):
+                domain = frozenset(node.categories) if node.categories else node.bounds
             elif isinstance(node, Coalesce):
                 inputs = [result[source] for source in node.sources]
                 if all(isinstance(d, frozenset) for d in inputs):
