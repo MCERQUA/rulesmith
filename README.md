@@ -13,11 +13,49 @@ answers. A saved graph runs without the reflection model. Execution supports
 named JSON outputs; optimization currently scores classification accuracy against
 a required `label` output.
 
-To build your own, follow [Make a graph for your task](#make-a-graph-for-your-task).
-
 This independent research prototype is not affiliated with TypeSafe. It optimizes
 graphs and question instructions; it does not train model weights. No benchmark
 improvement is claimed.
+
+## How it works
+
+```mermaid
+flowchart LR
+  T["task.json<br/>labels + examples"] --> S["Starting graph<br/>majority label"]
+  S --> E["Run on training examples<br/>via Ruling or Jev"]
+  E -->|"errors + expected labels"| P["DSPy proposer<br/>writes new graph JSON"]
+  P -->|"schema check"| E
+  E -->|"better on the batch"| V["Score on validation examples"]
+  V --> B["Best graph<br/>plan.json"]
+```
+
+The proposer sees where the current graph answered wrong and writes a complete
+replacement. A proposal is kept only if it beats its parent on the training
+batch, and the graph with the best validation accuracy is saved. The saved graph
+then runs on the backend alone, without the proposer.
+
+## Quick start
+
+With [Ruling running locally](#use-the-local-ruling-repo) and a generative model
+for the proposer (`REFLECTION_MODEL`, and `REFLECTION_BASE_URL` for a local
+server):
+
+```sh
+uv sync --locked
+cp examples/task.json task.json   # replace the description, labels, and examples
+
+uv run decision-compose optimize task.json \
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" \
+  --output runs/my-task
+
+uv run decision-compose run runs/my-task/plan.json state.json \
+  --backend ruling --max-workers 1
+```
+
+`state.json` holds one input to classify. The full walkthrough is in
+[Make a graph for your task](#make-a-graph-for-your-task).
 
 ## Install and run
 
