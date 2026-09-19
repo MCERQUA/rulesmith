@@ -49,7 +49,7 @@ class DoomTask(StrictModel):
 class DoomEnvironment:
     """A headless ViZDoom game whose observations are JSON, not pixels."""
 
-    def __init__(self, task: DoomTask, visible: bool = False):
+    def __init__(self, task: DoomTask, visible: bool = False, record: bool = False):
         config = os.path.join(vzd.scenarios_path, f"{task.scenario}.cfg")
         if not os.path.isfile(config):
             raise ValueError(f"unknown ViZDoom scenario: {task.scenario}")
@@ -60,6 +60,9 @@ class DoomEnvironment:
         self.game.set_doom_config_path(os.path.join(self.scratch.name, "_vizdoom.ini"))
         self.game.set_window_visible(visible)
         self.game.set_labels_buffer_enabled(True)
+        self.game.set_screen_format(vzd.ScreenFormat.RGB24)
+        # Every rendered tic while recording, as height x width x RGB arrays.
+        self.frames: list | None = [] if record else None
         if task.episode_timeout is not None:
             self.game.set_episode_timeout(task.episode_timeout)
         self.game.init()
@@ -78,10 +81,23 @@ class DoomEnvironment:
     def reset(self, seed: int) -> dict:
         self.game.set_seed(seed)
         self.game.new_episode()
+        if self.frames is not None:
+            self.frames = [self.game.get_state().screen_buffer.copy()]
         return self.observe()
 
     def step(self, action: str) -> tuple[float, dict | None]:
-        reward = self.game.make_action(self.buttons[action], self.tics)
+        if self.frames is None:
+            reward = self.game.make_action(self.buttons[action], self.tics)
+        else:
+            # One tic at a time so every frame is captured; the game advances identically.
+            self.game.set_action(self.buttons[action])
+            reward = 0.0
+            for _ in range(self.tics):
+                self.game.advance_action(1)
+                reward += self.game.get_last_reward()
+                if self.game.is_episode_finished():
+                    break
+                self.frames.append(self.game.get_state().screen_buffer.copy())
         return reward, None if self.game.is_episode_finished() else self.observe()
 
     def observe(self) -> dict:

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import dspy
+from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
@@ -53,7 +54,7 @@ def resolve_backend(name: str, model: str | None = None, base_url: str | None = 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     commands = root.add_subparsers(dest="command", required=True)
-    for name in ("validate", "evaluate", "optimize"):
+    for name in ("validate", "evaluate", "optimize", "record"):
         command = commands.add_parser(name)
         command.add_argument("task", type=Path)
         if name == "optimize":
@@ -68,7 +69,9 @@ def parser() -> argparse.ArgumentParser:
             continue
         provider_arguments(command)
         command.add_argument("--output", type=Path, required=True)
-        if name == "evaluate":
+        if name == "record":
+            command.add_argument("--seed", type=int, required=True, help="Doom episode seed")
+        elif name == "evaluate":
             command.add_argument("--split", choices=("train", "validation", "test"), default="test")
             command.add_argument(
                 "--visible", action="store_true", help="Show the game window for a Doom task"
@@ -142,6 +145,13 @@ def draft_labels(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None
     print(dump({"labels": dict(counts), "output": str(args.output)}), end="")
 
 
+def save_gif(frames: list, fps: int, path: Path) -> None:
+    first, *rest = (Image.fromarray(frame) for frame in frames)
+    # GIF delays are whole centiseconds, so round to 10 ms rather than truncate.
+    delay = round(100 / fps) * 10
+    first.save(path, save_all=True, append_images=rest, duration=delay, loop=0)
+
+
 def load_task(path: Path) -> Task | DoomTask:
     data = json.loads(path.read_text())
     return (DoomTask if "scenario" in data else Task).model_validate(data)
@@ -163,7 +173,9 @@ def main() -> None:
         return
     if getattr(args, "visible", False) and not isinstance(task, DoomTask):
         cli.error("--visible requires a Doom task")
-    if args.command in ("evaluate", "optimize"):
+    if args.command == "record" and not isinstance(task, DoomTask):
+        cli.error("record requires a Doom task")
+    if args.command in ("evaluate", "optimize", "record"):
         if args.output.exists():
             cli.error(f"output already exists: {args.output}")
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -202,13 +214,19 @@ def main() -> None:
         )
         score = classify
         if args.command != "run" and isinstance(task, DoomTask):
-            env = DoomEnvironment(task, visible=getattr(args, "visible", False))
+            env = DoomEnvironment(
+                task, visible=getattr(args, "visible", False), record=args.command == "record"
+            )
             score = Episodes(task, stack.enter_context(env))
         if args.command == "run":
             prediction = DecisionProgram(plan, client, model, execution)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")
+        elif args.command == "record":
+            outcome = score(DecisionProgram(plan, client, model, execution), args.seed)
+            save_gif(env.frames, env.game.get_ticrate(), args.output)
+            print(dump(outcome.record | {"output": str(args.output)}), end="")
         elif args.command == "evaluate":
             report = evaluate_plan(plan, getattr(task, args.split), client, model, execution, score)
             report["split"] = args.split

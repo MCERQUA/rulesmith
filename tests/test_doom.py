@@ -259,3 +259,36 @@ def test_scenarios_without_game_variables_observe_an_empty_mapping():
     task = DoomTask.model_validate(doom_data(scenario="simpler_basic"))
     with DoomEnvironment(task) as env:
         assert env.reset(7)["variables"] == {}
+
+
+@pytest.mark.parametrize("action", ["ATTACK", "MOVE_LEFT"])
+def test_recording_captures_every_tic_without_changing_the_game(task, client, action):
+    program = DecisionProgram(Plan.constant(action), client, "fixture")
+    with DoomEnvironment(task) as env:
+        plain = Episodes(task, env)(program, 7)
+    with DoomEnvironment(task, record=True) as env:
+        recorded = Episodes(task, env)(program, 7)
+        frames = env.frames
+    assert recorded.record["reward"] == plain.record["reward"]
+    # The opening frame, plus every tic except the one that ends the episode.
+    assert len(frames) == recorded.record["steps"] * task.tics_per_action
+    assert frames[0].shape == (240, 320, 3)
+
+
+def test_cli_records_an_episode_as_a_gif(tmp_path):
+    from PIL import Image
+
+    plan = write(tmp_path / "plan.json", constant_plan("MOVE_LEFT"))
+    task = write(tmp_path / "doom.json", doom_data())
+    output = tmp_path / "episode.gif"
+    result = invoke("record", task, plan, "--seed", 7, "--output", output)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["reward"] == reference_reward("MOVE_LEFT", 7, 4, tmp_path)
+    with Image.open(output) as gif:
+        playback = 0
+        for index in range(gif.n_frames):
+            gif.seek(index)
+            playback += gif.info["duration"]
+    # GIF delays are whole centiseconds; playback should still run at game speed.
+    game_seconds = json.loads(result.stdout)["steps"] * 4 / 35
+    assert playback / 1000 == pytest.approx(game_seconds, rel=0.15)
