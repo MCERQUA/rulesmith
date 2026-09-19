@@ -46,9 +46,9 @@
         "type": "choice",
         "instructions": "Aim at the nearest live monster, then fire. TURN_LEFT moves on-screen objects right; TURN_RIGHT moves them left.",
         "criteria": {
-          "ATTACK": "The nearest live on-screen monster has x between -0.1 and 0.1.",
-          "TURN_LEFT": "The target is left of center (x below -0.1), or it is off screen with a positive compass bearing.",
-          "TURN_RIGHT": "The target is right of center (x above 0.1), or it is off screen with a negative compass bearing."
+          "ATTACK": "The nearest live monster's box covers the screen center: its x is between -0.25 and 0.25, or closer to 0 than half its width.",
+          "TURN_LEFT": "The target is left of that (x below -0.25, not covering the center), or it is off screen with a positive compass bearing.",
+          "TURN_RIGHT": "The target is right of that (x above 0.25, not covering the center), or it is off screen with a negative compass bearing."
         }
       },
       "inputs": {
