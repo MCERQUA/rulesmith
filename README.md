@@ -42,7 +42,7 @@ server):
 
 ```sh
 uv sync --locked
-cp examples/task.json task.json   # replace the description, labels, and examples
+cp examples/task.json task.json   # or draft one from unlabeled inputs with draft-labels
 
 uv run decision-compose optimize task.json \
   --backend ruling --max-workers 1 \
@@ -205,6 +205,32 @@ training label, so the first proposals are generated from the task alone.
    from your allowed answers. Training examples drive proposals, validation
    selects the graph, and test examples measure the final result. Include
    representative cases for every label, especially ambiguous and difficult ones.
+
+   Without labeled examples, have a strong generative model draft the labels
+   instead. Put your raw inputs in a JSON file:
+
+   ```json
+   {
+     "description": "Route each support ticket to the department that should handle it.",
+     "labels": ["billing", "technical", "sales"],
+     "inputs": ["I was charged twice this month.", "The export button returns a 500 error."]
+   }
+   ```
+
+   Then draft the task, choosing how many inputs go to validation and test:
+
+   ```sh
+   uv run decision-compose draft-labels inputs.json --output task.json \
+     --labeler-model "$REFLECTION_MODEL" \
+     --labeler-base-url "$REFLECTION_BASE_URL" \
+     --validation 10 --test 10
+   ```
+
+   Inputs are shuffled with `--seed` and split before labeling; a label outside
+   `labels` aborts the run. **Review and correct `task.json` before searching.**
+   Search can only learn to agree with these labels, so the labeler's mistakes
+   become the graph's target. This follows DSPy's teacher–student pattern: a
+   large model labels, and the small Ruling judge is fit to its judgment.
 
 2. Start Ruling as described above and configure a separate generative model.
    For a running local OpenAI-compatible server, set `REFLECTION_MODEL` to

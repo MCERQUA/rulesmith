@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from collections import Counter
 from contextlib import nullcontext, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +13,7 @@ import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from decision_compose.graph import Call, Plan, Task
+from decision_compose.label import Labeler, Unlabeled, draft_task
 from decision_compose.optimize import GraphProposer, SearchConfig, evaluate_plan, optimize_plan
 from decision_compose.runtime import DecisionProgram, ExecutionConfig
 
@@ -76,6 +78,16 @@ def parser() -> argparse.ArgumentParser:
                 "--reflection-batch", type=int, default=SearchConfig().reflection_batch
             )
             command.add_argument("--seed", type=int, default=SearchConfig().seed)
+    draft = commands.add_parser("draft-labels", help="Label raw inputs for review as a task")
+    draft.add_argument("inputs", type=Path, help="JSON with description, labels, and inputs")
+    draft.add_argument("--output", type=Path, required=True)
+    draft.add_argument(
+        "--labeler-model", required=True, help="DSPy model identifier for the labeler"
+    )
+    draft.add_argument("--labeler-base-url")
+    draft.add_argument("--validation", type=int, required=True, help="Validation example count")
+    draft.add_argument("--test", type=int, required=True, help="Test example count")
+    draft.add_argument("--seed", type=int, default=0, help="Split shuffle seed")
     run = commands.add_parser("run")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
@@ -95,9 +107,37 @@ def dump(value: dict) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
 
+def draft_labels(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    if args.output.exists():
+        cli.error(f"output already exists: {args.output}")
+    unlabeled = Unlabeled.model_validate_json(args.inputs.read_text())
+    lm_options = {"api_base": args.labeler_base_url} if args.labeler_base_url else {}
+    labeler = Labeler(
+        dspy.LM(args.labeler_model, cache=False, num_retries=0, **lm_options),
+        unlabeled.description,
+        unlabeled.labels,
+    )
+    task = draft_task(
+        unlabeled.description,
+        unlabeled.labels,
+        unlabeled.inputs,
+        labeler,
+        args.validation,
+        args.test,
+        args.seed,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(task.model_dump_json(indent=2) + "\n")
+    counts = Counter(e.label for e in task.train + task.validation + task.test)
+    print(dump({"labels": dict(counts), "output": str(args.output)}), end="")
+
+
 def main() -> None:
     cli = parser()
     args = cli.parse_args()
+    if args.command == "draft-labels":
+        draft_labels(cli, args)
+        return
     if args.command != "run":
         task = Task.model_validate_json(args.task.read_text())
     plan = Plan.model_validate_json(args.plan.read_text()) if args.plan else task.baseline_plan()

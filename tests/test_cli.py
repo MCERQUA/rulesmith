@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from test_graph import binary_plan, task_data
 
-from decision_compose.graph import Plan
+from decision_compose.graph import Plan, Task
 
 
 def invoke(*args):
@@ -121,6 +121,39 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
     assert report["execution"] == {"max_workers": 2}
     assert sum(path == "/v1/chat/completions" for path, _ in provider.requests) == 1
     assert invoke("validate", task, output / "plan.json").returncode == 0
+
+
+def test_cli_drafts_a_reviewable_task_from_unlabeled_inputs(tmp_path, provider, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
+    states = ["request A", {"request": "B"}, "request C", "request D"]
+    inputs = write(
+        tmp_path / "inputs.json",
+        {"description": "Classify requests.", "labels": ["accept", "review"], "inputs": states},
+    )
+    provider.completion = json.dumps({"label": "review"})
+    output = tmp_path / "task.json"
+    result = invoke(
+        "draft-labels",
+        inputs,
+        "--output",
+        output,
+        "--labeler-model",
+        "openai/fixture-model",
+        "--labeler-base-url",
+        provider.url + "/v1",
+        "--validation",
+        1,
+        "--test",
+        1,
+    )
+    assert result.returncode == 0, result.stderr
+    task = Task.model_validate_json(output.read_text())
+    examples = task.train + task.validation + task.test
+    assert sorted(json.dumps(e.state) for e in examples) == sorted(map(json.dumps, states))
+    assert {e.label for e in examples} == {"review"}
+    assert len(provider.requests) == len(states)
+    plan = write(tmp_path / "plan.json", binary_plan())
+    assert invoke("validate", output, plan).returncode == 0
 
 
 def test_invalid_search_budget_does_not_reserve_output_or_make_calls(
