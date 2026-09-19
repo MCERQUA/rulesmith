@@ -19,7 +19,7 @@ def test_signature_preserves_open_node_ids_and_wiring():
     "completion",
     [
         "not a graph",
-        '{"nodes": [], "outputs": {}}',
+        "[1, 2]",
         '{"nodes": {"x": {"type": "value", "value": 1e309}}, "outputs": {}}',
     ],
 )
@@ -37,6 +37,22 @@ def test_malformed_generation_is_reported_as_an_invalid_candidate(provider, comp
     candidate = json.loads(proposer("Propose a decision graph."))
     assert candidate["generation_error"]
     assert len(provider.requests) == 1
+
+
+def test_a_reply_that_is_only_the_graph_is_taken_as_the_graph(provider):
+    # Reasoning models with thinking off often drop the field header and send bare JSON.
+    graph = binary_plan()
+    provider.completion = json.dumps(graph, indent=2)
+    proposer = GraphProposer(
+        dspy.LM(
+            "openai/fixture-model",
+            api_base=provider.url + "/v1",
+            api_key="test-placeholder",
+            cache=False,
+            num_retries=0,
+        )
+    )
+    assert json.loads(proposer("Propose a decision graph.")) == graph
 
 
 def test_proposer_and_labeler_work_on_servers_without_json_mode(provider):

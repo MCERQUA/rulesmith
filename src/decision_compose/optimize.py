@@ -43,16 +43,28 @@ class GraphProposer(dspy.Module):
 
     def forward(self, prompt: str | list[dict]) -> str:
         request = prompt if isinstance(prompt, str) else json.dumps(prompt)
+        # Syntax failures remain candidates so GEPA can score and reflect on them.
         with dspy.context(lm=self.lm, adapter=text_adapter()):
             try:
-                result = self.predict(request=request)
-            except (AdapterParseError, ValidationError) as error:
-                # Syntax failures remain candidates so GEPA can score and reflect on them.
-                return json.dumps({"generation_error": str(error)})
+                graph = self.predict(request=request).graph
+            except AdapterParseError as error:
+                graph = headless_graph(error)
+            except ValidationError as error:
+                graph = {"generation_error": str(error)}
         try:
-            return json.dumps(result.graph, allow_nan=False)
+            return json.dumps(graph, allow_nan=False)
         except ValueError as error:
             return json.dumps({"generation_error": str(error)})
+
+
+def headless_graph(error: AdapterParseError) -> dict:
+    """The graph from a reply that is only its JSON, without the field header. Reasoning models
+    with thinking off often answer this way, and with one output field it is unambiguous."""
+    try:
+        graph = json.loads(error.lm_response)
+    except json.JSONDecodeError:
+        return {"generation_error": str(error)}
+    return graph if isinstance(graph, dict) else {"generation_error": str(error)}
 
 
 @dataclass(frozen=True)
