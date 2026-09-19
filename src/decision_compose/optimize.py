@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Protocol
@@ -112,6 +113,15 @@ class SearchConfig(StrictModel):
         default=2, ge=0, description="Times an invalid proposal is sent back with its error"
     )
     seed: int = 0
+    parallel_examples: int = Field(
+        default=1, ge=1, description="Examples scored at once; scorers sharing one game need 1"
+    )
+
+
+def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, parallel: int) -> list:
+    """Every example's outcome, in order, scoring up to `parallel` examples at once."""
+    with ThreadPoolExecutor(parallel) as pool:
+        return list(pool.map(lambda example: score(program, example), examples))
 
 
 class GraphAdapter(GEPAAdapter[object, dict, dict]):
@@ -159,13 +169,13 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
                 [feedback] * len(batch) if capture_traces else None,
             )
         program = DecisionProgram(plan, self.client, self.model, self.execution)
-        for example in batch:
-            try:
-                outcome = self.score(program, example)
-            except Exception as error:
-                # GEPA catches some adapter failures internally, even with raise_on_exception.
-                self.failure = error
-                raise
+        try:
+            outcomes = score_all(self.score, program, batch, self.config.parallel_examples)
+        except Exception as error:
+            # GEPA catches some adapter failures internally, even with raise_on_exception.
+            self.failure = error
+            raise
+        for outcome in outcomes:
             self.resolved_models.update(outcome.models)
             outputs.append(outcome.record)
             scores.append(outcome.score)
@@ -298,6 +308,9 @@ def optimize_plan(
         "categories. Reads give exact values for thresholds, switches, and conditions; calls "
         "let the judge weigh the whole input, which suits decisions no single value settles, "
         "such as whether to fight or fall back. Use whichever scores better. "
+        "A call runs on every input that does not skip it, so in a game it runs every step; "
+        "gate calls with when-conditions on reads, such as only while a target is present, "
+        "so the judge is asked only where no read settles the decision. "
         "A read's path must end at a number or string, never an "
         "object or list. A missing path or a value outside the declared domain skips the "
         "read, so test whether a field exists with "
@@ -366,9 +379,10 @@ def evaluate_plan(
     model: str,
     execution: ExecutionConfig | None = None,
     score: Scorer = classify,
+    parallel_examples: int = 1,
 ) -> dict:
     program = DecisionProgram(plan, client, model, execution)
-    outcomes = [score(program, example) for example in examples]
+    outcomes = score_all(score, program, examples, parallel_examples)
     return {
         "score": sum(outcome.score for outcome in outcomes) / len(outcomes),
         "examples": [outcome.record for outcome in outcomes],

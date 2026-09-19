@@ -40,6 +40,7 @@ uv run decision-compose evaluate task.json runs/my-task/plan.json --split test \
 | `--repair-attempts` | 2 | Times an invalid proposal goes back to the proposer with its validation error before search sees it |
 | `--reflection-timeout` | none | Seconds before a proposal request fails, so a hung proposer stops the search instead of stalling it |
 | `--retries` | 0 | Retries for judge requests that fail or time out |
+| `--parallel-examples` | 1 | Examples scored at once; Doom allows more than 1 only for deathmatch tasks, whose duels each run their own games |
 | `--max-nodes` / `--max-depth` | 16 / 8 | Limits on generated graphs |
 | `--seed` | 0 | Search seed |
 

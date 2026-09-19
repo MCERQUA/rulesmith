@@ -1,5 +1,6 @@
 import json
 import re
+import threading
 from typing import get_args
 
 import dspy
@@ -8,7 +9,14 @@ from conftest import chat_reply
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
 from decision_compose.graph import Condition, Node, Plan, Question, Source, Task
-from decision_compose.optimize import GraphAdapter, GraphProposer, SearchConfig, optimize_plan
+from decision_compose.optimize import (
+    GraphAdapter,
+    GraphProposer,
+    SearchConfig,
+    classify,
+    evaluate_plan,
+    optimize_plan,
+)
 from decision_compose.runtime import DecisionProgram, ResponseError
 
 
@@ -768,3 +776,28 @@ def test_repair_prompts_carry_only_the_latest_failed_attempt(client):
         SearchConfig(max_metric_calls=4, reflection_batch=1, repair_attempts=2),
     )
     assert attempts[1] in prompts[2] and attempts[0] not in prompts[2]
+
+
+@pytest.mark.parametrize("entry", ["search", "evaluate"])
+def test_parallel_examples_are_scored_together_and_keep_their_order(client, entry):
+    data = task_data()
+    data["train"] = [{"id": name, "state": f"request {name}", "label": "accept"} for name in "xyz"]
+    task = Task.model_validate(data)
+    # Each score waits until all three are underway, so serial scoring can never finish.
+    meeting = threading.Barrier(3, timeout=10)
+
+    def score(program, example):
+        meeting.wait()
+        return classify(program, example)
+
+    plan = constant_plan()
+    if entry == "search":
+        config = SearchConfig(parallel_examples=3)
+        adapter = GraphAdapter(task, client, "fixture", config, score=score)
+        records = adapter.evaluate(task.train, {"graph": json.dumps(plan)}).outputs
+    else:
+        report = evaluate_plan(
+            Plan.model_validate(plan), task.train, client, "f", score=score, parallel_examples=3
+        )
+        records = report["examples"]
+    assert [record["id"] for record in records] == ["x", "y", "z"]

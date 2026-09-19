@@ -245,7 +245,16 @@ def test_cli_searches_and_evaluates_a_graph_against_an_opponent(tmp_path, provid
     )
     assert completed.returncode == 0, completed.stderr
     evaluation = tmp_path / "test.json"
-    completed = invoke("evaluate", task, output / "plan.json", "--output", evaluation, *common)
+    completed = invoke(
+        "evaluate",
+        task,
+        output / "plan.json",
+        "--output",
+        evaluation,
+        "--parallel-examples",
+        2,
+        *common,
+    )
     assert completed.returncode == 0, completed.stderr
     (row,) = json.loads(evaluation.read_text())["examples"]
     assert row["seed"] == 3 and row["result"] in ("won", "drew", "lost")

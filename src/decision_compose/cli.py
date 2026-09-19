@@ -74,6 +74,12 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--output", type=Path, required=True)
         if name in ("evaluate", "optimize"):
             command.add_argument(
+                "--parallel-examples",
+                type=int,
+                default=SearchConfig().parallel_examples,
+                help="Examples or episodes scored at once; deathmatch episodes can run together",
+            )
+            command.add_argument(
                 "--opponent",
                 type=Path,
                 help="Graph a deathmatch task's episodes are played against",
@@ -257,6 +263,8 @@ def main() -> None:
     deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
     if args.command in ("evaluate", "optimize") and deathmatch != bool(args.opponent):
         cli.error("--opponent is required for, and only for, deathmatch tasks")
+    if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
+        cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")
     if args.command == "record" and not isinstance(task, DoomTask):
         cli.error("record requires a Doom task")
     if args.command == "record" and args.output.suffix not in (".gif", ".mp4"):
@@ -273,6 +281,7 @@ def main() -> None:
             reflection_batch=args.reflection_batch,
             repair_attempts=args.repair_attempts,
             seed=args.seed,
+            parallel_examples=args.parallel_examples,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:
@@ -319,7 +328,15 @@ def main() -> None:
             save_video(frames, env.game.get_ticrate(), args.output)
             print(dump({"episodes": episodes, "output": str(args.output)}), end="")
         elif args.command == "evaluate":
-            report = evaluate_plan(plan, getattr(task, args.split), client, model, execution, score)
+            report = evaluate_plan(
+                plan,
+                getattr(task, args.split),
+                client,
+                model,
+                execution,
+                score,
+                args.parallel_examples,
+            )
             report["split"] = args.split
             report["backend"] = args.backend
             args.output.write_text(dump(report))

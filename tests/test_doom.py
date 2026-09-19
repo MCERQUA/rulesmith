@@ -225,6 +225,14 @@ def test_cli_optimizes_and_evaluates_a_doom_task(tmp_path, provider, monkeypatch
     assert report["examples"][0]["reward"] > 0
 
 
+def test_cli_refuses_parallel_episodes_that_would_share_one_game(tmp_path):
+    task = write(tmp_path / "doom.json", doom_data())
+    plan = write(tmp_path / "plan.json", constant_plan("ATTACK"))
+    args = ["evaluate", task, plan, "--output", tmp_path / "out.json", "--parallel-examples", 2]
+    completed = invoke(*args)
+    assert completed.returncode != 0 and "--parallel-examples" in completed.stderr
+
+
 # Deathmatch examples only play networked; test_arena covers them.
 EXAMPLES = [
     path
