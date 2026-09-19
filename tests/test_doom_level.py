@@ -1,5 +1,6 @@
 """Full-level observations and rewards, checked against Freedoom's real E1M1 map."""
 
+import itertools
 import math
 from pathlib import Path
 
@@ -238,7 +239,7 @@ def test_route_waypoints_lead_through_openings_not_along_them():
 
 
 def test_following_the_route_reaches_the_exit():
-    """With damage off, a walker that only follows the route must finish the level."""
+    """With damage off and no monsters in the way, following the route finishes the level."""
     task = level(
         episode_timeout=35 * 240,
         labels=["MOVE_FORWARD", "TURN_LEFT", "TURN_RIGHT", "MOVE_FORWARD+USE"],
@@ -246,7 +247,9 @@ def test_following_the_route_reaches_the_exit():
     task = task.model_copy(update={"reward_range": (-10000, 100000)})
     with DoomEnvironment(task) as env:
         observation = env.reset(5)
+        # Live monsters body-block a walker that never fights; this test is about navigation.
         env.game.send_game_command("god")
+        env.game.send_game_command("kill monsters")
         while observation is not None:
             bearing = observation["route"]["bearing"]
             if abs(bearing) > 12:
@@ -258,3 +261,30 @@ def test_following_the_route_reaches_the_exit():
             _, observation = env.step(action)
         assert env.game.is_episode_finished()
         assert env.game.get_episode_time() < task.episode_timeout
+
+
+def test_routes_never_climb_more_than_a_doom_step():
+    level_map = Level(Path(vzd.scenarios_path).parent / "freedoom1.wad", "E1M1")
+    # Beside a thin 32-unit ledge that a route once stepped over between cell centers.
+    x, y = 736.0, 464.0
+    for _ in range(40):
+        (next_x, next_y), ahead = level_map.waypoint(x, y)
+        if ahead == "exit":
+            break
+        floors = [
+            level_map.heights[
+                level_map.locate(x + (next_x - x) * t / 16, y + (next_y - y) * t / 16)
+            ][0]
+            for t in range(17)
+        ]
+        assert max(b - a for a, b in itertools.pairwise(floors)) <= 24, (x, y, floors)
+        x, y = next_x, next_y
+
+
+def test_solid_decorations_block_the_route():
+    level_map = Level(Path(vzd.scenarios_path).parent / "freedoom1.wad", "E1M1")
+    radii = {name: radius for name, radius in level_map.solid_types.values()}
+    assert radii["TechPillar"] == 16 and radii["BigTree"] == 32 and radii["ExplosiveBarrel"] == 10
+    assert "Zombieman" not in radii
+    for (x, y), radius in level_map.obstacles:
+        assert not level_map.walkable((x - radius - 20, y), (x + radius + 20, y))

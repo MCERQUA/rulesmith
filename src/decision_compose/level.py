@@ -2,7 +2,9 @@
 
 import heapq
 import math
+import re
 import struct
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,12 +19,16 @@ PLAYER_HEIGHT = 56
 # and how many cells out the player's own cell is searched for.
 CELL = 16
 CLEARANCE = 12
+PLAYER_RADIUS = 16
 CROWDED = 24
 WALL_PENALTY = 1.0
 EXIT_REACH = 48
 LOOKAHEAD = 4
 SEARCH = 3
+# Spacing of floor samples when checking a straight walk for steps.
+SAMPLE = 4
 IMPASSABLE = 0x0001
+MULTIPLAYER = 0x0010
 SUBSECTOR = 0x8000
 EXITS = {11, 52, 197}
 LOCKED = {26, 27, 28, 32, 33, 34, 99, 133, 134, 135, 136, 137}
@@ -78,6 +84,56 @@ def rows(lump: bytes, layout: str) -> list[tuple]:
     return [struct.unpack_from(layout, lump, offset) for offset in range(0, len(lump), size)]
 
 
+ACTOR = re.compile(r"^\s*actor\s+(\w+)(?:\s*:\s*(\w+))?", re.IGNORECASE | re.MULTILINE)
+EDITOR_NUMBER = re.compile(r"^\s*(\d+)\s*=\s*(\w+)", re.MULTILINE)
+# ZDoom's table of Doom editor numbers, used by Doom and Freedoom maps.
+DOOM_NUMBERS = "mapinfo/doomitems.txt"
+
+
+def solid_types(pk3: Path) -> dict[int, tuple[str, float]]:
+    """Doom editor numbers of solid, stationary actors, with their names and collision radii,
+    from the engine's actor definitions and editor-number table."""
+    actors = {}
+    with zipfile.ZipFile(pk3) as archive:
+        numbers = {
+            int(number): name.lower()
+            for number, name in EDITOR_NUMBER.findall(archive.read(DOOM_NUMBERS).decode("latin-1"))
+        }
+        for path in archive.namelist():
+            if not (path.startswith("actors/") and path.endswith(".txt")):
+                continue
+            text = archive.read(path).decode("latin-1").replace("\r\n", "\n")
+            for match in ACTOR.finditer(text):
+                body = text[match.end() : text.find("\n}", match.end())]
+                radius = re.search(r"^\s*radius\s+(\d+)", body, re.IGNORECASE | re.MULTILINE)
+                flags = {flag.lower() for flag in re.findall(r"([+-]\w+)", body)}
+                monster = re.search(r"^\s*monster\s*$", body, re.IGNORECASE | re.MULTILINE)
+                actors[match.group(1).lower()] = {
+                    "name": match.group(1),
+                    "parent": (match.group(2) or "").lower() or None,
+                    "radius": float(radius.group(1)) if radius else None,
+                    "solid": True if "+solid" in flags else False if "-solid" in flags else None,
+                    "monster": True if monster or "+ismonster" in flags else None,
+                }
+
+    def inherited(actor: dict, key: str, default):
+        while actor is not None:
+            if actor[key] is not None:
+                return actor[key]
+            actor = actors.get(actor["parent"])
+        return default
+
+    solid = {}
+    for number, name in numbers.items():
+        actor = actors.get(name)
+        if actor is None or inherited(actor, "monster", False):
+            continue
+        if inherited(actor, "solid", False):
+            # Doom's base actor radius is 20 when no definition in the chain sets one.
+            solid[number] = (actor["name"], inherited(actor, "radius", 20.0))
+    return solid
+
+
 class Level:
     """A map's geometry, with walking distance to its exit from anywhere on the map."""
 
@@ -108,6 +164,13 @@ class Level:
             _, _, _, linedef, direction, _ = segs[first]
             line = self.lines[linedef]
             self.subsectors.append(line.back if direction else line.front)
+        self.solid_types = solid_types(path.parent / "vizdoom.pk3")
+        # Things placed for multiplayer only are absent in single-player games.
+        self.obstacles = [
+            ((float(x), float(y)), self.solid_types[kind][1])
+            for x, y, _, kind, flags in rows(parts["THINGS"], "<5h")
+            if kind in self.solid_types and not flags & MULTIPLAYER
+        ]
         self.exits = [line for line in self.lines if line.special in EXITS]
         if not self.exits:
             raise ValueError(f"{map_name} has no exit line")
@@ -147,18 +210,33 @@ class Level:
             if sector is not None and self.heights[sector][1] <= self.heights[sector][0]
         }
         walls = [line for line in self.lines if line.back is None or line.flags & IMPASSABLE]
+        self.wall_starts = np.array([line.start for line in walls], dtype=float)
+        self.wall_ends = np.array([line.end for line in walls], dtype=float)
         clearance = np.full(len(centers), np.inf)
         for line in walls:
             clearance = np.minimum(clearance, segment_distance(centers, line.start, line.end))
+        for (x, y), radius in self.obstacles:
+            clearance = np.minimum(clearance, np.hypot(*(centers - (x, y)).T) - radius)
         free = (
             ((gaps >= PLAYER_HEIGHT) | doors)
             & ~np.isin(sectors, list(locked))
             & (clearance >= CLEARANCE)
         )
         self.centers, self.floors, self.doors, self.free = centers, floors, doors, free
+        # A thin ledge can sit between two cell centers, so each move also checks the sector
+        # at its midpoint: floor heights there, and whether the player can stand there.
+        midway = {}
+        for di, dj, _ in STEPS:
+            points = centers + np.array([di, dj]) * CELL / 2
+            mids = np.array([self.locate(x, y) for x, y in points])
+            mid_floor = np.array([floor for floor, _ in self.heights])[mids]
+            mid_gap = np.array([ceiling - floor for floor, ceiling in self.heights])[mids]
+            midway[di, dj] = (mid_floor, (mid_gap >= PLAYER_HEIGHT) | (mid_gap <= 0))
         # Hugging a wall snags on door frames and corners, so cells near one cost more.
         crowded = 1 + WALL_PENALTY * (clearance < CROWDED)
         self.distance = np.full(len(centers), np.inf)
+        # The next cell on each cell's legal path to the exit; -1 for exit cells.
+        self.toward = np.full(len(centers), -1)
         frontier = []
         for line in self.exits:
             near = segment_distance(centers, line.start, line.end)
@@ -177,12 +255,21 @@ class Level:
                 if not (0 <= ni < self.shape[0] and 0 <= nj < width):
                     continue
                 other = ni * width + nj
-                # Walking from other into cell must not climb more than Doom's step height.
-                if not free[other] or floors[cell] - floors[other] > MAX_STEP:
+                if not free[other]:
+                    continue
+                # The player walks from other into cell, in the opposite direction, and must
+                # not climb more than Doom's step height on either half of the move.
+                mid_floor, standable = midway[-di, -dj]
+                if (
+                    not standable[other]
+                    or mid_floor[other] - floors[other] > MAX_STEP
+                    or floors[cell] - mid_floor[other] > MAX_STEP
+                ):
                     continue
                 total = length + step * CELL * crowded[other]
                 if total < self.distance[other]:
                     self.distance[other] = total
+                    self.toward[other] = cell
                     heapq.heappush(frontier, (total, other))
 
     def cell(self, x: float, y: float) -> int | None:
@@ -196,13 +283,52 @@ class Level:
                     if not (0 <= i < self.shape[0] and 0 <= j < self.shape[1]):
                         continue
                     cell = i * self.shape[1] + j
-                    if np.isfinite(self.distance[cell]):
+                    if np.isfinite(self.distance[cell]) and self.walkable(
+                        (x, y), tuple(self.centers[cell])
+                    ):
                         cost = self.distance[cell] + math.dist((x, y), self.centers[cell])
                         if best is None or cost < best[0]:
                             best = (cost, cell)
             if best is not None:
                 return best[1]
         return None
+
+    def walkable(self, start: tuple[float, float], end: tuple[float, float]) -> bool:
+        """Whether walking straight from start to end crosses no wall and no step too high."""
+        (ax, ay), (bx, by) = start, end
+        direction = np.array([bx - ax, by - ay])
+        edges = self.wall_ends - self.wall_starts
+        offset = self.wall_starts - np.array(start)
+        denominator = cross(direction, edges)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            along_path = cross(offset, edges) / denominator
+            along_wall = cross(offset, direction) / denominator
+        hits = (denominator != 0) & (along_path > 0) & (along_path < 1)
+        if (hits & (along_wall >= 0) & (along_wall <= 1)).any():
+            return False
+        # The player is a body, not a point: the walk must clear wall corners by its radius.
+        path = np.array([start, end], dtype=float)
+        near_walls = np.minimum(
+            np.minimum(
+                points_to_segments(path[0], self.wall_starts, self.wall_ends),
+                points_to_segments(path[1], self.wall_starts, self.wall_ends),
+            ),
+            np.minimum(
+                segment_distance(self.wall_starts, start, end),
+                segment_distance(self.wall_ends, start, end),
+            ),
+        )
+        if (near_walls < PLAYER_RADIUS).any():
+            return False
+        for center, radius in self.obstacles:
+            if segment_distance(np.array([center]), start, end)[0] < radius + CLEARANCE:
+                return False
+        samples = max(int(math.dist(start, end) / SAMPLE), 1)
+        floors = [
+            self.heights[self.locate(ax + (bx - ax) * k / samples, ay + (by - ay) * k / samples)][0]
+            for k in range(samples + 1)
+        ]
+        return all(b - a <= MAX_STEP for a, b in zip(floors, floors[1:], strict=False))
 
     def remaining(self, x: float, y: float) -> float | None:
         """Walking distance from the point to an exit switch."""
@@ -217,24 +343,38 @@ class Level:
         cell = self.cell(x, y)
         if cell is None:
             return None
-        width = self.shape[1]
-        door = False
-        for _ in range(LOOKAHEAD):
-            i, j = divmod(cell, width)
-            neighbors = [
-                (i + di) * width + (j + dj)
-                for di, dj, _ in STEPS
-                if 0 <= i + di < self.shape[0] and 0 <= j + dj < width
-            ]
-            following = min(neighbors, key=lambda other: self.distance[other])
-            if self.distance[following] >= self.distance[cell]:
-                break
-            cell = following
-            door = door or bool(self.doors[cell])
+        path = [cell]
+        while len(path) <= LOOKAHEAD and self.toward[path[-1]] >= 0:
+            path.append(int(self.toward[path[-1]]))
+        # Head for the farthest cell ahead that a straight walk reaches, since a straight line
+        # to a cell further along can clip a wall corner or a ledge the path steps around.
+        reach = next(
+            (
+                k
+                for k in range(len(path) - 1, 0, -1)
+                if self.walkable((x, y), tuple(self.centers[path[k]]))
+            ),
+            min(1, len(path) - 1),
+        )
+        cell = path[reach]
+        door = bool(self.doors[path[1 : reach + 1]].any()) if reach else False
         if self.distance[cell] <= EXIT_REACH:
             target = min(self.exits, key=lambda line: math.dist((x, y), line.middle))
             return target.middle, "exit"
         return tuple(self.centers[cell]), "door" if door else "path"
+
+
+def cross(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """The z component of 2-D cross products."""
+    return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+
+
+def points_to_segments(point: np.ndarray, starts: np.ndarray, ends: np.ndarray) -> np.ndarray:
+    """Distance from one point to each segment from starts to ends."""
+    spans = ends - starts
+    lengths = np.maximum((spans * spans).sum(axis=1), 1e-9)
+    along = np.clip(((point - starts) * spans).sum(axis=1) / lengths, 0, 1)
+    return np.linalg.norm(point - (starts + along[:, None] * spans), axis=1)
 
 
 def segment_distance(points: np.ndarray, start: tuple, end: tuple) -> np.ndarray:
