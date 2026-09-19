@@ -200,13 +200,11 @@ class DoomEnvironment:
         return self.observe()
 
     def plot(self) -> None:
-        """Recompute the route from the player's position to the exit."""
-        self.path, self.remaining = None, None
+        """Recompute the walking distance from the player's position to the exit."""
+        self.remaining = None
         if self.level is not None:
             x, y, _ = self.pose()
-            found = self.level.route(x, y)
-            if found is not None:
-                self.path, self.remaining = found
+            self.remaining = self.level.remaining(x, y)
 
     def pose(self) -> tuple[float, float, float]:
         variable = self.game.get_game_variable
@@ -293,13 +291,12 @@ class DoomEnvironment:
                 )
             targets.sort(key=lambda target: target["distance"])
             observation["compass"] = targets[: self.task.compass_size]
-        if "route" in self.task.observe and self.path is not None:
-            waypoint = self.path[0]
-            dx, dy = waypoint.middle[0] - x, waypoint.middle[1] - y
-            sides = {waypoint.front, waypoint.back} - {None}
-            door = any(self.level.heights[s][1] <= self.level.heights[s][0] for s in sides)
+        found = self.level.waypoint(x, y) if "route" in self.task.observe else None
+        if found is not None:
+            (target_x, target_y), ahead = found
+            dx, dy = target_x - x, target_y - y
             observation["route"] = {
-                "next": "exit" if waypoint in self.level.exits else "door" if door else "opening",
+                "next": ahead,
                 "bearing": round((math.degrees(math.atan2(dy, dx)) - angle + 180) % 360 - 180, 1),
                 "distance": round(math.hypot(dx, dy)),
                 "remaining": round(self.remaining),

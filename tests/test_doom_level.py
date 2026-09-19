@@ -190,15 +190,13 @@ def test_level_file_locates_the_exit_switch_and_routes_to_it():
     level_map = Level(Path(vzd.scenarios_path).parent / "freedoom1.wad", "E1M1")
     (exit_line,) = level_map.exits
     assert exit_line.special == 11 and exit_line.middle == (-400, 1296)
-    path, remaining = level_map.route(-416, 256)
-    assert path[-1] == exit_line
-    # A walkable route can never be shorter than the straight line.
-    assert remaining >= math.dist((-416, 256), exit_line.middle)
+    # Walking distance can never be shorter than the straight line.
+    assert level_map.remaining(-416, 256) >= math.dist((-416, 256), exit_line.middle)
 
 
 def test_route_points_along_the_way_to_the_exit(env):
     route = settled(env)["route"]
-    assert route["next"] in {"opening", "door", "exit"}
+    assert route["next"] in {"path", "door", "exit"}
     assert route["remaining"] >= route["distance"] > 0
     assert -180 <= route["bearing"] <= 180
 
@@ -229,3 +227,34 @@ def test_target_distance_matches_the_monsters_map_position():
         (monster,) = [o for o in env.game.get_state().objects if o.name == target["name"]]
         expected = math.hypot(monster.position_x - x, monster.position_y - y)
         assert target["distance"] == pytest.approx(expected, abs=0.5)
+
+
+def test_route_waypoints_lead_through_openings_not_along_them():
+    level_map = Level(Path(vzd.scenarios_path).parent / "freedoom1.wad", "E1M1")
+    # Standing on the edge of a door recess, the next opening is the recess line itself.
+    waypoint, _ = level_map.waypoint(576.0, 1035.4)
+    # The way on is west through the door at x = 560, not south along the wall.
+    assert waypoint[0] < 560
+
+
+def test_following_the_route_reaches_the_exit():
+    """With damage off, a walker that only follows the route must finish the level."""
+    task = level(
+        episode_timeout=35 * 240,
+        labels=["MOVE_FORWARD", "TURN_LEFT", "TURN_RIGHT", "MOVE_FORWARD+USE"],
+    )
+    task = task.model_copy(update={"reward_range": (-10000, 100000)})
+    with DoomEnvironment(task) as env:
+        observation = env.reset(5)
+        env.game.send_game_command("god")
+        while observation is not None:
+            bearing = observation["route"]["bearing"]
+            if abs(bearing) > 12:
+                action = "TURN_LEFT" if bearing > 0 else "TURN_RIGHT"
+            elif observation["route"]["distance"] < 64 or observation["rangefinder"][3] < 64:
+                action = "MOVE_FORWARD+USE"
+            else:
+                action = "MOVE_FORWARD"
+            _, observation = env.step(action)
+        assert env.game.is_episode_finished()
+        assert env.game.get_episode_time() < task.episode_timeout
