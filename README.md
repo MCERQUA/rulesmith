@@ -210,6 +210,7 @@ proposing graphs, the local 4B judge, and a route to the exit computed from the 
 The best graph ([examples/doom/graphs/e1m1-exit.json](examples/doom/graphs/e1m1-exit.json))
 is 27 nodes of reads and routing with no judge calls, and it **finishes the level**:
 [watch it exit in 75 seconds](docs/assets/doom/e1m1-exit.mp4) with 10 kills.
+[All five clears back to back](docs/assets/doom/e1m1-reel.mp4).
 
 | Seeds | Exited | Died | Best time |
 | --- | --- | --- | --- |
