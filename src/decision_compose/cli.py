@@ -5,16 +5,23 @@ import json
 import os
 import sys
 from collections import Counter
-from contextlib import nullcontext, redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 
 import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
+from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
 from decision_compose.label import Labeler, Unlabeled, draft_task
-from decision_compose.optimize import GraphProposer, SearchConfig, evaluate_plan, optimize_plan
+from decision_compose.optimize import (
+    GraphProposer,
+    SearchConfig,
+    classify,
+    evaluate_plan,
+    optimize_plan,
+)
 from decision_compose.runtime import DecisionProgram, ExecutionConfig
 
 
@@ -63,6 +70,9 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--output", type=Path, required=True)
         if name == "evaluate":
             command.add_argument("--split", choices=("train", "validation", "test"), default="test")
+            command.add_argument(
+                "--visible", action="store_true", help="Show the game window for a Doom task"
+            )
         else:
             command.add_argument(
                 "--reflection-model",
@@ -132,6 +142,11 @@ def draft_labels(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None
     print(dump({"labels": dict(counts), "output": str(args.output)}), end="")
 
 
+def load_task(path: Path) -> Task | DoomTask:
+    data = json.loads(path.read_text())
+    return (DoomTask if "scenario" in data else Task).model_validate(data)
+
+
 def main() -> None:
     cli = parser()
     args = cli.parse_args()
@@ -139,13 +154,15 @@ def main() -> None:
         draft_labels(cli, args)
         return
     if args.command != "run":
-        task = Task.model_validate_json(args.task.read_text())
+        task = load_task(args.task)
     plan = Plan.model_validate_json(args.plan.read_text()) if args.plan else task.baseline_plan()
     if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
         print(dump({"nodes": len(plan.nodes), "labels": task.labels}), end="")
         return
+    if getattr(args, "visible", False) and not isinstance(task, DoomTask):
+        cli.error("--visible requires a Doom task")
     if args.command in ("evaluate", "optimize"):
         if args.output.exists():
             cli.error(f"output already exists: {args.output}")
@@ -175,26 +192,34 @@ def main() -> None:
     needs_client = args.command == "optimize" or any(
         isinstance(node, Call) for node in plan.nodes.values()
     )
-    context = (
-        TypeSafeClient(**connection, timeout=args.timeout, retry=RetryPolicy(max_retries=0))
-        if needs_client
-        else nullcontext(None)
-    )
-    with context as client:
+    with ExitStack() as stack:
+        client = (
+            stack.enter_context(
+                TypeSafeClient(**connection, timeout=args.timeout, retry=RetryPolicy(max_retries=0))
+            )
+            if needs_client
+            else None
+        )
+        score = classify
+        if args.command != "run" and isinstance(task, DoomTask):
+            env = DoomEnvironment(task, visible=getattr(args, "visible", False))
+            score = Episodes(task, stack.enter_context(env))
         if args.command == "run":
             prediction = DecisionProgram(plan, client, model, execution)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")
         elif args.command == "evaluate":
-            report = evaluate_plan(plan, getattr(task, args.split), client, model, execution)
+            report = evaluate_plan(plan, getattr(task, args.split), client, model, execution, score)
             report["split"] = args.split
             report["backend"] = args.backend
             args.output.write_text(dump(report))
             print(dump({"score": report["score"], "output": str(args.output)}), end="")
         else:
             with redirect_stdout(sys.stderr):
-                best, report = optimize_plan(task, plan, client, model, reflect, config, execution)
+                best, report = optimize_plan(
+                    task, plan, client, model, reflect, config, execution, score
+                )
             report["backend"] = args.backend
             report["reflection_model"] = args.reflection_model
             args.output.mkdir()

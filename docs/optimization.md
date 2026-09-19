@@ -1,21 +1,25 @@
 # Optimization
 
 `decision-compose optimize` searches for the graph with the best validation
-accuracy. DSPy writes candidate graphs, and [GEPA](https://gepa-ai.github.io/gepa/guides/adapters/)
-decides which to evaluate and keep.
+score: exact-match accuracy for classification, normalized reward for
+[Doom](doom.md). DSPy writes candidate graphs, and
+[GEPA](https://gepa-ai.github.io/gepa/guides/adapters/) decides which to
+evaluate and keep.
 
 ## The search
 
 1. **Seed.** Search starts from the graph you pass, or from a call-free graph
-   that always answers the most common training label.
+   that always answers the most common training label (the first listed button
+   for Doom).
 2. **Reflect.** When the current graph misses a training example, `GraphProposer`
-   (a `dspy.Predict` with `JSONAdapter`) gets the graph, the inputs, its outputs,
-   and the expected labels, then writes a complete replacement graph.
+   (a `dspy.Predict` with plain-text `ChatAdapter` fields, which any chat
+   endpoint accepts) gets the graph, the inputs, its outputs, and the expected
+   labels or episode rewards, then writes a complete replacement graph.
 3. **Check.** The proposal is parsed and validated; no generated code runs.
    Invalid graphs score zero, and the error goes to the next proposal.
 4. **Accept.** A proposal that beats its parent on the training batch is scored
    on validation.
-5. **Select.** The graph with the best validation accuracy is saved. The seed
+5. **Select.** The graph with the best validation score is saved. The seed
    stays eligible, so a graph that overfits training will not replace it.
 
 The test split never reaches the optimizer. Score it once, after selection:
@@ -52,8 +56,8 @@ that already exist are refused before any request is sent.
 
 | Field | Meaning |
 | --- | --- |
-| `validation_accuracy` | Score of the saved graph |
-| `seed_validation_accuracy` | Score of the starting graph |
+| `validation_score` | Score of the saved graph, 0–1 |
+| `seed_validation_score` | Score of the starting graph |
 | `candidates` | Graphs that reached validation, including the seed. `1` means nothing new did. |
 | `reflection_calls` | Proposer calls |
 | `invalid_candidate_evaluations` | Evaluations rejected by schema or graph checks |
@@ -117,7 +121,7 @@ shows the pipeline works end to end, not a benchmark result.
 
 ## Limits
 
-- Search optimizes classification only, with exact-match accuracy on a `label` output.
+- Search optimizes a `label` output: a class for classification, a button for Doom.
 - Graphs are finite and static: no loops, tools, or dynamic nodes.
 - The budget counts example evaluations, not requests or dollars, and excludes
   proposer calls. It can overshoot by one iteration.

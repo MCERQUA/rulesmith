@@ -1,0 +1,32 @@
+{
+  "description": "Play ViZDoom's predict_position scenario: a monster walks back and forth along the far wall, and you have a rocket launcher with a single slow rocket. Killing it earns 1; the episode ends when the rocket hits anything or after 300 tics. Aim where the monster will be when the rocket arrives, not where it is. Each step the graph receives an observation, and its label output is the next action. In the observation, objects lists what is visible: x is the object's horizontal screen position from -1 (left edge) to 1 (right edge), y is vertical from -1 (top) to 1 (bottom), and width and height are fractions of the screen, so nearer objects are larger. variables holds game variables. TURN_LEFT and TURN_RIGHT rotate the view; TURN_LEFT shifts objects right on screen by about 0.12 per action, and TURN_RIGHT shifts them left. A label joining buttons with + presses them together. ",
+  "scenario": "predict_position",
+  "labels": [
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "ATTACK"
+  ],
+  "reward_range": [
+    -0.35,
+    1
+  ],
+  "tics_per_action": 4,
+  "train": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "validation": [
+    7,
+    8,
+    9
+  ],
+  "test": [
+    10,
+    11,
+    12
+  ]
+}

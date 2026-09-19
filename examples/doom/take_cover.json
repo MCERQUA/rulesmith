@@ -1,0 +1,32 @@
+{
+  "description": "Play ViZDoom's take_cover scenario: monsters on the far wall throw fireballs at you, and more monsters appear over time. You can only strafe. You earn 1 per tic alive, and the episode ends at death or after 2100 tics. Fireballs appear in objects; move out of their path. Each step the graph receives an observation, and its label output is the next action. In the observation, objects lists what is visible: x is the object's horizontal screen position from -1 (left edge) to 1 (right edge), y is vertical from -1 (top) to 1 (bottom), and width and height are fractions of the screen, so nearer objects are larger. variables holds game variables. MOVE_LEFT and MOVE_RIGHT strafe sideways, which shifts objects on screen the opposite way. ",
+  "scenario": "take_cover",
+  "labels": [
+    "MOVE_LEFT",
+    "MOVE_RIGHT"
+  ],
+  "reward_range": [
+    0,
+    2100
+  ],
+  "tics_per_action": 4,
+  "episode_timeout": 2100,
+  "train": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "validation": [
+    7,
+    8,
+    9
+  ],
+  "test": [
+    10,
+    11,
+    12
+  ]
+}

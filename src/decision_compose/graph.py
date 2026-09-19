@@ -266,6 +266,11 @@ class Plan(StrictModel):
                     raise ValueError("numeric comparison requires a numeric source and value")
         return self
 
+    @classmethod
+    def constant(cls, label: str) -> Plan:
+        """A call-free graph that always outputs one label."""
+        return cls(nodes={}, outputs={"label": LiteralInput(value=label)})
+
     def check(self, labels: list[str], max_nodes: int, max_depth: int) -> None:
         """Keep classification targets and search bounds outside mutable candidates."""
         if len(self.nodes) > max_nodes:
@@ -319,5 +324,4 @@ class Task(StrictModel):
 
     def baseline_plan(self) -> Plan:
         """A call-free majority-label seed, so search can start from the task alone."""
-        label = Counter(example.label for example in self.train).most_common(1)[0][0]
-        return Plan(nodes={}, outputs={"label": LiteralInput(value=label)})
+        return Plan.constant(Counter(e.label for e in self.train).most_common(1)[0][0])

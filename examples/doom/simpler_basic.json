@@ -1,0 +1,32 @@
+{
+  "description": "Play ViZDoom's simpler_basic scenario: one monster stands across the room, and the episode ends when you kill it or after 300 tics. Every tic costs 1 reward and a missed shot costs more, so line up before firing. Each step the graph receives an observation, and its label output is the next action. In the observation, objects lists what is visible: x is the object's horizontal screen position from -1 (left edge) to 1 (right edge), y is vertical from -1 (top) to 1 (bottom), and width and height are fractions of the screen, so nearer objects are larger. variables holds game variables. MOVE_LEFT and MOVE_RIGHT strafe sideways, which shifts objects on screen the opposite way. ",
+  "scenario": "simpler_basic",
+  "labels": [
+    "MOVE_LEFT",
+    "MOVE_RIGHT",
+    "ATTACK"
+  ],
+  "reward_range": [
+    -500,
+    110
+  ],
+  "tics_per_action": 4,
+  "train": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "validation": [
+    7,
+    8,
+    9
+  ],
+  "test": [
+    10,
+    11,
+    12
+  ]
+}

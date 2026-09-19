@@ -1,0 +1,34 @@
+{
+  "description": "Play ViZDoom's health_gathering scenario: the acid floor drains your HEALTH, and walking over a Medikit restores it. You earn 1 per tic alive and lose 100 on death, up to 2100 tics. Head for medkits: turn until one is centered, then move forward; when none are visible, turn to search. Each step the graph receives an observation, and its label output is the next action. In the observation, objects lists what is visible: x is the object's horizontal screen position from -1 (left edge) to 1 (right edge), y is vertical from -1 (top) to 1 (bottom), and width and height are fractions of the screen, so nearer objects are larger. variables holds game variables. TURN_LEFT and TURN_RIGHT rotate the view; TURN_LEFT shifts objects right on screen by about 0.12 per action, and TURN_RIGHT shifts them left. A label joining buttons with + presses them together. MOVE_FORWARD walks ahead.",
+  "scenario": "health_gathering",
+  "labels": [
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "MOVE_FORWARD",
+    "TURN_LEFT+MOVE_FORWARD",
+    "TURN_RIGHT+MOVE_FORWARD"
+  ],
+  "reward_range": [
+    -100,
+    2100
+  ],
+  "tics_per_action": 4,
+  "train": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "validation": [
+    7,
+    8,
+    9
+  ],
+  "test": [
+    10,
+    11,
+    12
+  ]
+}

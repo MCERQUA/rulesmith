@@ -1,0 +1,34 @@
+{
+  "description": "Play ViZDoom's defend_the_center scenario: you stand in the middle of a round room while melee monsters approach from all sides. Each kill earns 1 and dying costs 1. Ammo is limited (variable AMMO2), so only fire when a monster is centered (x near 0). Each step the graph receives an observation, and its label output is the next action. In the observation, objects lists what is visible: x is the object's horizontal screen position from -1 (left edge) to 1 (right edge), y is vertical from -1 (top) to 1 (bottom), and width and height are fractions of the screen, so nearer objects are larger. variables holds game variables. TURN_LEFT and TURN_RIGHT rotate the view; TURN_LEFT shifts objects right on screen by about 0.12 per action, and TURN_RIGHT shifts them left. A label joining buttons with + presses them together. ",
+  "scenario": "defend_the_center",
+  "labels": [
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "ATTACK",
+    "TURN_LEFT+ATTACK",
+    "TURN_RIGHT+ATTACK"
+  ],
+  "reward_range": [
+    -1,
+    26
+  ],
+  "tics_per_action": 4,
+  "train": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "validation": [
+    7,
+    8,
+    9
+  ],
+  "test": [
+    10,
+    11,
+    12
+  ]
+}

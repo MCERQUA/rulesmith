@@ -1,0 +1,10 @@
+{
+  "description": "Play ViZDoom's basic scenario: one monster stands somewhere across the room, and the episode ends when you kill it or time runs out. Every action costs reward, and a missed shot costs more, so line up before firing. Each step the graph receives an observation and its label output is the next button to press. In the observation, objects lists what is visible: x is the object's horizontal screen position from -1 (left edge) to 1 (right edge), y is vertical from -1 (top) to 1 (bottom), and width and height are fractions of the screen. variables holds game variables such as AMMO2. MOVE_LEFT and MOVE_RIGHT strafe the player sideways, which shifts objects on screen in the opposite direction.",
+  "scenario": "basic",
+  "labels": ["MOVE_LEFT", "MOVE_RIGHT", "ATTACK"],
+  "reward_range": [-500, 100],
+  "tics_per_action": 4,
+  "train": [1, 2, 3, 4, 5, 6],
+  "validation": [7, 8, 9],
+  "test": [10, 11, 12]
+}

@@ -112,7 +112,7 @@ uv run decision-compose optimize task.json \
 ```
 
 This writes `runs/my-task/plan.json` (the graph) and `report.json` (scores).
-Compare `validation_accuracy` with `seed_validation_accuracy`.
+Compare `validation_score` with `seed_validation_score`.
 
 **5. Evaluate and run it.** The proposer is not needed from here on.
 
@@ -139,7 +139,7 @@ flowchart LR
 The proposer sees where the current graph answered wrong and writes a complete
 replacement: new calls, rewritten questions, branches, and joins. A proposal is
 kept only if it beats its parent on the training batch, and the graph with the
-best validation accuracy is saved. The test split never reaches the optimizer.
+best validation score is saved. The test split never reaches the optimizer.
 
 The proposer can use the full DAG language. This hand-written example
 ([examples/dag.json](examples/dag.json)), not a search result, asks two questions
@@ -166,6 +166,27 @@ flowchart LR
 ```
 
 See [Graph format](docs/graphs.md) for the JSON behind each node.
+
+## Play Doom
+
+The same search can build a graph that plays [ViZDoom](https://github.com/Farama-Foundation/ViZDoom)
+scenarios. Each step, the graph gets the visible objects and game variables as
+JSON and outputs the next button. Its score is the episode's reward, not a label
+match, so no labeled examples are needed.
+
+```sh
+uv run decision-compose optimize examples/doom/basic.json \
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" \
+  --output runs/doom
+
+uv run decision-compose evaluate examples/doom/basic.json runs/doom/plan.json \
+  --backend ruling --max-workers 1 --split test --visible --output runs/doom/test.json
+```
+
+`--visible` opens the game window so you can watch it play. See [Doom](docs/doom.md)
+for the task format and scenarios.
 
 ## Use from Python
 
@@ -200,6 +221,7 @@ charges; the search budget counts examples, not requests or dollars.
 
 - [Graph format](docs/graphs.md): nodes, inputs, conditions, execution, and writing graphs by hand.
 - [Optimization](docs/optimization.md): search settings, reports, testing, and limits.
+- [Doom](docs/doom.md): task format, observations, scoring, and watching a graph play.
 
 ## Development
 
