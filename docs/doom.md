@@ -129,9 +129,19 @@ uv run decision-compose arena examples/doom/duel.json a.json b.json c.json --out
 
 Opponents appear in `objects` with category `Player`, and `target` reports the
 nearest one on screen. [examples/doom/duel.json](../examples/doom/duel.json)
-scores frags minus deaths and sets `deathmatch`, which marks a task as
-arena-only: deathmatch maps have no single-player start, so `evaluate` and
-`optimize` refuse it. ZDoom's built-in bots are left out: under ViZDoom's
+scores frags minus deaths and sets `deathmatch`: deathmatch maps have no
+single-player start, so `evaluate` and `optimize` play each episode as a duel
+against the graph given by `--opponent`, alternating hosts by seed. Searching
+against the arena's current leader breeds a challenger:
+
+```sh
+uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
+  --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
+  --reflection-model "$REFLECTION_MODEL" --output runs/challenger
+```
+
+The proposer sees each duel's frags, deaths, the opponent's frags, and whether
+the graph won. ZDoom's built-in bots are left out: under ViZDoom's
 synchronous play they barely fire, even with perfect skill settings.
 
 ## Limits

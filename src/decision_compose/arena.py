@@ -3,7 +3,7 @@
 import math
 import socket
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations
 from statistics import fmean
 
@@ -38,20 +38,51 @@ def play(
         return Episodes(task, env)(program, episode)
 
 
-def match(task: DoomTask, a: Entrant, b: Entrant, episode: int | Episode, host_first: bool) -> dict:
-    """One deathmatch between two entrants, each graph playing its own networked game."""
+def duel(
+    task: DoomTask,
+    a: DecisionProgram,
+    b: DecisionProgram,
+    episode: int | Episode,
+    host_first: bool,
+) -> list[Outcome]:
+    """Both seats' episodes of one deathmatch, a's first, each graph in its own networked game."""
     port = free_port()
     order = [a, b] if host_first else [b, a]
     args = [f"-host 2 -port {port} {DEATHMATCH}", f"-join 127.0.0.1 -port {port}"]
     # The host waits at init until its opponent joins, so both seats start together.
     with ThreadPoolExecutor(2) as pool:
         futures = [
-            pool.submit(play, task, entrant.program, episode, arg)
-            for entrant, arg in zip(order, args, strict=True)
+            pool.submit(play, task, program, episode, arg)
+            for program, arg in zip(order, args, strict=True)
         ]
     seats = [future.result() for future in futures]
-    if not host_first:
-        seats.reverse()
+    return seats if host_first else seats[::-1]
+
+
+class Duels:
+    """Scores a graph by its reward in a deathmatch against a fixed opponent per episode."""
+
+    def __init__(self, task: DoomTask, opponent: DecisionProgram):
+        self.task = task
+        self.opponent = opponent
+
+    def __call__(self, program: DecisionProgram, episode: int | Episode) -> Outcome:
+        # Alternating hosts by seed shares the joiner's latency handicap across episodes.
+        hosted = self.task.episode(episode).seed % 2 == 0
+        mine, theirs = duel(self.task, program, self.opponent, episode, hosted)
+        own, rival = mine.record["stats"]["frags"], theirs.record["stats"]["frags"]
+        result = "won" if own > rival else "lost" if own < rival else "drew"
+        feedback = f"{mine.trace['Feedback']} The opponent scored {rival} frags, so you {result}."
+        return replace(
+            mine,
+            record=mine.record | {"hosted": hosted, "opponent_frags": rival, "result": result},
+            trace=mine.trace | {"Feedback": feedback},
+        )
+
+
+def match(task: DoomTask, a: Entrant, b: Entrant, episode: int | Episode, host_first: bool) -> dict:
+    """One deathmatch between two entrants, scored for the tournament."""
+    seats = duel(task, a.program, b.program, episode, host_first)
     frags = [seat.record["stats"]["frags"] for seat in seats]
     failed = [seat.error is not None for seat in seats]
     if failed[0] != failed[1]:
@@ -65,7 +96,7 @@ def match(task: DoomTask, a: Entrant, b: Entrant, episode: int | Episode, host_f
         "players": [a.name, b.name],
         "seed": episode.seed,
         "map": episode.map,
-        "host": order[0].name,
+        "host": (a if host_first else b).name,
         "frags": frags,
         "score": score,
         "seats": [seat.record for seat in seats],

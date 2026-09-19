@@ -15,7 +15,7 @@ import imageio_ffmpeg
 from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from decision_compose.arena import Entrant, tournament
+from decision_compose.arena import Duels, Entrant, tournament
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
 from decision_compose.label import Labeler, Unlabeled, draft_task
@@ -72,6 +72,12 @@ def parser() -> argparse.ArgumentParser:
             continue
         provider_arguments(command)
         command.add_argument("--output", type=Path, required=True)
+        if name in ("evaluate", "optimize"):
+            command.add_argument(
+                "--opponent",
+                type=Path,
+                help="Graph a deathmatch task's episodes are played against",
+            )
         if name == "record":
             command.add_argument(
                 "--seed", type=int, nargs="+", required=True, help="Episode seeds, played in order"
@@ -248,6 +254,9 @@ def main() -> None:
         return
     if getattr(args, "visible", False) and not isinstance(task, DoomTask):
         cli.error("--visible requires a Doom task")
+    deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
+    if args.command in ("evaluate", "optimize") and deathmatch != bool(args.opponent):
+        cli.error("--opponent is required for, and only for, deathmatch tasks")
     if args.command == "record" and not isinstance(task, DoomTask):
         cli.error("record requires a Doom task")
     if args.command == "record" and args.output.suffix not in (".gif", ".mp4"):
@@ -287,7 +296,11 @@ def main() -> None:
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
         score = classify
-        if args.command != "run" and isinstance(task, DoomTask):
+        if deathmatch and args.command != "record":
+            opponent = Plan.model_validate_json(args.opponent.read_text())
+            opponent.check(task.labels, args.max_nodes, args.max_depth)
+            score = Duels(task, DecisionProgram(opponent, client, model, execution))
+        elif args.command != "run" and isinstance(task, DoomTask):
             env = DoomEnvironment(
                 task, visible=getattr(args, "visible", False), record=args.command == "record"
             )

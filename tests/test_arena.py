@@ -7,10 +7,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from conftest import chat_reply
 from test_cli import invoke, write
 from test_graph import constant_plan
 
-from decision_compose.arena import Entrant, free_port, match, ratings
+from decision_compose.arena import Duels, Entrant, free_port, match, ratings
 from decision_compose.doom import DEATHMATCH, DoomEnvironment, DoomTask
 from decision_compose.graph import Plan
 from decision_compose.runtime import DecisionProgram
@@ -196,3 +197,55 @@ def test_the_repository_duel_task_survives_a_networked_match(client):
 def test_a_deathmatch_task_refuses_single_player_play():
     with pytest.raises(ValueError, match="arena"):
         DoomEnvironment(DoomTask.model_validate(duel_data()))
+
+
+def test_duels_score_the_candidate_seat_and_alternate_hosting(client):
+    task = DoomTask.model_validate(duel_data())
+    score = Duels(task, entrant("spinner", "TURN_LEFT", client).program)
+    runner = entrant("runner", "MOVE_FORWARD", client).program
+    outcomes = [score(runner, seed) for seed in (SEEN_SEED, SEEN_SEED + 1)]
+    assert outcomes[0].record["hosted"] != outcomes[1].record["hosted"]
+    low, high = task.reward_range
+    for outcome in outcomes:
+        record = outcome.record
+        assert outcome.score == (record["reward"] - low) / (high - low)
+        margin = record["stats"]["frags"] - record["opponent_frags"]
+        assert record["result"] == ("won" if margin > 0 else "lost" if margin < 0 else "drew")
+
+
+def test_cli_needs_an_opponent_for_a_deathmatch_task(tmp_path):
+    task = write(tmp_path / "duel.json", duel_data())
+    plan = write(tmp_path / "plan.json", constant_plan("ATTACK"))
+    completed = invoke("evaluate", task, plan, "--output", tmp_path / "out.json")
+    assert completed.returncode != 0 and "--opponent" in completed.stderr
+
+
+def test_cli_searches_and_evaluates_a_graph_against_an_opponent(tmp_path, provider, monkeypatch):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
+    provider.completion = chat_reply(graph=constant_plan("MOVE_FORWARD"))
+    task = write(tmp_path / "duel.json", duel_data(train=[1], validation=[2], test=[3]))
+    opponent = write(tmp_path / "spinner.json", constant_plan("TURN_LEFT"))
+    common = ["--base-url", provider.url, "--opponent", opponent]
+    output = tmp_path / "run"
+    completed = invoke(
+        "optimize",
+        task,
+        "--output",
+        output,
+        "--reflection-model",
+        "openai/fixture",
+        "--reflection-base-url",
+        provider.url + "/v1",
+        "--max-metric-calls",
+        4,
+        "--reflection-batch",
+        1,
+        *common,
+    )
+    assert completed.returncode == 0, completed.stderr
+    evaluation = tmp_path / "test.json"
+    completed = invoke("evaluate", task, output / "plan.json", "--output", evaluation, *common)
+    assert completed.returncode == 0, completed.stderr
+    (row,) = json.loads(evaluation.read_text())["examples"]
+    assert row["seed"] == 3 and row["result"] in ("won", "drew", "lost")
