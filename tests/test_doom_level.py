@@ -49,8 +49,8 @@ def test_level_tasks_load_the_requested_map():
     starts = {}
     for name in ("E1M1", "E1M2"):
         with DoomEnvironment(level(map=name)) as env:
-            assert env.game.get_doom_map() == name
             starts[name] = env.reset(1)["pose"]
+            assert env.game.get_doom_map() == name
     assert starts["E1M1"] != starts["E1M2"]
 
 
@@ -288,3 +288,22 @@ def test_solid_decorations_block_the_route():
     assert "Zombieman" not in radii
     for (x, y), radius in level_map.obstacles:
         assert not level_map.walkable((x - radius - 20, y), (x + radius + 20, y))
+
+
+def test_episodes_can_name_their_map_and_scenario():
+    task = level(
+        train=[{"map": "E1M7", "seed": 1}, {"scenario": "freedoom2", "map": "MAP07", "seed": 1}]
+    )
+    with DoomEnvironment(task) as env:
+        seen = {}
+        for episode in [*task.train, 1]:
+            observation = env.reset(episode)
+            seen[env.game.get_doom_map()] = (observation["pose"], env.remaining)
+        assert set(seen) == {"E1M7", "MAP07", "E1M1"}
+        assert len({pose["x"] for pose, _ in seen.values()}) == 3
+        assert all(remaining > 0 for _, remaining in seen.values())
+
+
+def test_the_same_episode_cannot_appear_in_two_splits():
+    with pytest.raises(ValidationError):
+        level(train=[{"map": "E1M7", "seed": 1}], validation=[{"map": "E1M7", "seed": 1}])

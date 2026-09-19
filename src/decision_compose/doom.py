@@ -10,12 +10,21 @@ from typing import Literal, Self
 
 import numpy as np
 import vizdoom as vzd
-from pydantic import Field, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from decision_compose.graph import Plan, StrictModel, Text
 from decision_compose.level import Level
 from decision_compose.optimize import Outcome
 from decision_compose.runtime import DecisionProgram, GraphExecutionError
+
+
+class Episode(StrictModel):
+    """One episode: a seed, optionally on another map or scenario than the task's own."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    seed: int
+    map: Text | None = None
+    scenario: Text | None = None
 
 
 class DoomTask(StrictModel):
@@ -53,9 +62,9 @@ class DoomTask(StrictModel):
         description="ViZDoom rewards by setter name, e.g. kill_reward, plus explore per new "
         "cell and progress per map unit the route to the exit shrinks",
     )
-    train: list[int] = Field(min_length=1)
-    validation: list[int] = Field(min_length=1)
-    test: list[int] = Field(min_length=1)
+    train: list[int | Episode] = Field(min_length=1)
+    validation: list[int | Episode] = Field(min_length=1)
+    test: list[int | Episode] = Field(min_length=1)
 
     @model_validator(mode="after")
     def consistent(self) -> Self:
@@ -63,9 +72,9 @@ class DoomTask(StrictModel):
             raise ValueError("labels must be distinct")
         if self.reward_range[0] >= self.reward_range[1]:
             raise ValueError("reward_range must be increasing")
-        seeds = self.train + self.validation + self.test
-        if len(set(seeds)) != len(seeds):
-            raise ValueError("episode seeds must be distinct across splits")
+        episodes = [self.episode(e) for e in self.train + self.validation + self.test]
+        if len(set(episodes)) != len(episodes):
+            raise ValueError("episodes must be distinct across splits")
         missing = {name for name in self.variables if not hasattr(vzd.GameVariable, name)}
         if missing:
             raise ValueError(f"unknown ViZDoom game variables: {sorted(missing)}")
@@ -82,6 +91,16 @@ class DoomTask(StrictModel):
         if unknown:
             raise ValueError(f"unknown ViZDoom rewards: {sorted(unknown)}")
         return self
+
+    def episode(self, episode: int | Episode) -> Episode:
+        """An episode with its map and scenario filled in from the task."""
+        if isinstance(episode, int):
+            episode = Episode(seed=episode)
+        return Episode(
+            seed=episode.seed,
+            map=episode.map or self.map,
+            scenario=episode.scenario or self.scenario,
+        )
 
     def baseline_plan(self) -> Plan:
         """A call-free seed that always presses the first listed button."""
@@ -148,53 +167,69 @@ class DoomEnvironment:
     """A headless ViZDoom game whose observations are JSON, not pixels."""
 
     def __init__(self, task: DoomTask, visible: bool = False, record: bool = False):
-        config = os.path.join(vzd.scenarios_path, f"{task.scenario}.cfg")
-        if not os.path.isfile(config):
-            raise ValueError(f"unknown ViZDoom scenario: {task.scenario}")
+        self.task = task
+        self.visible = visible
         # ViZDoom otherwise writes _vizdoom.ini into the working directory.
         self.scratch = tempfile.TemporaryDirectory()
+        self.game = None
+        self.scenario = None
+        self.level = None
+        # Every rendered tic while recording, as height x width x RGB arrays.
+        self.frames: list | None = [] if record else None
+        self.tics = task.tics_per_action
+        self.start(task.scenario)
+
+    def start(self, scenario: str) -> None:
+        """Start a game for the scenario; each episode then picks its own map."""
+        config = os.path.join(vzd.scenarios_path, f"{scenario}.cfg")
+        if not os.path.isfile(config):
+            raise ValueError(f"unknown ViZDoom scenario: {scenario}")
+        if self.game is not None:
+            self.game.close()
+        task = self.task
+        self.config = config
         self.game = vzd.DoomGame()
         self.game.load_config(config)
         self.game.set_doom_config_path(os.path.join(self.scratch.name, "_vizdoom.ini"))
-        self.game.set_window_visible(visible)
+        self.game.set_window_visible(self.visible)
         self.game.set_labels_buffer_enabled(True)
         self.game.set_audio_buffer_enabled(False)
         self.game.set_sectors_info_enabled("rangefinder" in task.observe)
         self.game.set_objects_info_enabled(bool({"compass", "target"} & set(task.observe)))
         self.game.set_screen_format(vzd.ScreenFormat.RGB24)
-        if task.map is not None:
-            self.game.set_doom_map(task.map)
         for name in task.variables:
             self.game.add_available_game_variable(getattr(vzd.GameVariable, name))
         for name, value in task.rewards.items():
             if name not in CUSTOM_REWARDS:
                 getattr(self.game, f"set_{name}")(value)
-        self.level = None
-        if "route" in task.observe or "progress" in task.rewards:
-            map_name = (task.map or setting(config, "doom_map") or "").upper()
-            if not map_name:
-                raise ValueError(f"routing needs a map name for {task.scenario}")
-            self.level = load_level(level_file(config, map_name), map_name)
-        # Every rendered tic while recording, as height x width x RGB arrays.
-        self.frames: list | None = [] if record else None
         if task.episode_timeout is not None:
             self.game.set_episode_timeout(task.episode_timeout)
         self.game.init()
+        self.scenario = scenario
         buttons = [button.name for button in self.game.get_available_buttons()]
         pressed = {label: set(label.split("+")) for label in task.labels}
         unknown = set().union(*pressed.values()) - set(buttons)
         if unknown:
             self.close()
-            raise ValueError(f"buttons not available in {task.scenario}: {sorted(unknown)}")
+            raise ValueError(f"buttons not available in {scenario}: {sorted(unknown)}")
         self.buttons = {label: [b in pressed[label] for b in buttons] for label in task.labels}
-        self.task = task
-        self.tics = task.tics_per_action
         self.variables = [v.name for v in self.game.get_available_game_variables()]
         self.width = self.game.get_screen_width()
         self.height = self.game.get_screen_height()
 
-    def reset(self, seed: int) -> dict:
-        self.game.set_seed(seed)
+    def reset(self, episode: int | Episode) -> dict:
+        episode = self.task.episode(episode)
+        if episode.scenario != self.scenario:
+            self.start(episode.scenario)
+        map_name = (episode.map or setting(self.config, "doom_map") or "").upper()
+        if map_name:
+            self.game.set_doom_map(map_name)
+        self.level = None
+        if "route" in self.task.observe or "progress" in self.task.rewards:
+            if not map_name:
+                raise ValueError(f"routing needs a map name for {episode.scenario}")
+            self.level = load_level(level_file(self.config, map_name), map_name)
+        self.game.set_seed(episode.seed)
         self.game.new_episode()
         if self.frames is not None:
             self.frames = [self.game.get_state().screen_buffer.copy()]
@@ -394,8 +429,9 @@ class Episodes:
         self.task = task
         self.env = env
 
-    def __call__(self, program: DecisionProgram, seed: int) -> Outcome:
-        observation, steps, models, error = self.env.reset(seed), [], set(), None
+    def __call__(self, program: DecisionProgram, episode: int | Episode) -> Outcome:
+        episode = self.task.episode(episode)
+        observation, steps, models, error = self.env.reset(episode), [], set(), None
         while observation is not None:
             try:
                 prediction = program(state=observation)
@@ -416,7 +452,8 @@ class Episodes:
         actions = Counter(step["action"] for step in steps)
         stats = self.env.stats()
         record = {
-            "seed": seed,
+            "seed": episode.seed,
+            "map": episode.map,
             "reward": total,
             "score": score,
             "steps": len(steps),
@@ -433,7 +470,8 @@ class Episodes:
             record=record,
             trace={
                 "Inputs": {
-                    "seed": seed,
+                    "seed": episode.seed,
+                    "map": episode.map,
                     "first_observation": steps[0]["observation"] if steps else observation,
                 },
                 "Generated Outputs": {
