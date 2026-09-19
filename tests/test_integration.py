@@ -747,3 +747,24 @@ def test_invalid_proposals_are_repaired_before_search_scores_them(client):
     assert report["invalid_candidate_evaluations"] == 0
     assert report["repairs"] == 1
     assert json.dumps(broken) in prompts[1] and "type" in prompts[1]
+
+
+def test_repair_prompts_carry_only_the_latest_failed_attempt(client):
+    attempts = [
+        json.dumps({"nodes": {}, "outputs": {"label": {"node": f"missing_{n}"}}}) for n in range(3)
+    ]
+    prompts = []
+
+    def reflect(prompt):
+        prompts.append(prompt)
+        return attempts[len(prompts) - 1] if len(prompts) <= 3 else attempts[-1]
+
+    optimize_plan(
+        Task.model_validate(task_data()),
+        Plan.model_validate(constant_plan()),
+        client,
+        "fixture-model",
+        reflect,
+        SearchConfig(max_metric_calls=4, reflection_batch=1, repair_attempts=2),
+    )
+    assert attempts[1] in prompts[2] and attempts[0] not in prompts[2]

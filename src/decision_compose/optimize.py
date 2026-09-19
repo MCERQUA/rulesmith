@@ -242,10 +242,11 @@ def optimize_plan(
             )
             adapter.proposal_feedback = None
         nonlocal repairs
+        request = prompt
         for attempt in range(config.repair_attempts + 1):
             try:
                 reflection_calls += 1
-                proposal = reflection_lm(prompt).strip()
+                proposal = reflection_lm(request).strip()
             except Exception as error:
                 # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
                 adapter.failure = error
@@ -262,7 +263,8 @@ def optimize_plan(
                     f"This graph failed validation and was not run:\n{proposal}\n"
                     f"Error: {error}\nReturn the complete corrected graph."
                 )
-                prompt = (
+                # Only the latest attempt matters; earlier failures would bloat the prompt.
+                request = (
                     [*prompt, {"role": "user", "content": repair}]
                     if isinstance(prompt, list)
                     else f"{prompt}\n\n{repair}"
