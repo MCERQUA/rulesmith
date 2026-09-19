@@ -1,0 +1,482 @@
+{
+  "nodes": {
+    "read_health": {
+      "type": "read",
+      "path": [
+        "variables",
+        "HEALTH"
+      ],
+      "bounds": [
+        0,
+        200
+      ]
+    },
+    "read_ammo": {
+      "type": "read",
+      "path": [
+        "variables",
+        "SELECTED_WEAPON_AMMO"
+      ],
+      "bounds": [
+        0,
+        400
+      ]
+    },
+    "read_rf_mid": {
+      "type": "read",
+      "path": [
+        "rangefinder",
+        3
+      ],
+      "bounds": [
+        0,
+        2048
+      ]
+    },
+    "read_route_next": {
+      "type": "read",
+      "path": [
+        "route",
+        "next"
+      ],
+      "categories": [
+        "path",
+        "door",
+        "exit"
+      ]
+    },
+    "read_route_bearing": {
+      "type": "read",
+      "path": [
+        "route",
+        "bearing"
+      ],
+      "bounds": [
+        -180,
+        180
+      ]
+    },
+    "read_route_distance": {
+      "type": "read",
+      "path": [
+        "route",
+        "distance"
+      ],
+      "bounds": [
+        0,
+        6000
+      ]
+    },
+    "read_target_x": {
+      "type": "read",
+      "path": [
+        "target",
+        "x"
+      ],
+      "bounds": [
+        -1,
+        1
+      ]
+    },
+    "read_target_distance": {
+      "type": "read",
+      "path": [
+        "target",
+        "distance"
+      ],
+      "bounds": [
+        0,
+        6000
+      ]
+    },
+    "read_memory_moved": {
+      "type": "read",
+      "path": [
+        "memory",
+        "distance_moved"
+      ],
+      "bounds": [
+        0,
+        600
+      ]
+    },
+    "read_visits": {
+      "type": "read",
+      "path": [
+        "memory",
+        "visits_here"
+      ],
+      "bounds": [
+        1,
+        10000
+      ]
+    },
+    "retreat_low_health": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "lt",
+            "value": 20
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 150
+          }
+        ]
+      },
+      "value": "MOVE_BACKWARD"
+    },
+    "combat_attack": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 400
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": -0.2
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": 0.2
+          }
+        ]
+      },
+      "value": "ATTACK"
+    },
+    "combat_aim_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 400
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": -0.2
+          }
+        ]
+      },
+      "value": "TURN_LEFT"
+    },
+    "combat_aim_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 400
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": 0.2
+          }
+        ]
+      },
+      "value": "TURN_RIGHT"
+    },
+    "very_stuck_backward": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_memory_moved",
+            "op": "lt",
+            "value": 3
+          },
+          {
+            "type": "compare",
+            "node": "read_visits",
+            "op": "ge",
+            "value": 12
+          }
+        ]
+      },
+      "value": "MOVE_BACKWARD"
+    },
+    "route_exit_use": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_next",
+            "op": "eq",
+            "value": "exit"
+          },
+          {
+            "type": "compare",
+            "node": "read_route_distance",
+            "op": "lt",
+            "value": 100
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -20
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 20
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+USE"
+    },
+    "route_door_use": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_next",
+            "op": "eq",
+            "value": "door"
+          },
+          {
+            "type": "compare",
+            "node": "read_route_distance",
+            "op": "lt",
+            "value": 80
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -20
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 20
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+USE"
+    },
+    "stuck_backward": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_memory_moved",
+            "op": "lt",
+            "value": 3
+          },
+          {
+            "type": "compare",
+            "node": "read_visits",
+            "op": "ge",
+            "value": 5
+          }
+        ]
+      },
+      "value": "MOVE_BACKWARD"
+    },
+    "blocked_turn_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_rf_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": 0
+          }
+        ]
+      },
+      "value": "TURN_LEFT"
+    },
+    "blocked_turn_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_rf_mid",
+            "op": "lt",
+            "value": 64
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 0
+          }
+        ]
+      },
+      "value": "TURN_RIGHT"
+    },
+    "route_turn_left": {
+      "type": "value",
+      "when": {
+        "type": "compare",
+        "node": "read_route_bearing",
+        "op": "ge",
+        "value": 35
+      },
+      "value": "TURN_LEFT"
+    },
+    "route_turn_right": {
+      "type": "value",
+      "when": {
+        "type": "compare",
+        "node": "read_route_bearing",
+        "op": "lt",
+        "value": -35
+      },
+      "value": "TURN_RIGHT"
+    },
+    "route_forward_left": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": 10
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 35
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+TURN_LEFT"
+    },
+    "route_forward_right": {
+      "type": "value",
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -35
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": -10
+          }
+        ]
+      },
+      "value": "MOVE_FORWARD+TURN_RIGHT"
+    },
+    "default_forward": {
+      "type": "value",
+      "value": "MOVE_FORWARD"
+    },
+    "decision": {
+      "type": "coalesce",
+      "sources": [
+        "retreat_low_health",
+        "combat_attack",
+        "combat_aim_left",
+        "combat_aim_right",
+        "very_stuck_backward",
+        "route_exit_use",
+        "route_door_use",
+        "stuck_backward",
+        "blocked_turn_left",
+        "blocked_turn_right",
+        "route_turn_left",
+        "route_turn_right",
+        "route_forward_left",
+        "route_forward_right",
+        "default_forward"
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "decision",
+      "view": "value"
+    }
+  }
+}

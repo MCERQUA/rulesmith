@@ -206,12 +206,12 @@ centered. On held-out test seeds it killed every monster:
 [All 12 seeds back to back](docs/assets/doom/basic-reel.mp4): 12 of 12 kills.
 
 **E1M1**: search started from a graph that only walks forward, with Claude Sonnet 5
-proposing graphs and the local 4B judge. Its best graph so far
-([examples/doom/graphs/e1m1-searched.json](examples/doom/graphs/e1m1-searched.json))
-is 28 nodes of reads and routing with no judge calls. On an unseen test seed it
-survived the full 90 seconds with 6 kills, 4 items, and 50 map cells explored,
-for a reward of 2,090 against about 960 for walking forward. It has not reached
-the exit yet. [Watch it](docs/assets/doom/e1m1-searched.mp4).
+proposing graphs, the local 4B judge, and a route to the exit computed from the map.
+The best graph so far ([examples/doom/graphs/e1m1-exit.json](examples/doom/graphs/e1m1-exit.json))
+is 26 nodes of reads and routing with no judge calls, and it **finishes the level**:
+[watch it exit in 3 minutes 22 seconds](docs/assets/doom/e1m1-exit.mp4) with 10 kills.
+It is not reliable yet. Across 12 seeds with a 6-minute limit it exited once, ran out
+of time once, and died in the other 10, half of them in the first 30 seconds.
 
 ## Use from Python
 
