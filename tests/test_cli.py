@@ -259,3 +259,72 @@ def test_empty_ruling_configuration_never_falls_back_to_hosted_endpoint(monkeypa
         "base_url": BACKENDS["ruling"].base_url,
         "api_key": BACKENDS["ruling"].api_key,
     }
+
+
+@pytest.mark.parametrize("retries,succeeds", [(0, False), (1, True)])
+def test_judge_retries_ride_out_a_transient_failure(
+    tmp_path, provider, monkeypatch, retries, succeeds
+):
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
+    task = write(tmp_path / "task.json", task_data())
+    plan = write(tmp_path / "plan.json", binary_plan())
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+
+    def fail_first(request):
+        provider.status = 503 if len(provider.requests) == 1 else 200
+
+    provider.on_request = fail_first
+    result = invoke(
+        "evaluate",
+        task,
+        plan,
+        "--base-url",
+        provider.url,
+        "--retries",
+        retries,
+        "--output",
+        tmp_path / "out.json",
+    )
+    assert (result.returncode == 0) == succeeds, result.stderr
+
+
+def test_a_hung_proposer_fails_the_search_instead_of_stalling(tmp_path, provider, monkeypatch):
+    import threading
+
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
+    data = task_data()
+    data["train"].append({"id": "d", "state": "request D", "label": "review"})
+    task = write(tmp_path / "task.json", data)
+    released = threading.Event()
+    provider.completion = chat_reply(graph=binary_plan())
+
+    def hang_on_proposals(request):
+        released.wait(timeout=30)
+
+    provider.on_chat = hang_on_proposals
+    try:
+        result = invoke(
+            "optimize",
+            task,
+            "--output",
+            tmp_path / "run",
+            "--base-url",
+            provider.url,
+            "--reflection-model",
+            "openai/fixture",
+            "--reflection-base-url",
+            provider.url + "/v1",
+            "--reflection-timeout",
+            1,
+            "--max-metric-calls",
+            6,
+            "--reflection-batch",
+            2,
+            "--repair-attempts",
+            0,
+        )
+    finally:
+        released.set()
+    assert result.returncode != 0
+    assert "Timeout" in result.stderr

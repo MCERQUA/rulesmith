@@ -89,6 +89,9 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--reflection-base-url")
             command.add_argument("--reflection-max-tokens", type=int, default=4096)
             command.add_argument(
+                "--reflection-timeout", type=float, help="Seconds before a proposal request fails"
+            )
+            command.add_argument(
                 "--max-metric-calls", type=int, default=SearchConfig().max_metric_calls
             )
             command.add_argument(
@@ -120,6 +123,9 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument("--model", help="Model ID; defaults to the selected backend alias")
     command.add_argument("--base-url", help="Override the selected backend endpoint")
     command.add_argument("--timeout", type=float, default=60)
+    command.add_argument(
+        "--retries", type=int, default=0, help="Retries for failed or timed-out judge requests"
+    )
     command.add_argument("--max-workers", type=int, default=ExecutionConfig().max_workers)
 
 
@@ -209,6 +215,8 @@ def main() -> None:
             seed=args.seed,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
+        if args.reflection_timeout is not None:
+            lm_options["timeout"] = args.reflection_timeout
         reflection = dspy.LM(
             args.reflection_model,
             temperature=1,
@@ -228,7 +236,9 @@ def main() -> None:
     with ExitStack() as stack:
         client = (
             stack.enter_context(
-                TypeSafeClient(**connection, timeout=args.timeout, retry=RetryPolicy(max_retries=0))
+                TypeSafeClient(
+                    **connection, timeout=args.timeout, retry=RetryPolicy(max_retries=args.retries)
+                )
             )
             if needs_client
             else None

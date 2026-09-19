@@ -90,6 +90,7 @@ def provider():
         requests=[],
         answers=None,
         on_request=None,
+        on_chat=None,
         status=200,
         completion=None,
         # LM Studio, for one, rejects OpenAI's JSON mode.
@@ -119,6 +120,8 @@ def provider():
                         },
                     }
             if self.path == "/v1/chat/completions":
+                if fixture.on_chat is not None:
+                    fixture.on_chat(request)
                 response = {
                     "id": "fixture-completion",
                     "object": "chat.completion",
