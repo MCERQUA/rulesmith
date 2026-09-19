@@ -244,9 +244,10 @@ def optimize_plan(
             # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
             adapter.failure = error
             raise
-        # GEPA strips surrounding whitespace before evaluating the proposal.
         adapter.proposed = proposal.strip()
-        return proposal
+        # GEPA keeps only the text between the first and last ``` of a reply, so fence the
+        # proposal ourselves; backticks inside the graph then survive intact.
+        return f"```\n{adapter.proposed}\n```"
 
     prompt = (
         "Improve this directed acyclic graph using observed execution failures. Return only "

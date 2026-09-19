@@ -683,3 +683,22 @@ def test_a_proposal_that_ties_its_parent_reaches_the_next_reflection(client):
     assert len(prompts) == 2
     assert json.dumps(tie) in prompts[1]
     assert "Expected label: accept" in prompts[1].split(json.dumps(tie), 1)[1]
+
+
+def test_proposals_containing_code_fences_reach_search_intact(provider, client):
+    graph = binary_plan()
+    graph["nodes"]["eligible"]["question"]["instructions"] = "Quote it as ```text``` if unsure."
+    proposal = Plan.model_validate(graph)
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+    data = task_data()
+    data["validation"][0]["label"] = "accept"
+    best, report = optimize_plan(
+        Task.model_validate(data),
+        Plan.model_validate(constant_plan()),
+        client,
+        "fixture-model",
+        lambda prompt: proposal.model_dump_json(),
+        SearchConfig(max_metric_calls=4, reflection_batch=1),
+    )
+    assert best == proposal
+    assert report["invalid_candidate_evaluations"] == 0
