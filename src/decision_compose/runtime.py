@@ -1,5 +1,6 @@
 """Execute typed DAGs as DSPy modules through the official TypeSafe client."""
 
+import json
 import math
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
@@ -175,21 +176,24 @@ class DecisionProgram(dspy.Module):
         if client is None and any(isinstance(node, Call) for node in plan.nodes.values()):
             raise ValueError("graphs containing calls require a TypeSafe client")
 
-    def _call(self, key: str, node: Call, state: dict) -> tuple[dict, dict]:
-        response = self.client.system_one(
-            state=state,
-            questions={key: node.question.model_dump()},
-            model=self.model,
-        )
-        if set(response.answers) != {key}:
+    def _ask(self, calls: list[tuple[str, Call]], state: dict) -> dict[str, tuple[dict, dict]]:
+        """Ask every call sharing one input object in a single request."""
+        questions = {key: node.question.model_dump() for key, node in calls}
+        response = self.client.system_one(state=state, questions=questions, model=self.model)
+        if set(response.answers) != set(questions):
             raise ResponseError("answer IDs do not match the requested question IDs")
-        answer = read_answer(node.question, response.answers[key])
-        usage = {
-            "model": response.model,
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
-        }
-        return answer, usage
+        results = {}
+        for index, (key, node) in enumerate(calls):
+            # A request is billed once, so its usage is attributed to its first call only.
+            first = index == 0
+            usage = {
+                "model": response.model,
+                "input_tokens": response.usage.input_tokens if first else 0,
+                "output_tokens": response.usage.output_tokens if first else 0,
+                "request": sorted(questions),
+            }
+            results[key] = read_answer(node.question, response.answers[key]), usage
+        return results
 
     def forward(self, state: State) -> dspy.Prediction:
         state = TypeAdapter(State, config=ConfigDict(allow_inf_nan=False)).validate_python(state)
@@ -203,7 +207,7 @@ class DecisionProgram(dspy.Module):
                 progressed = True
                 while progressed:
                     ready.extend(sorter.get_ready())
-                    deferred, progressed = [], False
+                    deferred, progressed, requests = [], False, {}
                     for key in sorted(ready):
                         node = self.plan.nodes[key]
                         value = resolve_node(node, state, values, answers)
@@ -211,22 +215,26 @@ class DecisionProgram(dspy.Module):
                             sorter.done(key)
                             progressed = True
                         elif isinstance(node, Call):
-                            if len(running) < self.execution.max_workers:
-                                running[pool.submit(self._call, key, node, value)] = key
-                            else:
-                                deferred.append(key)
+                            group = json.dumps(value, sort_keys=True)
+                            requests.setdefault(group, (value, []))[1].append((key, node))
                         else:
                             values[key] = value
                             sorter.done(key)
                             progressed = True
+                    for value, group in requests.values():
+                        if len(running) < self.execution.max_workers:
+                            running[pool.submit(self._ask, group, value)] = group[0][0]
+                        else:
+                            deferred.extend(key for key, _ in group)
                     ready = deferred
                 if running:
                     completed, _ = wait(running, return_when=FIRST_COMPLETED)
                     for future in sorted(completed, key=running.get):
-                        key = running.pop(future)
-                        answers[key], calls[key] = future.result()
-                        values[key] = answers[key]["value"]
-                        sorter.done(key)
+                        running.pop(future)
+                        for key, (answer, usage) in sorted(future.result().items()):
+                            answers[key], calls[key] = answer, usage
+                            values[key] = answer["value"]
+                            sorter.done(key)
 
         outputs, missing = {}, []
         for name, source in self.plan.outputs.items():

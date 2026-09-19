@@ -82,7 +82,8 @@ def test_real_gepa_evolves_structure_through_the_official_sdk(provider, client):
     assert report["seed_validation_score"] == 0.0
     assert report["candidates"] == 2
     assert report["metric_calls"] == 4
-    assert len(provider.requests) == 6
+    # Per example, left and right share inputs and go out as one request before eligible.
+    assert len(provider.requests) == 4
     assert report["resolved_models"] == ["fixture-model"]
     assert len(report["task_sha256"]) == 64
     assert len(report["seed_sha256"]) == 64
@@ -202,7 +203,7 @@ def test_reflection_outage_is_propagated_and_stops_search(client):
     assert len(calls) == 1
 
 
-def test_choice_score_and_noul_execute_as_independent_sdk_calls(provider, client, mixed_plan):
+def test_calls_sharing_inputs_are_asked_in_one_sdk_request(provider, client, mixed_plan):
     provider.answers = {
         "team": {
             "type": "choice",
@@ -224,11 +225,25 @@ def test_choice_score_and_noul_execute_as_independent_sdk_calls(provider, client
     )
     assert prediction.label == "accept"
     assert set(prediction.answers) == {"team", "urgency", "refund"}
-    assert len(provider.requests) == 3
-    assert prediction.input_tokens == 36
-    for _, request in provider.requests:
-        (key,) = request["questions"]
-        assert request["questions"][key] == mixed_plan.nodes[key].question.model_dump()
+    ((_, request),) = provider.requests
+    assert request["questions"] == {
+        key: mixed_plan.nodes[key].question.model_dump() for key in ("team", "urgency", "refund")
+    }
+    # One request is billed once, however many questions it carries.
+    assert prediction.input_tokens == 12
+
+
+def test_calls_with_different_inputs_stay_separate_requests(provider, client):
+    plan = binary_plan()
+    plan["nodes"]["other"] = call()
+    plan["nodes"]["other"]["inputs"] = {"request": {"type": "literal", "value": "Other"}}
+    plan["outputs"]["other"] = ref("other")
+    provider.answers = {key: {"type": "noul", "noul": 0.9} for key in ("eligible", "other")}
+    DecisionProgram(Plan.model_validate(plan), client, "fixture-model")(state="Example")
+    assert sorted(list(request["questions"]) for _, request in provider.requests) == [
+        ["eligible"],
+        ["other"],
+    ]
 
 
 def test_diamond_routes_values_and_answer_records_and_runs_shared_nodes_once(provider, client):
@@ -240,15 +255,16 @@ def test_diamond_routes_values_and_answer_records_and_runs_shared_nodes_once(pro
         {
             "nodes": {
                 "root": call(),
-                "left": call(parent=ref("root")),
-                "right": call(parent=ref("root")),
+                # Distinct inputs keep the siblings separate requests, so they must run in parallel.
+                "left": call(parent=ref("root"), side={"type": "literal", "value": "left"}),
+                "right": call(parent=ref("root"), side={"type": "literal", "value": "right"}),
                 "join": call(
                     left=ref("left"),
                     right=ref("right"),
                     evidence=ref("root", view="answer"),
                     original={"type": "state"},
                 ),
-                "independent": call(),
+                "independent": call(other={"type": "literal", "value": "unrelated"}),
             },
             "outputs": {"joined": ref("join"), "other": ref("independent")},
         }
@@ -269,7 +285,8 @@ def test_diamond_routes_values_and_answer_records_and_runs_shared_nodes_once(pro
     )
     requests = {next(iter(body["questions"])): body for _, body in provider.requests}
     assert len(provider.requests) == len(plan.nodes)
-    assert requests["left"]["state"] == requests["right"]["state"] == {"parent": 0.4}
+    assert requests["left"]["state"] == {"parent": 0.4, "side": "left"}
+    assert requests["right"]["state"] == {"parent": 0.4, "side": "right"}
     assert requests["join"]["state"] == {
         "left": 0.6,
         "right": 0.8,
@@ -337,7 +354,7 @@ def test_scheduler_releases_dependents_without_waiting_for_unrelated_roots(provi
         {
             "nodes": {
                 "slow": call(),
-                "fast": call(),
+                "fast": call(root={"type": "literal", "value": "fast"}),
                 "child": call(parent=ref("fast")),
             },
             "outputs": {"slow": ref("slow"), "child": ref("child")},
@@ -381,7 +398,8 @@ def test_coalesce_uses_declared_priority_and_program_does_not_cache_previous_inp
             "z": {"type": "noul", "noul": probability},
         }
         assert program(state=str(probability)).outputs == {"value": probability}
-    assert len(provider.requests) == 4
+    # a and z share inputs, so each run asks both in one request.
+    assert len(provider.requests) == 2
 
 
 def test_candidate_with_unavailable_label_gets_feedback_without_poisoning_search(provider, client):

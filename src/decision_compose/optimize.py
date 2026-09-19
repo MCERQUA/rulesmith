@@ -254,7 +254,7 @@ def optimize_plan(
         "the complete replacement JSON object, with nodes and outputs. Add, remove, or rewrite "
         "nodes, questions, input wiring, and conditions. Each call receives its mapped inputs, "
         "which can reference original state, literal data, or earlier node values/answers. "
-        "Each call is a separate request; independent ready calls run concurrently. "
+        "Ready calls with identical inputs share one request; others run concurrently. "
         "A call's question MUST be an object nested inside the call, containing lowercase "
         "type, instructions, and criteria when applicable. Choice criteria map each option, "
         "which is the value the node outputs, to a description of when it applies. "

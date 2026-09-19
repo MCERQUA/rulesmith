@@ -80,7 +80,8 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
 
 ## Execution
 
-- Each `call` is one request, whose `state` is the call's mapped inputs.
+- Ready calls whose mapped inputs are identical are asked together in one request,
+  so the judge reads the shared input once. The request's `state` is those inputs.
   Independent calls run concurrently, up to `max_workers` (default 4), and each
   node starts as soon as its own dependencies finish.
 - A shared node runs once per execution, however many nodes use it.
