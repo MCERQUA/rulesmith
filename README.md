@@ -207,11 +207,17 @@ centered. On held-out test seeds it killed every monster:
 
 **E1M1**: search started from a graph that only walks forward, with Claude Sonnet 5
 proposing graphs, the local 4B judge, and a route to the exit computed from the map.
-The best graph so far ([examples/doom/graphs/e1m1-exit.json](examples/doom/graphs/e1m1-exit.json))
-is 26 nodes of reads and routing with no judge calls, and it **finishes the level**:
-[watch it exit in 3 minutes 22 seconds](docs/assets/doom/e1m1-exit.mp4) with 10 kills.
-It is not reliable yet. Across 12 seeds with a 6-minute limit it exited once, ran out
-of time once, and died in the other 10, half of them in the first 30 seconds.
+The best graph ([examples/doom/graphs/e1m1-exit.json](examples/doom/graphs/e1m1-exit.json))
+is 27 nodes of reads and routing with no judge calls, and it **finishes the level**:
+[watch it exit in 75 seconds](docs/assets/doom/e1m1-exit.mp4) with 10 kills.
+
+| Seeds | Exited | Died | Best time |
+| --- | --- | --- | --- |
+| 1–6 (the task's train, validation, and test seeds) | 3 | 3 | 75 s |
+| 7–12 (never used by search) | 2 | 4 | 89 s |
+
+Episodes were capped at 6 minutes. Two of the deaths came within 260 units of the
+exit switch; the rest came in the first minute's fights.
 
 ## Use from Python
 
