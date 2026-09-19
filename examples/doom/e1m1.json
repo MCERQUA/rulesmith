@@ -1,5 +1,5 @@
 {
-  "description": "Play Freedoom level E1M1 as far as you can: explore the map, kill monsters, pick up items, open doors, and reach the exit switch. Reward: +20 per kill, +2 per item, +1 per newly explored 64-unit map cell, -1 per point of damage taken, -200 for dying, +2000 for exiting. Each step the graph receives an observation and its label output is the next action; each action lasts 6 tics (about a sixth of a second). Observation fields: objects lists what is on screen, with a category such as Monster, Health, or Gore, x from -1 (left edge) to 1 (right edge), and width as a fraction of the screen (nearer is larger); corpses have Dead in their name. variables holds HEALTH, ARMOR, and SELECTED_WEAPON_AMMO. pose gives map position and facing angle in degrees. rangefinder lists the distance in map units to the nearest wall or closed door along 7 directions spread across the 90-degree view, from 45 degrees left to 45 degrees right; the middle (4th) reading is straight ahead, and one MOVE_FORWARD covers about 40 units, so a middle reading under 64 means the way ahead is blocked. target, present only when a live monster is on screen, gives the nearest one's name, x, and width. compass lists the nearest tracked monsters and items anywhere on the map, with bearing in degrees from where you face (positive is to your left) and distance in map units. memory gives your recent actions, how far you moved over them (near 0 while trying to walk forward means stuck; turning in place also moves 0), how often you have visited your current cell, and how many cells you have explored. Actions: TURN_LEFT and TURN_RIGHT rotate about 12 degrees, or about 21 when repeated, which shifts an on-screen object's x by roughly 0.25 to 0.45 (TURN_LEFT moves on-screen objects right); MOVE_FORWARD and MOVE_BACKWARD walk; + presses buttons together; USE opens doors and presses switches directly ahead; ATTACK fires.",
+  "description": "Play Freedoom level E1M1 as far as you can: explore the map, kill monsters, pick up items, open doors, and reach the exit switch. Reward: +1 per map unit you get closer to the exit along the walkable route (new best distance only), +20 per kill, +2 per item, +1 per newly explored 64-unit map cell, -1 per point of damage taken, -200 for dying, +2000 for exiting. Each step the graph receives an observation and its label output is the next action; each action lasts 6 tics (about a sixth of a second), and an episode lasts 90 seconds. Observation fields: objects lists what is on screen, with a category such as Monster, Health, or Gore, x from -1 (left edge) to 1 (right edge), and width as a fraction of the screen (nearer is larger); corpses have Dead in their name. variables holds HEALTH, ARMOR, and SELECTED_WEAPON_AMMO. pose gives map position and facing angle in degrees. rangefinder lists the distance in map units to the nearest wall or closed door along 7 directions spread across the 90-degree view, from 45 degrees left to 45 degrees right; the middle (4th) reading is straight ahead, and one MOVE_FORWARD covers about 40 units, so a middle reading under 64 means the way ahead is blocked. target, present only when a live monster is on screen, gives the nearest one's name, x, and width. compass lists the nearest tracked monsters and items anywhere on the map, with bearing in degrees from where you face (positive is to your left) and distance in map units. route, when a path exists, points along the shortest walkable path to the exit switch: next is opening, door, or exit, bearing is degrees to that waypoint from where you face (positive is left), distance is map units to it, and remaining is the whole path's length. Doors open with USE when you face them up close; the exit switch is pressed with USE. memory gives your recent actions, how far you moved over them (near 0 while trying to walk forward means stuck; turning in place also moves 0), how often you have visited your current cell, and how many cells you have explored. Actions: TURN_LEFT and TURN_RIGHT rotate about 12 degrees, or about 21 when repeated, which shifts an on-screen object's x by roughly 0.25 to 0.45 (TURN_LEFT moves on-screen objects right); MOVE_FORWARD and MOVE_BACKWARD walk; + presses buttons together; USE opens doors and presses switches directly ahead; ATTACK fires.",
   "scenario": "freedoom1",
   "map": "E1M1",
   "variables": [
@@ -20,16 +20,17 @@
   ],
   "reward_range": [
     -1000,
-    6500
+    10000
   ],
   "tics_per_action": 6,
-  "episode_timeout": 2100,
+  "episode_timeout": 3150,
   "observe": [
     "pose",
     "rangefinder",
     "compass",
     "memory",
-    "target"
+    "target",
+    "route"
   ],
   "compass_targets": [
     "Zombieman",
@@ -50,7 +51,8 @@
     "explore": 1,
     "damage_taken_penalty": 1,
     "death_penalty": 200,
-    "map_exit_reward": 2000
+    "map_exit_reward": 2000,
+    "progress": 1
   },
   "train": [
     1,
