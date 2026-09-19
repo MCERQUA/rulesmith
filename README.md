@@ -1,5 +1,7 @@
 # decision-compose
 
+![decision-compose — Design and optimize decision graphs](image.png)
+
 Build and optimize typed directed acyclic graphs of Ruling or hosted Jev calls.
 DSPy proposes complete graphs, GEPA searches and selects them, and a DSPy module
 executes them through TypeSafe's official SDK against either compatible backend.
