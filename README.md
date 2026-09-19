@@ -141,8 +141,9 @@ replacement: new calls, rewritten questions, branches, and joins. A proposal is
 kept only if it beats its parent on the training batch, and the graph with the
 best validation accuracy is saved. The test split never reaches the optimizer.
 
-Graphs can grow into real DAGs. This one ([examples/dag.json](examples/dag.json))
-asks two questions in parallel, then runs only the specialist that matches:
+The proposer can use the full DAG language. This hand-written example
+([examples/dag.json](examples/dag.json)), not a search result, asks two questions
+in parallel, then runs only the specialist that matches:
 
 ```mermaid
 flowchart LR
