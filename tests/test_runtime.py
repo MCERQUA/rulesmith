@@ -228,9 +228,14 @@ def test_a_missing_read_path_skips_the_node():
 @pytest.mark.parametrize(
     "state", [{"rangefinder": [0, 0, 0, 9000]}, {"rangefinder": [0, 0, 0, "far"]}]
 )
-def test_values_outside_a_reads_declared_domain_are_execution_errors(state):
-    with pytest.raises(GraphExecutionError, match="outside"):
-        DecisionProgram(read_plan(), None, "none")(state=state)
+def test_values_outside_a_reads_declared_domain_skip_the_read(state):
+    plan = read_plan().model_dump()
+    plan["nodes"]["fallback"] = {"type": "value", "value": "TURN_LEFT"}
+    plan["nodes"]["pick"] = {"type": "coalesce", "sources": ["move", "fallback"]}
+    plan["outputs"]["label"] = {"type": "node", "node": "pick"}
+    prediction = DecisionProgram(Plan.model_validate(plan), None, "none")(state=state)
+    assert prediction.label == "TURN_LEFT"
+    assert "ahead" in prediction.skipped
 
 
 def test_categorical_reads_drive_switches():

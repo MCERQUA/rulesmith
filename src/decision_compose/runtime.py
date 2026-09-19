@@ -143,10 +143,6 @@ def resolve_inputs(inputs: dict[str, Source], state: State, values: dict, answer
     return result
 
 
-class DomainError(ValueError):
-    """A read found a value its node's declared domain does not allow."""
-
-
 def read_path(node: Read, state: State):
     value = state
     for step in node.path:
@@ -162,9 +158,9 @@ def read_path(node: Read, state: State):
         low, high = node.bounds
         allowed = isinstance(value, int | float) and not isinstance(value, bool)
         allowed = allowed and low <= value <= high
-    if not allowed:
-        raise DomainError(f"read {node.path} found {value!r}, outside its declared domain")
-    return value
+    # A value outside the declared domain is skipped like a missing path, so every value
+    # downstream nodes see stays within the domain validation relied on.
+    return value if allowed else MISSING
 
 
 def resolve_node(node: Node, state: State, values: dict, answers: dict):
@@ -228,45 +224,40 @@ class DecisionProgram(dspy.Module):
         sorter = TopologicalSorter(self.plan.dependencies())
         sorter.prepare()
         ready, running = [], {}
-        failure = None
-        try:
-            with ThreadPoolExecutor(max_workers=self.execution.max_workers) as pool:
-                while sorter.is_active():
-                    # Drain locally executable nodes before waiting on network work.
-                    progressed = True
-                    while progressed:
-                        ready.extend(sorter.get_ready())
-                        deferred, progressed, requests = [], False, {}
-                        for key in sorted(ready):
-                            node = self.plan.nodes[key]
-                            value = resolve_node(node, state, values, answers)
-                            if value is MISSING:
-                                sorter.done(key)
-                                progressed = True
-                            elif isinstance(node, Call):
-                                group = json.dumps(value, sort_keys=True)
-                                requests.setdefault(group, (value, []))[1].append((key, node))
-                            else:
-                                values[key] = value
-                                sorter.done(key)
-                                progressed = True
-                        for value, group in requests.values():
-                            if len(running) < self.execution.max_workers:
-                                running[pool.submit(self._ask, group, value)] = group[0][0]
-                            else:
-                                deferred.extend(key for key, _ in group)
-                        ready = deferred
-                    if running:
-                        completed, _ = wait(running, return_when=FIRST_COMPLETED)
-                        for future in sorted(completed, key=running.get):
-                            running.pop(future)
-                            for key, (answer, usage) in sorted(future.result().items()):
-                                answers[key], calls[key] = answer, usage
-                                values[key] = answer["value"]
-                                sorter.done(key)
-        except DomainError as error:
-            # Leaving the pool waits for requests already in flight.
-            failure = str(error)
+        with ThreadPoolExecutor(max_workers=self.execution.max_workers) as pool:
+            while sorter.is_active():
+                # Drain locally executable nodes before waiting on network work.
+                progressed = True
+                while progressed:
+                    ready.extend(sorter.get_ready())
+                    deferred, progressed, requests = [], False, {}
+                    for key in sorted(ready):
+                        node = self.plan.nodes[key]
+                        value = resolve_node(node, state, values, answers)
+                        if value is MISSING:
+                            sorter.done(key)
+                            progressed = True
+                        elif isinstance(node, Call):
+                            group = json.dumps(value, sort_keys=True)
+                            requests.setdefault(group, (value, []))[1].append((key, node))
+                        else:
+                            values[key] = value
+                            sorter.done(key)
+                            progressed = True
+                    for value, group in requests.values():
+                        if len(running) < self.execution.max_workers:
+                            running[pool.submit(self._ask, group, value)] = group[0][0]
+                        else:
+                            deferred.extend(key for key, _ in group)
+                    ready = deferred
+                if running:
+                    completed, _ = wait(running, return_when=FIRST_COMPLETED)
+                    for future in sorted(completed, key=running.get):
+                        running.pop(future)
+                        for key, (answer, usage) in sorted(future.result().items()):
+                            answers[key], calls[key] = answer, usage
+                            values[key] = answer["value"]
+                            sorter.done(key)
 
         outputs, missing = {}, []
         for name, source in self.plan.outputs.items():
@@ -289,8 +280,6 @@ class DecisionProgram(dspy.Module):
         if "label" in outputs:
             result["label"] = outputs["label"]
         prediction = dspy.Prediction(**result)
-        if failure is not None:
-            raise GraphExecutionError(failure, prediction)
         if missing:
             raise GraphExecutionError(f"required graph outputs were skipped: {missing}", prediction)
         return prediction
