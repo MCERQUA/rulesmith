@@ -258,3 +258,30 @@ def test_cli_searches_and_evaluates_a_graph_against_an_opponent(tmp_path, provid
     assert completed.returncode == 0, completed.stderr
     (row,) = json.loads(evaluation.read_text())["examples"]
     assert row["seed"] == 3 and row["result"] in ("won", "drew", "lost")
+
+
+def test_a_killed_player_respawns_and_keeps_playing(client):
+    task = DoomTask.model_validate(duel_data(episode_timeout=600))
+    port = free_port()
+    seats = [f"-host 2 -port {port} {DEATHMATCH}", f"-join 127.0.0.1 -port {port}"]
+    with ThreadPoolExecutor(2) as pool:
+        played = [pool.submit(die_once, task, args) for args in seats]
+    full = math.ceil(task.episode_timeout / task.tics_per_action)
+    for future in played:
+        steps, stats = future.result()
+        # Respawning costs tics, so a death shortens the seat's turns without ending it.
+        assert 20 < steps < full
+        assert stats["deaths"] == 1
+
+
+def die_once(task, game_args):
+    """Play a whole duel, taking one suicide part way through; the engine reports no state
+    while a dead player waits to respawn."""
+    with DoomEnvironment(task, game_args=game_args) as env:
+        observation, steps = env.reset(SEEN_SEED), 0
+        while observation is not None:
+            if steps == 20:
+                env.game.send_game_command("kill")
+            _, observation = env.step("TURN_LEFT")
+            steps += 1
+        return steps, env.stats()

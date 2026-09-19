@@ -315,11 +315,13 @@ class DoomEnvironment:
                     break
                 self.frames.append(self.game.get_state().screen_buffer.copy())
         self.recent.append(action)
-        if self.game.is_episode_finished():
-            return reward, None
         # Only deathmatch outlives a death; single-player episodes end above.
-        if self.game.is_player_dead():
+        if not self.game.is_episode_finished() and self.game.is_player_dead():
             self.game.respawn_player()
+        # A game with no state has nothing left to decide on: this seat is between lives, or
+        # its opponent has left the duel. Either way the episode is over for this player.
+        if self.game.is_episode_finished() or self.game.get_state() is None:
+            return reward, None
         if self.visit():
             reward += self.task.rewards.get("explore", 0.0)
         self.plot()
