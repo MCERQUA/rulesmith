@@ -192,6 +192,10 @@ for the task format and scenarios.
 
 ![Search fitness: best validation score after each search round](docs/assets/fitness.svg)
 
+Each line stops at the round its run reached: the E1M1 seeds and the six-map
+head-to-head were cut short by a flat battery and an empty OpenRouter balance,
+and the head-to-head never beat its seed graph before it stopped.
+
 **`basic`**: search started from a graph that only strafes left. Within three
 rounds it found a graph that strafes toward the monster and fires once it is
 centered. On held-out test seeds it killed every monster:
