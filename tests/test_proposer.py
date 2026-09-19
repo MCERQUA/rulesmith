@@ -11,8 +11,8 @@ from decision_compose.optimize import GraphProposal, GraphProposer, text_adapter
 
 def test_signature_preserves_open_node_ids_and_wiring():
     graph = binary_plan()
-    result = text_adapter().parse(GraphProposal, chat_reply(**graph))
-    assert result == graph
+    result = text_adapter().parse(GraphProposal, chat_reply(graph=graph))
+    assert result == {"graph": graph}
 
 
 @pytest.mark.parametrize(
@@ -49,7 +49,7 @@ def test_proposer_and_labeler_work_on_servers_without_json_mode(provider):
         num_retries=0,
     )
     graph = binary_plan()
-    provider.completion = chat_reply(**graph)
+    provider.completion = chat_reply(graph=graph)
     assert json.loads(GraphProposer(lm)("Propose a decision graph.")) == graph
     provider.completion = chat_reply(label="review")
     assert Labeler(lm, "Classify requests.", ["accept", "review"])("request A") == "review"

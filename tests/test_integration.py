@@ -596,7 +596,7 @@ def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider
     assert language <= used
     data = task_data()
     data["validation"][0]["label"] = "accept"
-    provider.completion = chat_reply(**graph)
+    provider.completion = chat_reply(graph=graph)
     provider.answers = {
         "team": {
             "type": "choice",

@@ -83,7 +83,7 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
     data = task_data()
     data["train"].append({"id": "d", "state": "request D", "label": "review"})
     task = write(tmp_path / "task.json", data)
-    provider.completion = chat_reply(**binary_plan())
+    provider.completion = chat_reply(graph=binary_plan())
 
     def answer_by_request(request):
         noul = 0.9 if "request A" in json.dumps(request["state"]) else 0.1

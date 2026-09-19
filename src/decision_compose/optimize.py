@@ -27,8 +27,11 @@ class GraphProposal(dspy.Signature):
     """Design a complete decision DAG that satisfies the supplied schema and feedback."""
 
     request: str = dspy.InputField()
-    nodes: dict[str, JsonValue] = dspy.OutputField(desc="Node IDs mapped to node definitions")
-    outputs: dict[str, JsonValue] = dspy.OutputField(desc="Output names mapped to sources")
+    # One whole-graph field: models asked for nodes and outputs separately tend to
+    # nest the complete graph inside nodes.
+    graph: dict[str, JsonValue] = dspy.OutputField(
+        desc='The complete graph: {"nodes": {...}, "outputs": {...}}'
+    )
 
 
 class GraphProposer(dspy.Module):
@@ -46,7 +49,7 @@ class GraphProposer(dspy.Module):
                 # Syntax failures remain candidates so GEPA can score and reflect on them.
                 return json.dumps({"generation_error": str(error)})
         try:
-            return json.dumps({"nodes": result.nodes, "outputs": result.outputs}, allow_nan=False)
+            return json.dumps(result.graph, allow_nan=False)
         except ValueError as error:
             return json.dumps({"generation_error": str(error)})
 
