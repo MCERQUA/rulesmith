@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 from collections import Counter, deque
+from functools import cache
 from pathlib import Path
 from typing import Literal, Self
 
@@ -124,6 +125,12 @@ def setting(config: str, key: str) -> str | None:
     return None
 
 
+@cache
+def load_level(path: Path, map_name: str) -> Level:
+    """Building a level's route grid takes seconds, and levels never change once built."""
+    return Level(path, map_name)
+
+
 def level_file(config: str, map_name: str) -> Path:
     """The WAD holding a scenario's map: its scenario WAD, else its game WAD."""
     here = Path(config).parent
@@ -167,7 +174,7 @@ class DoomEnvironment:
             map_name = (task.map or setting(config, "doom_map") or "").upper()
             if not map_name:
                 raise ValueError(f"routing needs a map name for {task.scenario}")
-            self.level = Level(level_file(config, map_name), map_name)
+            self.level = load_level(level_file(config, map_name), map_name)
         # Every rendered tic while recording, as height x width x RGB arrays.
         self.frames: list | None = [] if record else None
         if task.episode_timeout is not None:
