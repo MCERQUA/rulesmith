@@ -295,8 +295,10 @@ def optimize_plan(
         "or compute numbers from their inputs. "
         "A read node takes one value from the original input by path, e.g. "
         '{"type":"read","path":["rangefinder",3],"bounds":[0,2048]}, declaring bounds or '
-        "categories; use reads plus threshold, switch, and conditions for exact checks, and "
-        "calls only for judgment. A read's path must end at a number or string, never an "
+        "categories. Reads give exact values for thresholds, switches, and conditions; calls "
+        "let the judge weigh the whole input, which suits decisions no single value settles, "
+        "such as whether to fight or fall back. Use whichever scores better. "
+        "A read's path must end at a number or string, never an "
         "object or list. A missing path or a value outside the declared domain skips the "
         "read, so test whether a field exists with "
         '{"type":"present","node":"<read of a scalar inside it>"}. The label must always get '
