@@ -1,6 +1,7 @@
 """Full-level observations and rewards, checked against Freedoom's real E1M1 map."""
 
 import math
+from pathlib import Path
 
 import pytest
 import vizdoom as vzd
@@ -8,6 +9,7 @@ from pydantic import ValidationError
 
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Plan
+from decision_compose.level import Level
 from decision_compose.runtime import DecisionProgram
 
 TARGETS = ["DoomImp", "ShotgunGuy", "Zombieman", "Demon", "Medikit", "BlueCard"]
@@ -21,7 +23,7 @@ def level(**changes):
         "labels": ["MOVE_FORWARD", "TURN_LEFT", "TURN_RIGHT", "ATTACK", "USE"],
         "reward_range": [-10000, 10000],
         "episode_timeout": 120,
-        "observe": ["pose", "rangefinder", "compass", "memory"],
+        "observe": ["pose", "rangefinder", "compass", "memory", "route"],
         "compass_targets": TARGETS,
         "train": [1],
         "validation": [2],
@@ -180,3 +182,37 @@ def test_episode_records_report_game_statistics():
         assert stats["kills"] == env.game.get_game_variable(vzd.GameVariable.KILLCOUNT) > 0
         assert stats["explored_cells"] == len(env.visited)
     assert "kills" in outcome.trace["Feedback"]
+
+
+def test_level_file_locates_the_exit_switch_and_routes_to_it():
+    level_map = Level(Path(vzd.scenarios_path).parent / "freedoom1.wad", "E1M1")
+    (exit_line,) = level_map.exits
+    assert exit_line.special == 11 and exit_line.middle == (-400, 1296)
+    path, remaining = level_map.route(-416, 256)
+    assert path[-1] == exit_line
+    # A walkable route can never be shorter than the straight line.
+    assert remaining >= math.dist((-416, 256), exit_line.middle)
+
+
+def test_route_points_along_the_way_to_the_exit(env):
+    route = settled(env)["route"]
+    assert route["next"] in {"opening", "door", "exit"}
+    assert route["remaining"] >= route["distance"] > 0
+    assert -180 <= route["bearing"] <= 180
+
+
+def test_progress_reward_pays_only_for_shortening_the_route():
+    walked, _ = play(level(rewards={"progress": 1}), "MOVE_FORWARD")
+    plain, _ = play(level(), "MOVE_FORWARD")
+    assert walked.record["reward"] > plain.record["reward"]
+    spun, _ = play(level(rewards={"progress": 1}), "TURN_LEFT")
+    assert spun.record["reward"] == play(level(), "TURN_LEFT")[0].record["reward"]
+
+
+def test_every_position_along_a_walk_has_a_route(env):
+    observation = settled(env)
+    while observation is not None:
+        assert "route" in observation
+        bearing = observation["route"]["bearing"]
+        turn = "TURN_LEFT" if bearing > 15 else "TURN_RIGHT" if bearing < -15 else None
+        _, observation = env.step(turn or "MOVE_FORWARD")

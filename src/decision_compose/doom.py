@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 from collections import Counter, deque
+from pathlib import Path
 from typing import Literal, Self
 
 import numpy as np
@@ -11,6 +12,7 @@ import vizdoom as vzd
 from pydantic import Field, model_validator
 
 from decision_compose.graph import Plan, StrictModel, Text
+from decision_compose.level import Level
 from decision_compose.optimize import Outcome
 from decision_compose.runtime import DecisionProgram, GraphExecutionError
 
@@ -32,7 +34,7 @@ class DoomTask(StrictModel):
     variables: list[Text] = Field(
         default_factory=list, description="Game variables to add, e.g. HEALTH or AMMO2"
     )
-    observe: list[Literal["pose", "rangefinder", "compass", "memory", "target"]] = Field(
+    observe: list[Literal["pose", "rangefinder", "compass", "memory", "target", "route"]] = Field(
         default_factory=list, description="Extra observations beyond visible objects"
     )
     rays: int = Field(default=7, ge=2, description="Rangefinder directions across the view")
@@ -47,7 +49,8 @@ class DoomTask(StrictModel):
     cell_size: float = Field(default=64, gt=0, description="Map units per exploration cell")
     rewards: dict[Text, float] = Field(
         default_factory=dict,
-        description="ViZDoom rewards by setter name, e.g. kill_reward, plus explore per new cell",
+        description="ViZDoom rewards by setter name, e.g. kill_reward, plus explore per new "
+        "cell and progress per map unit the route to the exit shrinks",
     )
     train: list[int] = Field(min_length=1)
     validation: list[int] = Field(min_length=1)
@@ -70,7 +73,7 @@ class DoomTask(StrictModel):
         unknown = {
             name
             for name in self.rewards
-            if name != "explore"
+            if name not in CUSTOM_REWARDS
             and not (
                 name.endswith(("_reward", "_penalty")) and hasattr(vzd.DoomGame, f"set_{name}")
             )
@@ -108,6 +111,32 @@ def walls(state) -> tuple[np.ndarray, np.ndarray]:
     return segments[:, 0], segments[:, 1]
 
 
+CUSTOM_REWARDS = {"explore", "progress"}
+
+
+def setting(config: str, key: str) -> str | None:
+    """A ViZDoom config value; keys ignore case and underscores, as ViZDoom does."""
+    wanted = key.replace("_", "").lower()
+    for line in Path(config).read_text().splitlines():
+        name, _, value = line.split("#", 1)[0].partition("=")
+        if value and name.strip().replace("_", "").lower() == wanted:
+            return value.strip()
+    return None
+
+
+def level_file(config: str, map_name: str) -> Path:
+    """The WAD holding a scenario's map: its scenario WAD, else its game WAD."""
+    here = Path(config).parent
+    for key in ("doom_scenario_path", "doom_game_path"):
+        name = setting(config, key)
+        if name is None:
+            continue
+        for folder in (here, Path(vzd.__file__).parent):
+            if (folder / name).is_file():
+                return folder / name
+    raise ValueError(f"no WAD found for {config}")
+
+
 class DoomEnvironment:
     """A headless ViZDoom game whose observations are JSON, not pixels."""
 
@@ -131,8 +160,14 @@ class DoomEnvironment:
         for name in task.variables:
             self.game.add_available_game_variable(getattr(vzd.GameVariable, name))
         for name, value in task.rewards.items():
-            if name != "explore":
+            if name not in CUSTOM_REWARDS:
                 getattr(self.game, f"set_{name}")(value)
+        self.level = None
+        if "route" in task.observe or "progress" in task.rewards:
+            map_name = (task.map or setting(config, "doom_map") or "").upper()
+            if not map_name:
+                raise ValueError(f"routing needs a map name for {task.scenario}")
+            self.level = Level(level_file(config, map_name), map_name)
         # Every rendered tic while recording, as height x width x RGB arrays.
         self.frames: list | None = [] if record else None
         if task.episode_timeout is not None:
@@ -160,7 +195,18 @@ class DoomEnvironment:
         self.recent = deque(maxlen=self.task.memory_steps)
         self.trail = deque(maxlen=self.task.memory_steps + 1)
         self.visit()
+        self.plot()
+        self.best = self.remaining
         return self.observe()
+
+    def plot(self) -> None:
+        """Recompute the route from the player's position to the exit."""
+        self.path, self.remaining = None, None
+        if self.level is not None:
+            x, y, _ = self.pose()
+            found = self.level.route(x, y)
+            if found is not None:
+                self.path, self.remaining = found
 
     def pose(self) -> tuple[float, float, float]:
         variable = self.game.get_game_variable
@@ -194,6 +240,11 @@ class DoomEnvironment:
             return reward, None
         if self.visit():
             reward += self.task.rewards.get("explore", 0.0)
+        self.plot()
+        if self.remaining is not None and (self.best is None or self.remaining < self.best):
+            if self.best is not None:
+                reward += self.task.rewards.get("progress", 0.0) * (self.best - self.remaining)
+            self.best = self.remaining
         return reward, self.observe()
 
     def observe(self) -> dict:
@@ -244,6 +295,17 @@ class DoomEnvironment:
                 )
             targets.sort(key=lambda target: target["distance"])
             observation["compass"] = targets[: self.task.compass_size]
+        if "route" in self.task.observe and self.path is not None:
+            waypoint = self.path[0]
+            dx, dy = waypoint.middle[0] - x, waypoint.middle[1] - y
+            sides = {waypoint.front, waypoint.back} - {None}
+            door = any(self.level.heights[s][1] <= self.level.heights[s][0] for s in sides)
+            observation["route"] = {
+                "next": "exit" if waypoint in self.level.exits else "door" if door else "opening",
+                "bearing": round((math.degrees(math.atan2(dy, dx)) - angle + 180) % 360 - 180, 1),
+                "distance": round(math.hypot(dx, dy)),
+                "remaining": round(self.remaining),
+            }
         if "memory" in self.task.observe:
             observation["memory"] = {
                 "previous_actions": list(self.recent),
