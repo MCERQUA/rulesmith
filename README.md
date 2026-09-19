@@ -813,6 +813,21 @@ exit that a deathmatch has none of, so 13 of the 18 matches ended without a
 frag and the ranking mostly rewards staying alive. Network timing shifts which
 tics the joining player acts on, so results vary between runs.
 
+What the three entrants do, in the order each one checks its rules (the first
+rule that fires wins, through a `coalesce` node):
+
+| Graph | Rules | In a duel it | Reads a duel does not have |
+| --- | --- | --- | --- |
+| [e1m1-exit](examples/doom/graphs/e1m1-exit.json) | 16 | Backs off at low health or no ammo, fires when a target is centered, turns onto it otherwise, then walks and unsticks itself | `route.*`, `rangefinder.3` |
+| [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 17 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward | `route.*`, `rangefinder.0/3/6` |
+| [duel-attack](examples/doom/graphs/duel-attack.json) | 0 | Holds the trigger down, forever | none |
+
+The first two were searched for E1M1, so most of their structure is navigation
+toward an exit. A deathmatch map has no exit and does not fill in `route`, so
+those reads go missing and every rule that depends on one is skipped: what is
+left is the fighting half plus a walk-forward default. That is the bar a
+purpose-built duel graph has to beat.
+
 Search can then aim at the arena rather than at a scenario's own reward. With
 `--opponent`, every episode is a duel against a fixed graph, so the leader can
 be used to breed its own challenger:
