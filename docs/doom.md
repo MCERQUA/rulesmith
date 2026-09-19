@@ -87,6 +87,21 @@ measured at the object's center. Objects come from ViZDoom's labels buffer, whic
 lists what is on screen. The player's own weapon is left out. `variables` holds
 the scenario's game variables.
 
+`observe` adds more, each under its own key: `target` (the nearest live monster
+or opponent on screen, with its map distance), `pose`, `rangefinder` (wall
+distances along rays across the view), `memory` (recent actions and movement),
+`route` (the way to a level's exit) and `compass`:
+
+```json
+{"compass": [{"name": "DoomPlayer", "bearing": -23.2, "distance": 244}]}
+```
+
+The compass reaches the whole map, not just the screen, and reports the objects
+named in `compass_targets`. `bearing` is degrees from where the player faces,
+positive to the left. It lists the nearest of each name first, then fills the
+remaining `compass_size` slots by distance, so one distant opponent is never
+crowded out by the pickups underfoot. The player's own body is never a bearing.
+
 ## Scoring
 
 An episode's score is `(reward - low) / (high - low)`. A graph that fails to

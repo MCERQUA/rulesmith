@@ -379,7 +379,12 @@ class DoomEnvironment:
                     }
                 )
             targets.sort(key=lambda target: target["distance"])
-            observation["compass"] = targets[: self.task.compass_size]
+            # The nearest of each name comes first, so a lone opponent across the map is never
+            # crowded out by the pickups underfoot; the rest of the room goes by distance.
+            nearest = list({target["name"]: target for target in reversed(targets)}.values())
+            nearest.sort(key=lambda target: target["distance"])
+            rest = [target for target in targets if target not in nearest]
+            observation["compass"] = (nearest + rest)[: self.task.compass_size]
         found = self.level.waypoint(x, y) if "route" in self.task.observe else None
         if found is not None:
             (target_x, target_y), ahead = found

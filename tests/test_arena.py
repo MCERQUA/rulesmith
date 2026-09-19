@@ -335,3 +335,24 @@ def test_cli_records_a_duel_from_one_graph_s_seat(tmp_path):
     with Image.open(output) as gif:
         # Every tic the seat played, less any the timeout cut from its final action.
         assert episode["steps"] * tics - tics < gif.n_frames <= episode["steps"] * tics
+
+
+def test_a_distant_opponent_is_never_crowded_off_the_compass():
+    # Deathmatch maps are littered with pickups, and an opponent starts across the map.
+    path = Path(__file__).resolve().parents[1] / "examples/doom/duel.json"
+    task = DoomTask.model_validate_json(path.read_text()).model_copy(
+        update={"episode_timeout": 200}
+    )
+    port = free_port()
+    seats = [f"-host 2 -port {port} {DEATHMATCH}", f"-join 127.0.0.1 -port {port}"]
+    with ThreadPoolExecutor(2) as pool:
+        opening = [pool.submit(first_compass, task, args) for args in seats]
+    for future in opening:
+        compass = future.result()
+        assert len(compass) == task.compass_size
+        assert [entry["name"] for entry in compass].count("DoomPlayer") == 1
+
+
+def first_compass(task, game_args):
+    with DoomEnvironment(task, game_args=game_args) as env:
+        return env.reset(task.train[0])["compass"]
