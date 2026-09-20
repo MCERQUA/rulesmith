@@ -131,7 +131,9 @@ uv run decision-compose arena examples/doom/duel.json a.json b.json c.json --out
   game. The engines run in lockstep, so a graph that waits on judge calls slows
   the match rather than losing turns.
 - The graph with more frags wins; equal frags is a draw. A graph that fails to
-  produce an action forfeits.
+  produce an action forfeits. Some maps, ViZDoom's `multi_deathmatch` among
+  them, end the round at the first kill, which makes every match first blood;
+  others play on to the timeout.
 - The joining player sometimes loses a tic to network latency, getting up to
   about 10% fewer turns. Hosting alternates between episodes, so each pair
   shares that handicap evenly when it plays an even number of episodes.

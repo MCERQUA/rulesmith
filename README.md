@@ -805,9 +805,12 @@ uv run decision-compose arena examples/doom/duel.json \
   examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
 ```
 
+![The league's best graph fragging a rival](docs/assets/doom/duel.gif)
+
 Four call-free graphs, twelve seeds per pair on ViZDoom's `multi` deathmatch
-map (72 matches, 41 of them decisive). Rules are checked in order, and the
-first that fires wins, through a `coalesce` node:
+map, where a kill ends the round, so 41 of the 72 matches were settled on first
+blood and the rest timed out level. Rules are checked in order, and the first
+that fires wins, through a `coalesce` node:
 
 | Graph | Elo | Won | Drawn | Lost | Frags for / against | In a duel it |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -816,7 +819,9 @@ first that fires wins, through a `coalesce` node:
 | [duel-attack](examples/doom/graphs/duel-attack.json) | 1473 | 6 | 20 | 10 | 9 / 13 | Holds the trigger down, forever |
 | [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 1438 | 6 | 15 | 15 | 11 / 21 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward |
 
-[Watch a graph take a frag](docs/assets/doom/duel-e1m1-exit.mp4). The two E1M1
+Above, `duel-searched` corners `e1m1-searched` on a `cig` map, where play
+continues after a kill; [the full minute is here](docs/assets/doom/duel-e1m1-exit.mp4).
+The two E1M1
 graphs were searched to walk a level toward an exit a deathmatch has none of,
 so every rule of theirs that reads `route` is skipped here, leaving the
 fighting half and a walk-forward default. Even so, a graph that only shoots
