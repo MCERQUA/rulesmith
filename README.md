@@ -805,37 +805,28 @@ uv run decision-compose arena examples/doom/duel.json \
   examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
 ```
 
-Three call-free graphs, six seeds per pair across two maps (18 one-minute
-matches, under a minute of wall clock):
+Four call-free graphs, twelve seeds per pair on ViZDoom's `multi` deathmatch
+map (72 matches, 41 of them decisive). Rules are checked in order, and the
+first that fires wins, through a `coalesce` node:
 
-| Graph | Elo | Won | Drawn | Lost | Frags for / against |
-| --- | --- | --- | --- | --- | --- |
-| e1m1-exit | 1533 | 4 | 6 | 2 | 7 / 5 |
-| e1m1-searched | 1483 | 2 | 7 | 3 | 5 / 6 |
-| duel-attack | 1483 | 3 | 5 | 4 | 3 / 4 |
+| Graph | Elo | Won | Drawn | Lost | Frags for / against | In a duel it |
+| --- | --- | --- | --- | --- | --- | --- |
+| [duel-searched](examples/doom/graphs/duel-searched.json) | 1548 | 17 | 9 | 10 | 20 / 13 | Fights as e1m1-exit does, with one rule trimmed away: the league's own best graph |
+| [e1m1-exit](examples/doom/graphs/e1m1-exit.json) | 1541 | 12 | 18 | 6 | 20 / 13 | Backs off at low health or no ammo, fires when a target is centered, turns onto it otherwise, then walks and unsticks itself |
+| [duel-attack](examples/doom/graphs/duel-attack.json) | 1473 | 6 | 20 | 10 | 9 / 13 | Holds the trigger down, forever |
+| [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 1438 | 6 | 15 | 15 | 11 / 21 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward |
 
-[Watch a graph take a frag](docs/assets/doom/duel-e1m1-exit.mp4). Neither E1M1
-graph was searched for dueling: they walk the map looking for an exit a
-deathmatch has none of, and it shows, with half the matches still ending level.
-The maps matter as much as the graphs here: on ViZDoom's larger `cig` layouts
-two wandering graphs simply never met, so these duels are fought where they do.
-Network timing shifts which tics the joining player acts on, so results vary
-between runs.
+[Watch a graph take a frag](docs/assets/doom/duel-e1m1-exit.mp4). The two E1M1
+graphs were searched to walk a level toward an exit a deathmatch has none of,
+so every rule of theirs that reads `route` is skipped here, leaving the
+fighting half and a walk-forward default. Even so, a graph that only shoots
+finishes below them.
 
-What the three entrants do, in the order each one checks its rules (the first
-rule that fires wins, through a `coalesce` node):
-
-| Graph | Rules | In a duel it | Reads a duel does not have |
-| --- | --- | --- | --- |
-| [e1m1-exit](examples/doom/graphs/e1m1-exit.json) | 16 | Backs off at low health or no ammo, fires when a target is centered, turns onto it otherwise, then walks and unsticks itself | `route.*`, `rangefinder.3` |
-| [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 17 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward | `route.*`, `rangefinder.0/3/6` |
-| [duel-attack](examples/doom/graphs/duel-attack.json) | 0 | Holds the trigger down, forever | none |
-
-The first two were searched for E1M1, so most of their structure is navigation
-toward an exit. A deathmatch map has no exit and does not fill in `route`, so
-those reads go missing and every rule that depends on one is skipped: what is
-left is the fighting half plus a walk-forward default. That is the bar a
-purpose-built duel graph has to beat.
+The map matters as much as the graphs. On ViZDoom's larger `cig` layouts two
+wandering graphs never met at all, and in the tiny `multi_duel` arena both E1M1
+graphs scored -31, rocketing the wall in front of them thirty-one times over. A
+duel only measures anything if the duellists can find each other and the room is
+big enough to miss in.
 
 Search can then aim at the arena rather than at a scenario's own reward. With
 `--opponent`, every episode is a duel against a fixed graph, so the leader can
@@ -848,6 +839,22 @@ uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1
 ```
 
 See [Doom](docs/doom.md#arena) for how matches are played and scored.
+
+Run that in a loop and it becomes a league: search a challenger against the
+champion, play it against everyone already in the pool, and hand over the title
+only when it wins the head-to-head. Four generations of it, judged locally,
+never unseated the graph they started from. The best challenger (`duel-searched`
+above) tops the ladder by seven points, which is well inside the noise: two
+identical graphs once finished 117 points apart over six matches. Three of the
+four generations ended with the search handing back its own seed unchanged.
+
+So on this map, with this budget and a 35B proposer running locally, self-play
+did not beat a graph that had been searched for something else entirely. The
+arena is what makes that claim checkable rather than a hunch, and the honest
+reading is that a duel of one-minute matches gives a search very little to climb:
+most matches are drawn, and a whole match is worth one frag either way.
+
+
 
 ## Use from Python
 

@@ -1,0 +1,471 @@
+{
+  "nodes": {
+    "read_health": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "variables",
+        "HEALTH"
+      ],
+      "bounds": [
+        0.0,
+        200.0
+      ],
+      "categories": null
+    },
+    "read_ammo": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "variables",
+        "SELECTED_WEAPON_AMMO"
+      ],
+      "bounds": [
+        0.0,
+        400.0
+      ],
+      "categories": null
+    },
+    "read_target_distance": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "target",
+        "distance"
+      ],
+      "bounds": [
+        0.0,
+        6000.0
+      ],
+      "categories": null
+    },
+    "read_target_x": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "target",
+        "x"
+      ],
+      "bounds": [
+        -1.0,
+        1.0
+      ],
+      "categories": null
+    },
+    "read_route_bearing": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "route",
+        "bearing"
+      ],
+      "bounds": [
+        -180.0,
+        180.0
+      ],
+      "categories": null
+    },
+    "read_route_distance": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "route",
+        "distance"
+      ],
+      "bounds": [
+        0.0,
+        6000.0
+      ],
+      "categories": null
+    },
+    "read_route_next": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "route",
+        "next"
+      ],
+      "bounds": null,
+      "categories": [
+        "path",
+        "door",
+        "exit"
+      ]
+    },
+    "read_rf_mid": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "rangefinder",
+        3
+      ],
+      "bounds": [
+        0.0,
+        2048.0
+      ],
+      "categories": null
+    },
+    "read_memory_moved": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "memory",
+        "distance_moved"
+      ],
+      "bounds": [
+        0.0,
+        600.0
+      ],
+      "categories": null
+    },
+    "read_visits": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "memory",
+        "visits_here"
+      ],
+      "bounds": [
+        1.0,
+        10000.0
+      ],
+      "categories": null
+    },
+    "flee_critical": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "lt",
+            "value": 20.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 250.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_BACKWARD"
+    },
+    "flee_noadmoclose": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "lt",
+            "value": 3.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 200.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_BACKWARD"
+    },
+    "combat_attack": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 500.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": -0.18
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": 0.18
+          }
+        ]
+      },
+      "type": "value",
+      "value": "ATTACK"
+    },
+    "combat_turn_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 650.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": -0.18
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "combat_turn_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 650.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": 0.18
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "route_exit_use": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_next",
+            "op": "eq",
+            "value": "exit"
+          },
+          {
+            "type": "compare",
+            "node": "read_route_distance",
+            "op": "lt",
+            "value": 120.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 25.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+USE"
+    },
+    "route_door_use": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_next",
+            "op": "eq",
+            "value": "door"
+          },
+          {
+            "type": "compare",
+            "node": "read_route_distance",
+            "op": "lt",
+            "value": 100.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 25.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+USE"
+    },
+    "stuck_out": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_memory_moved",
+            "op": "lt",
+            "value": 4.0
+          },
+          {
+            "type": "compare",
+            "node": "read_visits",
+            "op": "ge",
+            "value": 8.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_BACKWARD"
+    },
+    "blocked_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_rf_mid",
+            "op": "lt",
+            "value": 72.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": 0.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "blocked_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_rf_mid",
+            "op": "lt",
+            "value": 72.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 0.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "route_turn_left": {
+      "when": {
+        "type": "compare",
+        "node": "read_route_bearing",
+        "op": "ge",
+        "value": 40.0
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "route_turn_right": {
+      "when": {
+        "type": "compare",
+        "node": "read_route_bearing",
+        "op": "lt",
+        "value": -40.0
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "route_fwd_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -15.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 40.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_LEFT"
+    },
+    "route_fwd_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -40.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": -15.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_RIGHT"
+    },
+    "default_fwd": {
+      "when": null,
+      "type": "value",
+      "value": "MOVE_FORWARD"
+    },
+    "decision": {
+      "when": null,
+      "type": "coalesce",
+      "sources": [
+        "flee_critical",
+        "flee_noadmoclose",
+        "combat_attack",
+        "combat_turn_left",
+        "combat_turn_right",
+        "route_exit_use",
+        "route_door_use",
+        "stuck_out",
+        "blocked_left",
+        "blocked_right",
+        "route_turn_left",
+        "route_turn_right",
+        "route_fwd_left",
+        "route_fwd_right",
+        "default_fwd"
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "decision",
+      "view": "value",
+      "optional": false
+    }
+  }
+}

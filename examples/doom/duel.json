@@ -37,8 +37,8 @@
   "train": [
     {
       "seed": 1,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 2,
@@ -47,8 +47,8 @@
     },
     {
       "seed": 3,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 4,
@@ -59,8 +59,8 @@
   "validation": [
     {
       "seed": 5,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 6,
@@ -69,8 +69,8 @@
     },
     {
       "seed": 7,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 8,
@@ -81,8 +81,8 @@
   "test": [
     {
       "seed": 9,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 10,
@@ -91,8 +91,8 @@
     },
     {
       "seed": 11,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 12,
@@ -101,11 +101,41 @@
     },
     {
       "seed": 13,
-      "scenario": "cig",
-      "map": "MAP03"
+      "scenario": "multi",
+      "map": "MAP01"
     },
     {
       "seed": 14,
+      "scenario": "multi",
+      "map": "MAP01"
+    },
+    {
+      "seed": 15,
+      "scenario": "multi",
+      "map": "MAP01"
+    },
+    {
+      "seed": 16,
+      "scenario": "multi",
+      "map": "MAP01"
+    },
+    {
+      "seed": 17,
+      "scenario": "multi",
+      "map": "MAP01"
+    },
+    {
+      "seed": 18,
+      "scenario": "multi",
+      "map": "MAP01"
+    },
+    {
+      "seed": 19,
+      "scenario": "multi",
+      "map": "MAP01"
+    },
+    {
+      "seed": 20,
       "scenario": "multi",
       "map": "MAP01"
     }
