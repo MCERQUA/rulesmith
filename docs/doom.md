@@ -32,7 +32,7 @@ A Doom task replaces labeled examples with episode seeds. See
 | Field | Meaning |
 | --- | --- |
 | `scenario` | A scenario bundled with ViZDoom: `basic`, `defend_the_center`, `health_gathering`, `deadly_corridor`, and others |
-| `labels` | Actions the graph may choose: a scenario button, or buttons joined with `+` to press together, like `TURN_LEFT+ATTACK` |
+| `labels` | Actions the graph may choose: a Doom button, or buttons joined with `+` to press together, like `TURN_LEFT+ATTACK`. A button the scenario's own config leaves out is added for the task |
 | `reward_range` | Lowest and highest possible episode reward, used to scale scores to 0–1 |
 | `tics_per_action` | Game tics each chosen button is held (default 4) |
 | `episode_timeout` | Tics before an episode ends (default: the scenario's own). Cap scenarios that otherwise run until death |

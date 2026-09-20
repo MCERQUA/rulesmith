@@ -77,8 +77,14 @@ def test_compass_bearings_turn_with_the_player_and_distances_hold(env):
     assert turned > 0 and before["compass"]
     assert len(before["compass"]) <= level().compass_size
     assert {entry["name"] for entry in before["compass"]} <= set(TARGETS)
-    distances = [entry["distance"] for entry in before["compass"]]
-    assert distances == sorted(distances)
+    # The nearest of each name leads, then the rest of the room by distance.
+    first = {}
+    for index, entry in enumerate(before["compass"]):
+        first.setdefault(entry["name"], index)
+    assert sorted(first.values()) == list(range(len(first)))
+    for block in (before["compass"][: len(first)], before["compass"][len(first) :]):
+        distances = [entry["distance"] for entry in block]
+        assert distances == sorted(distances)
     for old, new in zip(before["compass"], after["compass"], strict=True):
         assert new["name"] == old["name"]
         assert new["distance"] == pytest.approx(old["distance"], abs=0.5)

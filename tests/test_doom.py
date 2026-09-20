@@ -119,7 +119,10 @@ def test_invalid_doom_tasks_are_rejected(change):
 
 @pytest.mark.parametrize(
     "change,message",
-    [({"scenario": "no_such_map"}, "scenario"), ({"labels": ["ATTACK", "JUMP"]}, "JUMP")],
+    [
+        ({"scenario": "no_such_map"}, "scenario"),
+        ({"labels": ["ATTACK", "NOT_A_BUTTON"]}, "NOT_A_BUTTON"),
+    ],
 )
 def test_environment_rejects_unknown_scenarios_and_actions(change, message):
     with pytest.raises(ValueError, match=message):
@@ -258,9 +261,21 @@ def test_combined_labels_press_every_listed_button_together(client, tmp_path):
         assert env.game.get_last_action() == [0.0, 1.0, 1.0]
 
 
-def test_combined_labels_must_name_available_buttons():
-    with pytest.raises(ValueError, match="JUMP"):
-        DoomEnvironment(DoomTask.model_validate(doom_data(labels=["ATTACK", "MOVE_LEFT+JUMP"])))
+def test_labels_must_name_real_doom_buttons():
+    with pytest.raises(ValueError, match="NOT_A_BUTTON"):
+        DoomEnvironment(DoomTask.model_validate(doom_data(labels=["ATTACK", "NOT_A_BUTTON"])))
+
+
+def test_a_button_a_scenario_omits_is_added_for_the_task(client):
+    # basic offers only MOVE_LEFT, MOVE_RIGHT and ATTACK; the task's labels decide the rest.
+    task = DoomTask.model_validate(doom_data(labels=["ATTACK", "MOVE_FORWARD+USE"]))
+    with DoomEnvironment(task) as env:
+        env.reset(7)
+        env.step("MOVE_FORWARD+USE")
+        pressed = dict(
+            zip([b.name for b in env.game.get_available_buttons()], env.game.get_last_action())
+        )
+    assert pressed["MOVE_FORWARD"] == 1.0 and pressed["USE"] == 1.0 and pressed["ATTACK"] == 0.0
 
 
 def test_episode_timeout_caps_an_episode(client):

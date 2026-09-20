@@ -237,14 +237,17 @@ class DoomEnvironment:
                 getattr(self.game, f"set_{name}")(value)
         if task.episode_timeout is not None:
             self.game.set_episode_timeout(task.episode_timeout)
+        pressed = {label: set(label.split("+")) for label in task.labels}
+        wanted = set().union(*pressed.values())
+        unknown = {name for name in wanted if not hasattr(vzd.Button, name)}
+        if unknown:
+            raise ValueError(f"unknown Doom buttons: {sorted(unknown)}")
+        # The labels are the action space, so a scenario's own buttons are only a starting point.
+        for name in sorted(wanted.difference(b.name for b in self.game.get_available_buttons())):
+            self.game.add_available_button(getattr(vzd.Button, name))
         self.game.init()
         self.scenario = scenario
         buttons = [button.name for button in self.game.get_available_buttons()]
-        pressed = {label: set(label.split("+")) for label in task.labels}
-        unknown = set().union(*pressed.values()) - set(buttons)
-        if unknown:
-            self.close()
-            raise ValueError(f"buttons not available in {scenario}: {sorted(unknown)}")
         self.buttons = {label: [b in pressed[label] for b in buttons] for label in task.labels}
         self.variables = [v.name for v in self.game.get_available_game_variables()]
         self.width = self.game.get_screen_width()

@@ -796,7 +796,7 @@ flowchart TD
 </details>
 
 **Arena**: graphs can also play each other. `arena` runs a round-robin of
-one-on-one deathmatches on ViZDoom's `cig` competition map and ranks the
+one-on-one deathmatches across ViZDoom's bundled deathmatch maps and ranks the
 entrants by Elo:
 
 ```sh
@@ -810,15 +810,17 @@ matches, under a minute of wall clock):
 
 | Graph | Elo | Won | Drawn | Lost | Frags for / against |
 | --- | --- | --- | --- | --- | --- |
-| e1m1-exit | 1551 | 3 | 9 | 0 | 3 / 0 |
-| e1m1-searched | 1517 | 2 | 9 | 1 | 2 / 1 |
-| duel-attack | 1432 | 0 | 8 | 4 | 0 / 4 |
+| e1m1-exit | 1533 | 4 | 6 | 2 | 7 / 5 |
+| e1m1-searched | 1483 | 2 | 7 | 3 | 5 / 6 |
+| duel-attack | 1483 | 3 | 5 | 4 | 3 / 4 |
 
-[Watch the champion take a frag](docs/assets/doom/duel-e1m1-exit.mp4) on MAP03.
-Neither E1M1 graph was searched for dueling: they walk the map looking for an
-exit that a deathmatch has none of, so 13 of the 18 matches ended without a
-frag and the ranking mostly rewards staying alive. Network timing shifts which
-tics the joining player acts on, so results vary between runs.
+[Watch a graph take a frag](docs/assets/doom/duel-e1m1-exit.mp4). Neither E1M1
+graph was searched for dueling: they walk the map looking for an exit a
+deathmatch has none of, and it shows, with half the matches still ending level.
+The maps matter as much as the graphs here: on ViZDoom's larger `cig` layouts
+two wandering graphs simply never met, so these duels are fought where they do.
+Network timing shifts which tics the joining player acts on, so results vary
+between runs.
 
 What the three entrants do, in the order each one checks its rules (the first
 rule that fires wins, through a `coalesce` node):
