@@ -349,8 +349,8 @@ GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").g
 @pytest.mark.parametrize("path", GRAPHS, ids=lambda path: path.stem)
 def test_repository_doom_graphs_validate_against_their_task(path):
     task = path.parents[1] / f"{path.stem.split('-')[0]}.json"
-    # Hand-built level graphs exceed the default search bound on node count.
-    assert invoke("validate", task, path, "--max-nodes", 32).returncode == 0
+    # Level and duel graphs exceed the default search bound on node count.
+    assert invoke("validate", task, path, "--max-nodes", 40).returncode == 0
 
 
 def test_terminating_the_cli_shuts_down_its_game_engine(tmp_path):
