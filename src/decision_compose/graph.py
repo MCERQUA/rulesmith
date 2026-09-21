@@ -95,6 +95,31 @@ Any.model_rebuild()
 Not.model_rebuild()
 
 
+def reachable(dependencies: dict[str, set[str]], outputs) -> set[str]:
+    """The nodes an output depends on, following references as far as they go."""
+    used: set[str] = set()
+    pending = [source.node for source in outputs if isinstance(source, NodeInput)]
+    while pending:
+        key = pending.pop()
+        if key not in used and key in dependencies:
+            used.add(key)
+            pending.extend(dependencies[key])
+    return used
+
+
+def references(value: JsonValue) -> set[str]:
+    """Node names a raw node or output mentions, wherever they sit in its JSON."""
+    if isinstance(value, dict):
+        named = {value["node"]} if isinstance(value.get("node"), str) else set()
+        if isinstance(value.get("source"), str):
+            named.add(value["source"])
+        named.update(s for s in value.get("sources") or [] if isinstance(s, str))
+        return named.union(*(references(v) for v in value.values())) if value else named
+    if isinstance(value, list):
+        return set().union(*(references(v) for v in value)) if value else set()
+    return set()
+
+
 def predicates(condition: Condition | None) -> list[Compare | Present]:
     if condition is None:
         return []
@@ -192,6 +217,10 @@ class Plan(StrictModel):
             result[key] = refs
         return result
 
+    def contributing(self) -> set[str]:
+        """Every node an output depends on, directly or through another node."""
+        return reachable(self.dependencies(), self.outputs.values())
+
     def order(self) -> tuple[str, ...]:
         dependencies = self.dependencies()
         return tuple(
@@ -254,14 +283,7 @@ class Plan(StrictModel):
         except CycleError as error:
             raise ValueError(f"graph contains a cycle: {error.args[1]}") from error
 
-        used = set()
-        pending = [s.node for s in self.outputs.values() if isinstance(s, NodeInput)]
-        while pending:
-            key = pending.pop()
-            if key not in used:
-                used.add(key)
-                pending.extend(dependencies[key])
-        if used != self.nodes.keys():
+        if self.contributing() != self.nodes.keys():
             raise ValueError("every node must contribute to a graph output")
 
         domains = self.domains()

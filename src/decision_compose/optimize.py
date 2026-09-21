@@ -15,7 +15,7 @@ from gepa.core.adapter import EvaluationBatch, GEPAAdapter
 from pydantic import Field, JsonValue, ValidationError
 from typesafe_sdk import TypeSafeClient
 
-from decision_compose.graph import Example, Plan, StrictModel
+from decision_compose.graph import Example, Plan, StrictModel, references
 from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
 
 
@@ -181,7 +181,18 @@ def assemble(candidate: dict[str, str]) -> Plan:
             if node not in nodes or owner == name:
                 nodes[node] = definition
         outputs = part.get("outputs", outputs)
-    return Plan.model_validate({"nodes": nodes, "outputs": outputs or {}})
+    outputs = outputs or {}
+    # A rewritten part can strand a node the other part still defines. A node no output
+    # depends on decides nothing, so drop it rather than fail the candidate over it.
+    wanted: set[str] = set()
+    pending = list(set().union(*(references(o) for o in outputs.values())) if outputs else set())
+    while pending:
+        node = pending.pop()
+        if node not in wanted and node in nodes:
+            wanted.add(node)
+            pending.extend(references(nodes[node]))
+    kept = {name: node for name, node in nodes.items() if name in wanted}
+    return Plan.model_validate({"nodes": kept, "outputs": outputs})
 
 
 class GraphAdapter(GEPAAdapter[object, dict, dict]):

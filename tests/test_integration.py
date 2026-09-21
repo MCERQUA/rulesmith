@@ -867,6 +867,17 @@ def test_a_part_restating_the_other_s_nodes_keeps_the_owner_s_copy():
     assert assemble(parts | {"perception": json.dumps(restated)}) == plan
 
 
+def test_rules_that_stop_reading_a_value_leave_no_orphan_behind():
+    # A policy that drops a rule strands the read it used; unreachable nodes decide nothing.
+    plan = Plan.model_validate(binary_plan())
+    parts = components(plan)
+    policy = json.loads(parts["policy"])
+    policy["nodes"]["spare"] = {"type": "value", "value": "review"}
+    rebuilt = assemble(parts | {"policy": json.dumps(policy)})
+    assert "spare" not in rebuilt.nodes
+    assert rebuilt == plan
+
+
 def test_a_part_that_names_a_missing_node_is_an_invalid_candidate(client):
     task = Task.model_validate(task_data())
     parts = components(Plan.model_validate(binary_plan()))
