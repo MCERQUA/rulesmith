@@ -178,16 +178,10 @@ synchronous play they barely fire, even with perfect skill settings.
 
 ## The league
 
-Seeds are screened for contact. On roughly a third of them the two players
-never meet at all, and a match nobody turns up to tells a search nothing. The
-map matters as much: ViZDoom's larger `cig` layouts produced no contact on any
-seed tried, the tiny `multi_duel` arena is small enough that both E1M1 graphs
-rocket themselves thirty-one times a match, and on `multi_deathmatch` the first
-kill ends the round.
-
-Search can then aim at the arena rather than at a scenario's own reward. With
-`--opponent`, every episode is a duel against a fixed graph, so the leader can
-be used to breed its own challenger:
+`--opponent` turns a search into a duel: every episode is played against a fixed
+graph, scored from the candidate's own seat. Run that in a loop and it becomes a
+league. Search a challenger against the champion, play it against everyone in the
+pool, and hand over the title only when it wins the head-to-head.
 
 ```sh
 uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
@@ -195,37 +189,42 @@ uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1
   --reflection-model "$REFLECTION_MODEL" --output runs/challenger
 ```
 
-See [Doom](docs/doom.md#arena) for how matches are played and scored.
+### Making the measurement mean something
 
-![The searched duellist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
+Most of the work was in the task, not the search.
 
-The graph above is [duel-hunter](examples/doom/graphs/duel-hunter.json), searched
-against the champion it is hunting. It beat that champion 12-0 over the test
-seeds, 44 frags to none, and [the whole duel is
-here](docs/assets/doom/duel-hunter.mp4). What it added is a compass layer: reads
-of `compass.2.bearing` and `compass.2.distance` feed three rules that turn
-toward the opponent when none is on screen, so it hunts between fights instead
-of wandering toward an exit that does not exist. The table above predates it.
+- **Screen seeds for contact.** On roughly a third of them the players never
+  meet, and a match nobody turns up to scores the same whatever the graph does.
+- **Pick the map deliberately.** ViZDoom's larger `cig` layouts produced no
+  contact on any seed tried; the tiny `multi_duel` arena is small enough that
+  both E1M1 graphs rocket themselves thirty-one times a match; on
+  `multi_deathmatch` the first kill ends the round.
+- **Make a match worth several frags.** Two minutes on a map where play
+  continues after a kill gives three to five exchanges. On one-frag matches the
+  run-to-run spread (0.004) was larger than the differences between candidates.
+- **Crown on the head-to-head, not the ladder.** Two identical graphs once
+  finished 117 Elo apart over six matches, and a clone took a 6.5-of-12 series
+  on one stray frag. The title needs two clear wins over twelve paired matches.
 
-[How the duel graph decides](docs/doom.md#the-duel-hunter), rule by rule.
+### What it found
 
-Run that in a loop and it becomes a league: search a challenger against the
-champion, play it against everyone already in the pool, and hand over the title
-only when it wins the head-to-head. Two runs of it, judged locally by a 35B
-proposer, never unseated the graph they started from.
+| Proposer | Generations | Outcome |
+| --- | --- | --- |
+| Qwen3.6-35B-A3B (mixture, 3B active) | 8 across two runs | No crown. Every candidate landed 0.01-0.03 below the champion, and three searches in four handed back their own seed. |
+| Qwen3.8-27B (dense) | 2 | [duel-hunter](../examples/doom/graphs/duel-hunter.json) beat the champion 12-0, 44 frags to none. |
 
-The second run was the fair test. Matches were lengthened to two minutes on a
-map where play continues after a kill, and seeds were screened so every episode
-produces a fight, which lifted a match from one lucky frag to three to five
-exchanges. Across four generations and about forty proposals, every candidate
-scored a little below the champion, by 0.01 to 0.03 where the run-to-run spread
-is 0.004, and three of the four searches ended by handing back their own seed.
+The difference was the proposer, not the harness. The mixture model edited the
+champion's existing navigation rules and never touched the compass; the dense
+model added three rules that read `compass.2.bearing` and `compass.2.distance`
+and turn onto an opponent nobody can see, so it hunts between fights instead of
+walking toward an exit a deathmatch does not have.
 
-So a graph searched for walking E1M1 still out-duels everything the league
-proposed against it. The proposer edits the champion's rules rather than
-building a duellist, and the compass that reports an opponent's bearing anywhere
-on the map went unused in every accepted candidate. The arena is what turns that
-from a hunch into a measurement.
+![The searched duelist hunting down the graph it dethroned](../docs/assets/doom/duel-hunter.gif)
+
+Its full rule list is [below](#the-duel-hunter), and the whole duel is
+[here](../docs/assets/doom/duel-hunter.mp4). Note what it is not: no judge calls.
+Every graph that won anything reads numbers out of the observation, because
+`target.x < -0.12` is exact and free while a call costs a round trip each step.
 
 ## Graphs
 

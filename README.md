@@ -221,7 +221,7 @@ uv run decision-compose arena examples/doom/duel.json \
   examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
 ```
 
-![The searched duellist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
+![The searched duelist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
 
 **A league** — search a challenger against the champion, rank it against the
 pool, hand over the title only on a winning head-to-head. Run with a local
