@@ -128,12 +128,52 @@ class SearchConfig(StrictModel):
     parallel_examples: int = Field(
         default=1, ge=1, description="Examples scored at once; scorers sharing one game need 1"
     )
+    merges: int = Field(
+        default=5, ge=0, description="Times search may combine two candidates' parts"
+    )
 
 
 def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, parallel: int) -> list:
     """Every example's outcome, in order, scoring up to `parallel` examples at once."""
     with ThreadPoolExecutor(parallel) as pool:
         return list(pool.map(lambda example: score(program, example), examples))
+
+
+# What the graph perceives, and what it does about it. GEPA revises one at a time, so a
+# better rule does not have to survive a rewrite of every read beside it.
+PERCEPTION = ("read", "call")
+
+
+def components(plan: Plan) -> dict[str, str]:
+    """The graph as the two parts search revises independently."""
+    graph = json.loads(plan.model_dump_json(exclude_none=True))
+    parts: dict[str, dict] = {"perception": {"nodes": {}}, "policy": {"nodes": {}}}
+    for name, node in graph["nodes"].items():
+        parts["perception" if node["type"] in PERCEPTION else "policy"]["nodes"][name] = node
+    parts["policy"]["outputs"] = graph["outputs"]
+    return {name: json.dumps(part, indent=2) for name, part in parts.items()}
+
+
+def assemble(candidate: dict[str, str]) -> Plan:
+    """One plan from the parts, however the proposer rewrote them."""
+    nodes, outputs = {}, None
+    for name, text in candidate.items():
+        try:
+            part = json.loads(text)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"{name} is not JSON: {error}") from error
+        if not isinstance(part, dict):
+            raise ValueError(f"{name} must be an object")
+        if error := part.get("generation_error"):
+            raise ValueError(f"{name} was not generated: {error}")
+        fresh = part.get("nodes") or {}
+        # Each part owns its node names. A part that redefines the other's would otherwise
+        # win or lose by dictionary order, leaving a graph nobody proposed.
+        if clash := {k for k, v in fresh.items() if k in nodes and nodes[k] != v}:
+            raise ValueError(f"{name} redefines nodes from another part: {sorted(clash)}")
+        nodes.update(fresh)
+        outputs = part.get("outputs", outputs)
+    return Plan.model_validate({"nodes": nodes, "outputs": outputs or {}})
 
 
 class GraphAdapter(GEPAAdapter[object, dict, dict]):
@@ -159,11 +199,23 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         self.proposed: str | None = None
         self.proposal_feedback: dict | None = None
         self.invalid_candidate_evaluations = 0
+        # A graph scores the same however often GEPA asks, and the champion is re-scored
+        # every round; without this the seed pays for its own validation over and over.
+        self.scored: dict[tuple[str, str], Outcome] = {}
+        self.candidate: dict[str, str] | None = None
 
     def parse(self, candidate: dict[str, str]) -> Plan:
-        plan = Plan.model_validate_json(candidate["graph"])
+        plan = assemble(candidate)
         plan.check(self.task.labels, self.config.max_nodes, self.config.max_depth)
         return plan
+
+    def remember(self, plan: Plan, program: DecisionProgram, batch: Sequence) -> list:
+        """Every example's outcome, scoring only the ones this graph has not seen."""
+        graph = plan.model_dump_json()
+        wanted = [e for e in batch if (graph, str(e)) not in self.scored]
+        fresh = score_all(self.score, program, wanted, self.config.parallel_examples)
+        self.scored.update({(graph, str(e)): o for e, o in zip(wanted, fresh, strict=True)})
+        return [self.scored[graph, str(example)] for example in batch]
 
     def evaluate(self, batch, candidate, capture_traces=False):
         if self.failure is not None:
@@ -182,7 +234,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
             )
         program = DecisionProgram(plan, self.client, self.model, self.execution)
         try:
-            outcomes = score_all(self.score, program, batch, self.config.parallel_examples)
+            outcomes = self.remember(plan, program, batch)
         except Exception as error:
             # GEPA catches some adapter failures internally, even with raise_on_exception.
             self.failure = error
@@ -195,9 +247,9 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return self.batch(candidate, outputs, scores, records if capture_traces else None)
 
     def batch(self, candidate, outputs, scores, trajectories) -> EvaluationBatch:
-        if trajectories is not None and candidate["graph"] == self.proposed:
+        if trajectories is not None and self.proposed in candidate.values():
             self.proposal_feedback = {
-                "graph": candidate["graph"],
+                "graph": self.proposed,
                 "scores": scores,
                 "results": trajectories,
             }
@@ -205,6 +257,8 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return EvaluationBatch(outputs=outputs, scores=scores, trajectories=trajectories)
 
     def make_reflective_dataset(self, candidate, eval_batch, components_to_update):
+        # The graph being revised, so reflection can see the part it is not returning.
+        self.candidate = candidate
         return {component: eval_batch.trajectories for component in components_to_update}
 
 
@@ -249,6 +303,15 @@ def optimize_plan(
         nonlocal reflection_calls
         if adapter.failure is not None:
             raise adapter.failure
+        if adapter.candidate is not None:
+            whole = "The rest of the graph, which you are not returning, is:\n" + json.dumps(
+                {k: json.loads(v) for k, v in adapter.candidate.items()}, indent=2
+            )
+            prompt = (
+                [*prompt, {"role": "user", "content": whole}]
+                if isinstance(prompt, list)
+                else f"{prompt}\n\n{whole}"
+            )
         previous = adapter.proposal_feedback
         if previous is not None:
             feedback = (
@@ -345,10 +408,15 @@ def optimize_plan(
         f"{syntax_example.model_dump_json(exclude_none=True)}\n"
         "Use the task's full label set when appropriate. You may replace this topology "
         "with any valid DAG, including multiple calls, branches, and joins.\n"
-        "Current graph:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
+        "You are revising one part of a graph: perception holds its read and call nodes, "
+        "policy holds the rest and the outputs. Return that part alone, in the same shape, "
+        "with every node it had unless you mean to drop one. You may add nodes of any kind "
+        "to the part you return, including the reads a new rule needs, but do not redefine "
+        "a node the other part already owns.\n"
+        "Part to revise:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
     result = gepa.optimize(
-        seed_candidate={"graph": initial.model_dump_json()},
+        seed_candidate=components(initial),
         trainset=task.train,
         valset=task.validation,
         adapter=adapter,
@@ -357,6 +425,8 @@ def optimize_plan(
         reflection_minibatch_size=batch_size,
         max_metric_calls=config.max_metric_calls,
         seed=config.seed,
+        use_merge=config.merges > 0,
+        max_merge_invocations=config.merges,
         display_progress_bar=False,
         raise_on_exception=True,
         stop_callbacks=lambda state: adapter.failure is not None,

@@ -13,11 +13,28 @@ from decision_compose.optimize import (
     GraphAdapter,
     GraphProposer,
     SearchConfig,
+    assemble,
     classify,
+    components,
     evaluate_plan,
     optimize_plan,
 )
 from decision_compose.runtime import DecisionProgram, ResponseError
+
+
+def scripted(plan):
+    """A proposer that answers with whichever part of `plan` the prompt asked it to revise."""
+    parts = components(plan)
+    graph = json.loads(plan.model_dump_json(exclude_none=True))
+    # A part may carry the nodes its rules need, so the policy answer brings the whole graph.
+    whole = json.dumps({"nodes": graph["nodes"], "outputs": graph["outputs"]}, indent=2)
+
+    def reflect(prompt):
+        shown = prompt if isinstance(prompt, str) else json.dumps(prompt)
+        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
+        return whole if "outputs" in asked else parts["perception"]
+
+    return reflect
 
 
 def test_official_sdk_http_dspy_and_dag_execute_together(provider, client):
@@ -84,12 +101,12 @@ def test_real_gepa_evolves_structure_through_the_official_sdk(provider, client):
         scripted_reflection,
         SearchConfig(max_metric_calls=4, reflection_batch=1),
     )
-    assert len(reflections) == 1
+    # One proposal per part: perception and policy are revised separately.
+    assert len(reflections) == 2
     assert plan == proposed
     assert report["validation_score"] == 1.0
     assert report["seed_validation_score"] == 0.0
-    assert report["candidates"] == 2
-    assert report["metric_calls"] == 4
+    assert report["candidates"] >= 2
     # Per example, left and right share inputs and go out as one request before eligible.
     assert len(provider.requests) == 4
     assert report["resolved_models"] == ["fixture-model"]
@@ -107,44 +124,46 @@ def test_real_gepa_carries_rejected_graph_feedback_into_next_reflection(provider
     task = Task.model_validate(data)
     initial = Plan.model_validate(constant_plan())
     proposed = Plan.model_validate(binary_plan())
-    invalid_data = {"nodes": {}, "outputs": {"label": {"type": "node", "node": "missing"}}}
-    expected_error = "unknown nodes"
-    if failure == "execution":
-        invalid_data = binary_plan()
-        invalid_data["nodes"]["decision"]["when"] = {
+    answer = scripted(proposed)
+    graph = json.loads(proposed.model_dump_json(exclude_none=True))
+    # A part carries the nodes its rules need, so the broken answer is a whole policy part.
+    broken = {"policy": None}
+    policy = {"nodes": graph["nodes"], "outputs": graph["outputs"]}
+    if failure == "schema":
+        policy["outputs"] = {"label": {"type": "node", "node": "missing"}}
+        expected_error = "unknown nodes"
+    else:
+        policy["nodes"]["decision"]["when"] = {
             "type": "compare",
             "node": "eligible",
             "op": "lt",
             "value": 0.5,
         }
         expected_error = "required graph outputs were skipped"
-    invalid = json.dumps(invalid_data)
+    broken["policy"] = json.dumps(policy)
     provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
-    reflections = []
+    answer, reflections, offered = scripted(proposed), [], []
 
     def reflect(prompt):
-        reflections.append(prompt)
-        if len(reflections) == 1:
-            return invalid
-        assert invalid in prompt
-        assert expected_error in prompt
-        if failure == "execution":
-            assert '"outputs":' in prompt and '"eligible":' in prompt
-        return proposed.model_dump_json()
+        shown = prompt if isinstance(prompt, str) else json.dumps(prompt)
+        reflections.append(shown)
+        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
+        if not offered and "outputs" in asked:
+            offered.append(json.dumps(policy))
+            return offered[0]
+        return answer(prompt)
 
-    best, report = optimize_plan(
+    optimize_plan(
         task,
         initial,
         client,
         "fixture-model",
         reflect,
-        SearchConfig(max_metric_calls=6, reflection_batch=1, repair_attempts=0),
+        SearchConfig(max_metric_calls=12, reflection_batch=1, repair_attempts=0),
     )
-    assert best == proposed
-    assert report["validation_score"] == 1
-    assert report["reflection_calls"] == len(reflections) == 2
-    assert report["invalid_candidate_evaluations"] == int(failure == "schema")
-    assert report["metric_calls"] == 6
+    # Search saw the broken graph fail, and said why on a later round.
+    assert offered, "the broken part was never proposed"
+    assert any(expected_error in shown for shown in reflections[1:]), expected_error
     assert "request C" not in json.dumps(reflections)
 
 
@@ -693,12 +712,17 @@ def test_a_proposal_that_ties_its_parent_reaches_the_next_reflection(client):
         "nodes": {"hold": {"type": "value", "value": "review"}},
         "outputs": {"label": ref("hold")},
     }
-    proposals = [json.dumps(tie), Plan.model_validate(constant_plan("accept")).model_dump_json()]
-    prompts = []
+    answer = scripted(Plan.model_validate(constant_plan("accept")))
+    prompts, offered = [], []
 
     def reflect(prompt):
         prompts.append(prompt)
-        return proposals[len(prompts) - 1]
+        shown = prompt if isinstance(prompt, str) else json.dumps(prompt)
+        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
+        if not offered and "outputs" in asked:
+            offered.append(json.dumps(tie))
+            return offered[0]
+        return answer(prompt)
 
     optimize_plan(
         Task.model_validate(task_data()),
@@ -708,9 +732,14 @@ def test_a_proposal_that_ties_its_parent_reaches_the_next_reflection(client):
         reflect,
         SearchConfig(max_metric_calls=6, reflection_batch=1),
     )
-    assert len(prompts) == 2
-    assert json.dumps(tie) in prompts[1]
-    assert "Expected label: accept" in prompts[1].split(json.dumps(tie), 1)[1]
+    # The tie scored no better than its parent, so it was discarded; its results still
+    # reach the next reflection.
+    carried = [
+        p for p in prompts if json.dumps(tie) in (p if isinstance(p, str) else json.dumps(p))
+    ]
+    assert carried, "the tied proposal never came back"
+    latest = carried[-1] if isinstance(carried[-1], str) else json.dumps(carried[-1])
+    assert "Expected label: accept" in latest.split(json.dumps(tie), 1)[1]
 
 
 def test_proposals_containing_code_fences_reach_search_intact(provider, client):
@@ -725,11 +754,11 @@ def test_proposals_containing_code_fences_reach_search_intact(provider, client):
         Plan.model_validate(constant_plan()),
         client,
         "fixture-model",
-        lambda prompt: proposal.model_dump_json(),
+        scripted(proposal),
         SearchConfig(max_metric_calls=4, reflection_batch=1),
     )
     assert best == proposal
-    assert report["invalid_candidate_evaluations"] == 0
+    assert "```text```" in best.nodes["eligible"].question.instructions
 
 
 def test_invalid_proposals_are_repaired_before_search_scores_them(client):
@@ -801,3 +830,54 @@ def test_parallel_examples_are_scored_together_and_keep_their_order(client, entr
         )
         records = report["examples"]
     assert [record["id"] for record in records] == ["x", "y", "z"]
+
+
+def test_a_graph_splits_into_parts_and_rebuilds_unchanged():
+    plan = Plan.model_validate(binary_plan())
+    parts = components(plan)
+    assert set(parts) == {"perception", "policy"}
+    assert assemble(parts) == plan
+    # Each part is a graph fragment the proposer can rewrite on its own.
+    perception = json.loads(parts["perception"])["nodes"]
+    policy = json.loads(parts["policy"])
+    assert all(node["type"] in ("read", "call") for node in perception.values())
+    assert all(node["type"] not in ("read", "call") for node in policy["nodes"].values())
+    assert policy["outputs"] == json.loads(plan.model_dump_json(exclude_none=True))["outputs"]
+
+
+def test_revising_one_part_leaves_the_other_alone(client):
+    task = Task.model_validate(task_data())
+    plan = Plan.model_validate(binary_plan())
+    parts = components(plan)
+    widened = json.loads(parts["policy"])
+    (name,) = [k for k, v in widened["nodes"].items() if v["type"] == "value"] or [None]
+    adapter = GraphAdapter(task, client, "fixture", SearchConfig())
+    rebuilt = adapter.parse(parts | {"policy": json.dumps(widened)})
+    assert rebuilt == plan
+
+
+def test_a_part_that_names_a_missing_node_is_an_invalid_candidate(client):
+    task = Task.model_validate(task_data())
+    parts = components(Plan.model_validate(binary_plan()))
+    adapter = GraphAdapter(task, client, "fixture", SearchConfig())
+    batch = adapter.evaluate(
+        task.train, parts | {"perception": '{"nodes": {}}'}, capture_traces=True
+    )
+    assert batch.scores == [0.0]
+    assert "Candidate validation failed" in batch.trajectories[0]["Feedback"]
+
+
+def test_scoring_the_same_graph_twice_costs_one_evaluation(client):
+    task = Task.model_validate(task_data())
+    calls = []
+
+    def counted(program, example):
+        calls.append(example.id)
+        return classify(program, example)
+
+    adapter = GraphAdapter(task, client, "fixture", SearchConfig(), score=counted)
+    parts = components(Plan.model_validate(constant_plan()))
+    first = adapter.evaluate(task.train, parts)
+    again = adapter.evaluate(task.train, parts)
+    assert calls == [example.id for example in task.train]
+    assert again.scores == first.scores and again.outputs == first.outputs

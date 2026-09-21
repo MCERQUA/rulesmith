@@ -120,7 +120,8 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
     assert report["seed_validation_score"] == 0.0
     assert report["candidates"] == 2
     assert report["execution"] == {"max_workers": 2}
-    assert sum(path == "/v1/chat/completions" for path, _ in provider.requests) == 1
+    # One proposal per part of the graph: perception, then policy.
+    assert sum(path == "/v1/chat/completions" for path, _ in provider.requests) == 2
     assert invoke("validate", task, output / "plan.json").returncode == 0
 
 

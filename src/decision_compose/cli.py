@@ -114,6 +114,7 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument(
                 "--repair-attempts", type=int, default=SearchConfig().repair_attempts
             )
+            command.add_argument("--merges", type=int, default=SearchConfig().merges)
             command.add_argument("--seed", type=int, default=SearchConfig().seed)
     draft = commands.add_parser("draft-labels", help="Label raw inputs for review as a task")
     draft.add_argument("inputs", type=Path, help="JSON with description, labels, and inputs")
@@ -283,6 +284,7 @@ def main() -> None:
             repair_attempts=args.repair_attempts,
             seed=args.seed,
             parallel_examples=args.parallel_examples,
+            merges=args.merges,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:

@@ -273,7 +273,11 @@ def test_a_button_a_scenario_omits_is_added_for_the_task(client):
         env.reset(7)
         env.step("MOVE_FORWARD+USE")
         pressed = dict(
-            zip([b.name for b in env.game.get_available_buttons()], env.game.get_last_action())
+            zip(
+                [button.name for button in env.game.get_available_buttons()],
+                env.game.get_last_action(),
+                strict=True,
+            )
         )
     assert pressed["MOVE_FORWARD"] == 1.0 and pressed["USE"] == 1.0 and pressed["ATTACK"] == 0.0
 
