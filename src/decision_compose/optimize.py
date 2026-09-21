@@ -174,12 +174,12 @@ def assemble(candidate: dict[str, str]) -> Plan:
             raise ValueError(f"{name} must be an object")
         if error := part.get("generation_error"):
             raise ValueError(f"{name} was not generated: {error}")
-        fresh = part.get("nodes") or {}
-        # Each part owns its node names. A part that redefines the other's would otherwise
-        # win or lose by dictionary order, leaving a graph nobody proposed.
-        if clash := {k for k, v in fresh.items() if k in nodes and nodes[k] != v}:
-            raise ValueError(f"{name} redefines nodes from another part: {sorted(clash)}")
-        nodes.update(fresh)
+        # A part may carry nodes of any kind, but perception owns the reads and calls and
+        # policy owns the rest: when both define a node, its kind decides whose copy stands.
+        for node, definition in (part.get("nodes") or {}).items():
+            owner = "perception" if definition.get("type") in PERCEPTION else "policy"
+            if node not in nodes or owner == name:
+                nodes[node] = definition
         outputs = part.get("outputs", outputs)
     return Plan.model_validate({"nodes": nodes, "outputs": outputs or {}})
 
@@ -424,9 +424,9 @@ def optimize_plan(
         "with any valid DAG, including multiple calls, branches, and joins.\n"
         "You are revising one part of a graph: perception holds its read and call nodes, "
         "policy holds the rest and the outputs. Return that part alone, in the same shape, "
-        "with every node it had unless you mean to drop one. You may add nodes of any kind "
-        "to the part you return, including the reads a new rule needs, but do not redefine "
-        "a node the other part already owns.\n"
+        "with every node it had unless you mean to drop one. You may add the nodes a new rule "
+        "needs, including its reads. Restating a node the other part owns changes nothing: "
+        "its own part keeps that definition.\n"
         "Part to revise:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
     result = gepa.optimize(

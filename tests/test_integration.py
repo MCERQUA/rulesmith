@@ -856,6 +856,17 @@ def test_revising_one_part_leaves_the_other_alone(client):
     assert rebuilt == plan
 
 
+def test_a_part_restating_the_other_s_nodes_keeps_the_owner_s_copy():
+    # Models restate the whole graph; the part that owns a node's kind keeps its definition.
+    plan = Plan.model_validate(binary_plan())
+    parts = components(plan)
+    restated = json.loads(parts["perception"])
+    policy = json.loads(parts["policy"])
+    (rule, definition), *_ = policy["nodes"].items()
+    restated["nodes"][rule] = {**definition, "value": "review"}
+    assert assemble(parts | {"perception": json.dumps(restated)}) == plan
+
+
 def test_a_part_that_names_a_missing_node_is_an_invalid_candidate(client):
     task = Task.model_validate(task_data())
     parts = components(Plan.model_validate(binary_plan()))
