@@ -853,6 +853,844 @@ of `compass.2.bearing` and `compass.2.distance` feed three rules that turn
 toward the opponent when none is on screen, so it hunts between fights instead
 of wandering toward an exit that does not exist. The table above predates it.
 
+How it decides: each step it reads 12 values from the observation, then checks
+17 rules in order. The first rule whose conditions all hold sets the action.
+Rules 8-10 are the ones no other graph has: with nobody on screen, the compass
+still gives a bearing to the opponent, and the graph turns onto it.
+
+```mermaid
+flowchart TD
+  OBS(["Each step: read 12 values from the observation"])
+  G0["<b>Break off</b><br/>rules 1-2"]
+  OBS --> G0
+  G1["<b>Fight what is on screen</b><br/>rules 3-7"]
+  G0 -.->|none fired| G1
+  G2["<b>Hunt by compass</b><br/>rules 8-10"]
+  G1 -.->|none fired| G2
+  G3["<b>Get unstuck</b><br/>rules 11-12"]
+  G2 -.->|none fired| G3
+  G4["<b>Wall ahead</b><br/>rules 13-14"]
+  G3 -.->|none fired| G4
+  G5["<b>Follow the route</b><br/>rules 15-16"]
+  G4 -.->|none fired| G5
+  G6["<b>Default</b><br/>rule 17"]
+  G5 -.->|none fired| G6
+  G0 & G1 & G2 & G3 & G4 & G5 & G6 ==> ACT(["first rule that fires sets the action"])
+```
+
+| # | Purpose | When | Action |
+| ---: | --- | --- | --- |
+| 1 | Break off | opponent on screen, ammo < 1, distance < 300 | back up |
+| 2 | Break off | opponent on screen, health < 20 | back up |
+| 3 | Fight | on screen, ammo ≥ 1, health ≥ 25, distance < 250, -0.12 ≤ x < 0.12 | fire |
+| 4 | Fight | same, x < -0.12 | turn left |
+| 5 | Fight | same, x ≥ 0.12 | turn right |
+| 6 | Close in | on screen, ammo ≥ 1, health ≥ 25, distance ≥ 250, x < -0.05 | forward + left |
+| 7 | Close in | same, x ≥ 0.05 | forward + right |
+| 8 | Hunt | nobody on screen, compass bearing ≥ 45° | turn left |
+| 9 | Hunt | nobody on screen, compass bearing < -45° | turn right |
+| 10 | Hunt | nobody on screen, bearing within 45°, compass distance ≥ 300 | forward |
+| 11 | Get unstuck | recent movement < 3, visits here ≥ 20 | back up |
+| 12 | Get unstuck | recent movement < 3, visits here ≥ 6 | turn toward the route |
+| 13 | Wall ahead | wall ahead < 64, route bearing ≥ 0 | turn left |
+| 14 | Wall ahead | wall ahead < 64, route bearing < 0 | turn right |
+| 15 | Follow the route | route bearing beyond ±35° | turn that way |
+| 16 | Follow the route | route bearing 10° to 35° either side | forward + that way |
+| 17 | Default | always | forward |
+
+Rules 13-16 read `route`, which a deathmatch never fills in, so they are skipped
+every step: inherited scaffolding the search kept but the map never exercises.
+
+<details>
+<summary>The winning graph as JSON</summary>
+
+```json
+{
+  "nodes": {
+    "read_health": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "variables",
+        "HEALTH"
+      ],
+      "bounds": [
+        0.0,
+        200.0
+      ],
+      "categories": null
+    },
+    "read_ammo": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "variables",
+        "SELECTED_WEAPON_AMMO"
+      ],
+      "bounds": [
+        0.0,
+        400.0
+      ],
+      "categories": null
+    },
+    "read_rf_mid": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "rangefinder",
+        3
+      ],
+      "bounds": [
+        0.0,
+        2048.0
+      ],
+      "categories": null
+    },
+    "read_route_next": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "route",
+        "next"
+      ],
+      "bounds": null,
+      "categories": [
+        "path",
+        "door",
+        "exit"
+      ]
+    },
+    "read_route_bearing": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "route",
+        "bearing"
+      ],
+      "bounds": [
+        -180.0,
+        180.0
+      ],
+      "categories": null
+    },
+    "read_route_distance": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "route",
+        "distance"
+      ],
+      "bounds": [
+        0.0,
+        6000.0
+      ],
+      "categories": null
+    },
+    "read_target_x": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "target",
+        "x"
+      ],
+      "bounds": [
+        -1.0,
+        1.0
+      ],
+      "categories": null
+    },
+    "read_target_distance": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "target",
+        "distance"
+      ],
+      "bounds": [
+        0.0,
+        6000.0
+      ],
+      "categories": null
+    },
+    "read_enemy_compass_bearing": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "compass",
+        2,
+        "bearing"
+      ],
+      "bounds": [
+        -180.0,
+        180.0
+      ],
+      "categories": null
+    },
+    "read_enemy_compass_distance": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "compass",
+        2,
+        "distance"
+      ],
+      "bounds": [
+        0.0,
+        6000.0
+      ],
+      "categories": null
+    },
+    "read_memory_moved": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "memory",
+        "distance_moved"
+      ],
+      "bounds": [
+        0.0,
+        600.0
+      ],
+      "categories": null
+    },
+    "read_visits": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "memory",
+        "visits_here"
+      ],
+      "bounds": [
+        1.0,
+        10000.0
+      ],
+      "categories": null
+    },
+    "flee_no_ammo": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "lt",
+            "value": 1.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 300.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_BACKWARD"
+    },
+    "retreat_critical": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "lt",
+            "value": 20.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_BACKWARD"
+    },
+    "combat_strafe_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1.0
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "ge",
+            "value": 25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "ge",
+            "value": 250.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": -0.05
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_LEFT"
+    },
+    "combat_strafe_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1.0
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "ge",
+            "value": 25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "ge",
+            "value": 250.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": 0.05
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_RIGHT"
+    },
+    "combat_aim_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1.0
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "ge",
+            "value": 25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 250.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": -0.12
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "combat_aim_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1.0
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "ge",
+            "value": 25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 250.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": 0.12
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "combat_attack": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_target_x"
+          },
+          {
+            "type": "compare",
+            "node": "read_ammo",
+            "op": "ge",
+            "value": 1.0
+          },
+          {
+            "type": "compare",
+            "node": "read_health",
+            "op": "ge",
+            "value": 25.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_distance",
+            "op": "lt",
+            "value": 250.0
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "ge",
+            "value": -0.12
+          },
+          {
+            "type": "compare",
+            "node": "read_target_x",
+            "op": "lt",
+            "value": 0.12
+          }
+        ]
+      },
+      "type": "value",
+      "value": "ATTACK"
+    },
+    "combat_combat_pick": {
+      "when": {
+        "type": "present",
+        "node": "read_target_x"
+      },
+      "type": "coalesce",
+      "sources": [
+        "flee_no_ammo",
+        "retreat_critical",
+        "combat_attack",
+        "combat_aim_left",
+        "combat_aim_right",
+        "combat_strafe_left",
+        "combat_strafe_right"
+      ]
+    },
+    "track_bearing_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_enemy_compass_bearing"
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "present",
+              "node": "read_target_x"
+            }
+          },
+          {
+            "type": "compare",
+            "node": "read_enemy_compass_bearing",
+            "op": "ge",
+            "value": 45.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "track_bearing_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_enemy_compass_bearing"
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "present",
+              "node": "read_target_x"
+            }
+          },
+          {
+            "type": "compare",
+            "node": "read_enemy_compass_bearing",
+            "op": "lt",
+            "value": -45.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "track_bearing_forward": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_enemy_compass_bearing"
+          },
+          {
+            "type": "not",
+            "condition": {
+              "type": "present",
+              "node": "read_target_x"
+            }
+          },
+          {
+            "type": "compare",
+            "node": "read_enemy_compass_bearing",
+            "op": "ge",
+            "value": -45.0
+          },
+          {
+            "type": "compare",
+            "node": "read_enemy_compass_bearing",
+            "op": "lt",
+            "value": 45.0
+          },
+          {
+            "type": "compare",
+            "node": "read_enemy_compass_distance",
+            "op": "ge",
+            "value": 300.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD"
+    },
+    "tracking_combat_pick": {
+      "when": {
+        "type": "not",
+        "condition": {
+          "type": "present",
+          "node": "read_target_x"
+        }
+      },
+      "type": "coalesce",
+      "sources": [
+        "track_bearing_left",
+        "track_bearing_right",
+        "track_bearing_forward"
+      ]
+    },
+    "blocked_turn_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_rf_mid"
+          },
+          {
+            "type": "present",
+            "node": "read_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "read_rf_mid",
+            "op": "lt",
+            "value": 64.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": 0.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "blocked_turn_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "present",
+            "node": "read_rf_mid"
+          },
+          {
+            "type": "present",
+            "node": "read_route_bearing"
+          },
+          {
+            "type": "compare",
+            "node": "read_rf_mid",
+            "op": "lt",
+            "value": 64.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 0.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "route_exit_use": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_next",
+            "op": "eq",
+            "value": "exit"
+          },
+          {
+            "type": "compare",
+            "node": "read_route_distance",
+            "op": "lt",
+            "value": 100.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -20.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 20.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+USE"
+    },
+    "route_door_use": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_next",
+            "op": "eq",
+            "value": "door"
+          },
+          {
+            "type": "compare",
+            "node": "read_route_distance",
+            "op": "lt",
+            "value": 90.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -20.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 20.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+USE"
+    },
+    "route_turn_left": {
+      "when": {
+        "type": "compare",
+        "node": "read_route_bearing",
+        "op": "ge",
+        "value": 35.0
+      },
+      "type": "value",
+      "value": "TURN_LEFT"
+    },
+    "route_turn_right": {
+      "when": {
+        "type": "compare",
+        "node": "read_route_bearing",
+        "op": "lt",
+        "value": -35.0
+      },
+      "type": "value",
+      "value": "TURN_RIGHT"
+    },
+    "route_forward_left": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": 10.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": 35.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_LEFT"
+    },
+    "route_forward_right": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "ge",
+            "value": -35.0
+          },
+          {
+            "type": "compare",
+            "node": "read_route_bearing",
+            "op": "lt",
+            "value": -10.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_FORWARD+TURN_RIGHT"
+    },
+    "very_stuck_backward": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_memory_moved",
+            "op": "lt",
+            "value": 3.0
+          },
+          {
+            "type": "compare",
+            "node": "read_visits",
+            "op": "ge",
+            "value": 20.0
+          }
+        ]
+      },
+      "type": "value",
+      "value": "MOVE_BACKWARD"
+    },
+    "stuck_turn": {
+      "when": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "compare",
+            "node": "read_memory_moved",
+            "op": "lt",
+            "value": 3.0
+          },
+          {
+            "type": "compare",
+            "node": "read_visits",
+            "op": "ge",
+            "value": 6.0
+          }
+        ]
+      },
+      "type": "threshold",
+      "source": "read_route_bearing",
+      "cutoff": 0.0,
+      "below": "TURN_RIGHT",
+      "above": "TURN_LEFT"
+    },
+    "default_forward": {
+      "when": null,
+      "type": "value",
+      "value": "MOVE_FORWARD"
+    },
+    "decision": {
+      "when": null,
+      "type": "coalesce",
+      "sources": [
+        "combat_combat_pick",
+        "tracking_combat_pick",
+        "very_stuck_backward",
+        "stuck_turn",
+        "blocked_turn_left",
+        "blocked_turn_right",
+        "route_exit_use",
+        "route_door_use",
+        "route_turn_left",
+        "route_turn_right",
+        "route_forward_left",
+        "route_forward_right",
+        "default_forward"
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "decision",
+      "view": "value",
+      "optional": false
+    }
+  }
+}
+```
+
+</details>
+
 Run that in a loop and it becomes a league: search a challenger against the
 champion, play it against everyone already in the pool, and hand over the title
 only when it wins the head-to-head. Two runs of it, judged locally by a 35B
