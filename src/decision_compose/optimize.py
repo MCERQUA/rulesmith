@@ -58,13 +58,21 @@ class GraphProposer(dspy.Module):
 
 
 def headless_graph(error: AdapterParseError) -> dict:
-    """The graph from a reply that is only its JSON, without the field header. Reasoning models
-    with thinking off often answer this way, and with one output field it is unambiguous."""
-    try:
-        graph = json.loads(error.lm_response)
-    except json.JSONDecodeError:
-        return {"generation_error": str(error)}
-    return graph if isinstance(graph, dict) else {"generation_error": str(error)}
+    """The graph from a reply that carries no field header. Models with thinking off answer
+    with the bare JSON, sometimes with a sentence either side of it, and since the signature
+    has one output field that JSON is unambiguously the graph."""
+    reply = error.lm_response
+    start = reply.find("{")
+    while start != -1:
+        try:
+            graph, _ = json.JSONDecoder().raw_decode(reply[start:])
+        except json.JSONDecodeError:
+            start = reply.find("{", start + 1)
+            continue
+        if isinstance(graph, dict) and "nodes" in graph:
+            return graph
+        start = reply.find("{", start + 1)
+    return {"generation_error": str(error)}
 
 
 @dataclass(frozen=True)

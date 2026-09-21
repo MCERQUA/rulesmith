@@ -55,6 +55,22 @@ def test_a_reply_that_is_only_the_graph_is_taken_as_the_graph(provider):
     assert json.loads(proposer("Propose a decision graph.")) == graph
 
 
+def test_a_graph_wrapped_in_prose_is_still_read(provider):
+    # Small models explain themselves before answering; the graph is still in there.
+    graph = binary_plan()
+    provider.completion = f"Based on the validation error I fixed the output.\n\n{json.dumps(graph)}\n\nThis keeps every node."
+    proposer = GraphProposer(
+        dspy.LM(
+            "openai/fixture-model",
+            api_base=provider.url + "/v1",
+            api_key="test-placeholder",
+            cache=False,
+            num_retries=0,
+        )
+    )
+    assert json.loads(proposer("Propose a decision graph.")) == graph
+
+
 def test_proposer_and_labeler_work_on_servers_without_json_mode(provider):
     provider.json_mode = False
     lm = dspy.LM(
