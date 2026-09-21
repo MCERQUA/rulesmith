@@ -39,9 +39,8 @@ flowchart LR
 cd ../ruling && uv sync && uv run ruling serve
 ```
 
-**2. Configure a proposer.** This is the generative model that writes graphs.
-Any [DSPy model identifier](https://dspy.ai/learn/programming/language_models/)
-works. For a local OpenAI-compatible server:
+**2. Configure a proposer**, the model that writes graphs. Any
+[DSPy model identifier](https://dspy.ai/learn/programming/language_models/) works:
 
 ```sh
 export REFLECTION_MODEL=openai/<served-model-id>
@@ -136,14 +135,13 @@ flowchart LR
   V --> B["Best graph<br/>plan.json"]
 ```
 
-The proposer sees where the current graph answered wrong and writes a complete
-replacement: new calls, rewritten questions, branches, and joins. A proposal is
-kept only if it beats its parent on the training batch, and the graph with the
-best validation score is saved. The test split never reaches the optimizer.
+The proposer sees where the graph answered wrong and writes a complete
+replacement. A proposal is kept only if it beats its parent on the training
+batch; the best validation score wins. The test split never reaches the optimizer.
 
-The proposer can use the full DAG language. This hand-written example
-([examples/dag.json](examples/dag.json)), not a search result, asks two questions
-in parallel, then runs only the specialist that matches:
+The full DAG language is available. This hand-written example
+([examples/dag.json](examples/dag.json)) asks two questions in parallel, then
+runs only the specialist that matches:
 
 ```mermaid
 flowchart LR
@@ -169,10 +167,10 @@ See [Graph format](docs/graphs.md) for the JSON behind each node.
 
 ## Play Doom
 
-The same search can build a graph that plays [ViZDoom](https://github.com/Farama-Foundation/ViZDoom)
-scenarios. Each step, the graph gets the visible objects and game variables as
-JSON and outputs the next button. Its score is the episode's reward, not a label
-match, so no labeled examples are needed.
+The same search builds graphs that play [ViZDoom](https://github.com/Farama-Foundation/ViZDoom).
+Each step the graph reads the visible objects and game variables as JSON and
+outputs the next button, scored by episode reward rather than labels, so no
+labeled examples are needed.
 
 ```sh
 uv run decision-compose optimize examples/doom/basic.json \
@@ -185,89 +183,54 @@ uv run decision-compose evaluate examples/doom/basic.json runs/doom/plan.json \
   --backend ruling --max-workers 1 --split test --visible --output runs/doom/test.json
 ```
 
-`--visible` opens the game window so you can watch it play. See [Doom](docs/doom.md)
-for the task format and scenarios.
+`--visible` opens the game window. See [Doom](docs/doom.md) for task format,
+observations, and the arena.
 
 ## Results
 
 ![Search fitness: best validation score after each search round](docs/assets/fitness.svg)
 
-Each line stops at the round its run reached: the E1M1 seeds and the six-map
-head-to-head were cut short by a flat battery and an empty OpenRouter balance.
-Neither head-to-head arm beat its seed graph, and neither got a fair chance to:
-the Jev arm lost four of its seven proposals to a parsing slip since fixed, the
-rules arm's candidates won on a three-map sample without holding up across all
-six, and the run then died on a judge request that timed out with no retry.
+Each line stops where its run was stopped. Details and caveats: [Doom notes](docs/doom.md).
 
-**`basic`**: search started from a graph that only strafes left. Within three
-rounds it found a graph that strafes toward the monster and fires once it is
-centered. On held-out test seeds it killed every monster:
+**`basic`** — kill one monster. From a graph that only strafes left, three
+rounds found one that strafes toward the monster and fires when it is centered.
+12 of 12 kills on held-out seeds.
+[gif](docs/assets/doom/basic-seed12.gif) · [all 12](docs/assets/doom/basic-reel.mp4)
 
-| Judge | Validation | Test | Test rewards (best possible ≈ 97) |
-| --- | --- | --- | --- |
-| Qwen3.6-35B-A3B via Ruling (local) | 0.33 → 0.97 | 0.94 | 79, 38, 83 |
-| Jev (`jev-1.13.0`, hosted) | 0.33 → 0.97 | 0.94 | 75, 38, 83 |
+| Judge | Validation | Test |
+| --- | --- | --- |
+| Qwen3.6-35B-A3B via Ruling (local) | 0.33 → 0.97 | 0.94 |
+| Jev (`jev-1.13.0`, hosted) | 0.33 → 0.97 | 0.94 |
 
-![The found graph killing the monster on test seed 12](docs/assets/doom/basic-seed12.gif)
-
-[All 12 seeds back to back](docs/assets/doom/basic-reel.mp4): 12 of 12 kills.
-
-**E1M1**: search started from a graph that only walks forward, with Claude Sonnet 5
-proposing graphs, the local 4B judge, and a route to the exit computed from the map.
-The best graph ([examples/doom/graphs/e1m1-exit.json](examples/doom/graphs/e1m1-exit.json))
-is 27 nodes of reads and routing with no judge calls, and it **finishes the level**:
-[watch it exit in 75 seconds](docs/assets/doom/e1m1-exit.mp4) with 10 kills.
-[All five clears back to back](docs/assets/doom/e1m1-reel.mp4).
+**E1M1** — play a full level. Claude Sonnet 5 proposing, local 4B judge, a route
+to the exit computed from the map. The winner is 27 nodes of reads, no judge
+calls, and it finishes the level.
+[exit in 75 s](docs/assets/doom/e1m1-exit.mp4) · [all five clears](docs/assets/doom/e1m1-reel.mp4)
+· [rule by rule](docs/doom.md#the-e1m1-exit-graph)
 
 | Seeds | Exited | Died | Best time |
 | --- | --- | --- | --- |
-| 1–6 (the task's train, validation, and test seeds) | 3 | 3 | 75 s |
-| 7–12 (never used by search) | 2 | 4 | 89 s |
+| 1–6 (used by search) | 3 | 3 | 75 s |
+| 7–12 (held out) | 2 | 4 | 89 s |
 
-Episodes were capped at 6 minutes. Two of the deaths came within 260 units of the
-exit switch; the rest came in the first minute's fights.
-
-[How the E1M1 graph decides](docs/doom.md#the-e1m1-exit-graph), rule by rule.
-
-**Arena**: graphs can also play each other. `arena` runs a round-robin of
-one-on-one deathmatches across ViZDoom's bundled deathmatch maps and ranks the
-entrants by Elo:
+**Arena** — graphs play each other, ranked by Elo from round-robin deathmatches.
 
 ```sh
 uv run decision-compose arena examples/doom/duel.json \
-  examples/doom/graphs/e1m1-exit.json examples/doom/graphs/e1m1-searched.json \
+  examples/doom/graphs/duel-hunter.json examples/doom/graphs/e1m1-exit.json \
   examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
 ```
 
-![The league's best graph fragging a rival](docs/assets/doom/duel.gif)
+![The searched duellist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
 
-Four call-free graphs, twelve seeds per pair on `cig`'s MAP03, two minutes a
-match (72 matches, 23 of them decisive, 97 frags between them). Rules are
-checked in order, and the first that fires wins, through a `coalesce` node:
-
-| Graph | Elo | Won | Drawn | Lost | Frags for / against | In a duel it |
-| --- | --- | --- | --- | --- | --- | --- |
-| [e1m1-exit](examples/doom/graphs/e1m1-exit.json) | 1554 | 13 | 18 | 5 | 50 / 42 | Backs off at low health or no ammo, fires when a target is centered, turns onto it otherwise, then walks and unsticks itself |
-| [duel-attack](examples/doom/graphs/duel-attack.json) | 1500 | 0 | 36 | 0 | 0 / 0 | Holds the trigger down, forever: never frags anyone, never dies, draws every match |
-| [duel-searched](examples/doom/graphs/duel-searched.json) | 1500 | 6 | 24 | 6 | 36 / 36 | The same fighting rules with one trimmed away, from an earlier league |
-| [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 1446 | 4 | 20 | 12 | 11 / 19 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward |
-
-Above, `duel-searched` corners `e1m1-searched`; [a longer duel is
-here](docs/assets/doom/duel-e1m1-exit.mp4). The two E1M1 graphs were searched to
-walk a level toward an exit a deathmatch has none of, so every rule of theirs
-that reads `route` is skipped here, leaving the fighting half and a walk-forward
-default. That is still enough to beat a graph that only shoots.
-
-Seeds are screened for contact. On roughly a third of them the two players
-never meet at all, and a match nobody turns up to tells a search nothing. The
-map matters as much: ViZDoom's larger `cig` layouts produced no contact on any
-seed tried, the tiny `multi_duel` arena is small enough that both E1M1 graphs
-rocket themselves thirty-one times a match, and on `multi_deathmatch` the first
-kill ends the round.
-
-Search can then aim at the arena rather than at a scenario's own reward. With
-`--opponent`, every episode is a duel against a fixed graph, so the leader can
-be used to breed its own challenger:
+**A league** — search a challenger against the champion, rank it against the
+pool, hand over the title only on a winning head-to-head. Run with a local
+35B mixture model it never unseated the graph it started from; swapped to a
+dense 27B, generation two produced [duel-hunter](examples/doom/graphs/duel-hunter.json),
+which beat the champion **12-0, 44 frags to none**. What it added is three rules
+that read the compass bearing to an opponent nobody can see, and turn onto it.
+[the duel](docs/assets/doom/duel-hunter.mp4) · [rule by rule](docs/doom.md#the-duel-hunter)
+· [how matches work](docs/doom.md#arena)
 
 ```sh
 uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
@@ -275,37 +238,9 @@ uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1
   --reflection-model "$REFLECTION_MODEL" --output runs/challenger
 ```
 
-See [Doom](docs/doom.md#arena) for how matches are played and scored.
-
-![The searched duellist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
-
-The graph above is [duel-hunter](examples/doom/graphs/duel-hunter.json), searched
-against the champion it is hunting. It beat that champion 12-0 over the test
-seeds, 44 frags to none, and [the whole duel is
-here](docs/assets/doom/duel-hunter.mp4). What it added is a compass layer: reads
-of `compass.2.bearing` and `compass.2.distance` feed three rules that turn
-toward the opponent when none is on screen, so it hunts between fights instead
-of wandering toward an exit that does not exist. The table above predates it.
-
-[How the duel graph decides](docs/doom.md#the-duel-hunter), rule by rule.
-
-Run that in a loop and it becomes a league: search a challenger against the
-champion, play it against everyone already in the pool, and hand over the title
-only when it wins the head-to-head. Two runs of it, judged locally by a 35B
-proposer, never unseated the graph they started from.
-
-The second run was the fair test. Matches were lengthened to two minutes on a
-map where play continues after a kill, and seeds were screened so every episode
-produces a fight, which lifted a match from one lucky frag to three to five
-exchanges. Across four generations and about forty proposals, every candidate
-scored a little below the champion, by 0.01 to 0.03 where the run-to-run spread
-is 0.004, and three of the four searches ended by handing back their own seed.
-
-So a graph searched for walking E1M1 still out-duels everything the league
-proposed against it. The proposer edits the champion's rules rather than
-building a duellist, and the compass that reports an opponent's bearing anywhere
-on the map went unused in every accepted candidate. The arena is what turns that
-from a hunch into a measurement.
+Every graph that won anything reads the observation and never calls a judge:
+`target.x < -0.12` is exact, free and instant, while a call costs a round trip
+each step. Candidates that kept calls were scored and dropped on the merits.
 
 ## Use from Python
 
@@ -334,7 +269,7 @@ with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") a
 | Jev (hosted) | `--backend typesafe` (default) | `TYPESAFE_BASE_URL` | `TYPESAFE_API_KEY` |
 
 Ruling serializes requests, so use `--max-workers 1`. Hosted calls may incur
-charges; the search budget counts examples, not requests or dollars.
+charges: the search budget counts examples, not requests or dollars.
 
 ## Learn more
 

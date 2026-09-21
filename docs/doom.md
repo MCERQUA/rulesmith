@@ -176,6 +176,57 @@ synchronous play they barely fire, even with perfect skill settings.
 - `rangefinder` crashes ViZDoom 1.3.0 on some maps, including E1M6 and the
   `cig` deathmatch maps, because it turns on sectors info. Leave it out there.
 
+## The league
+
+Seeds are screened for contact. On roughly a third of them the two players
+never meet at all, and a match nobody turns up to tells a search nothing. The
+map matters as much: ViZDoom's larger `cig` layouts produced no contact on any
+seed tried, the tiny `multi_duel` arena is small enough that both E1M1 graphs
+rocket themselves thirty-one times a match, and on `multi_deathmatch` the first
+kill ends the round.
+
+Search can then aim at the arena rather than at a scenario's own reward. With
+`--opponent`, every episode is a duel against a fixed graph, so the leader can
+be used to breed its own challenger:
+
+```sh
+uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
+  --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
+  --reflection-model "$REFLECTION_MODEL" --output runs/challenger
+```
+
+See [Doom](docs/doom.md#arena) for how matches are played and scored.
+
+![The searched duellist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
+
+The graph above is [duel-hunter](examples/doom/graphs/duel-hunter.json), searched
+against the champion it is hunting. It beat that champion 12-0 over the test
+seeds, 44 frags to none, and [the whole duel is
+here](docs/assets/doom/duel-hunter.mp4). What it added is a compass layer: reads
+of `compass.2.bearing` and `compass.2.distance` feed three rules that turn
+toward the opponent when none is on screen, so it hunts between fights instead
+of wandering toward an exit that does not exist. The table above predates it.
+
+[How the duel graph decides](docs/doom.md#the-duel-hunter), rule by rule.
+
+Run that in a loop and it becomes a league: search a challenger against the
+champion, play it against everyone already in the pool, and hand over the title
+only when it wins the head-to-head. Two runs of it, judged locally by a 35B
+proposer, never unseated the graph they started from.
+
+The second run was the fair test. Matches were lengthened to two minutes on a
+map where play continues after a kill, and seeds were screened so every episode
+produces a fight, which lifted a match from one lucky frag to three to five
+exchanges. Across four generations and about forty proposals, every candidate
+scored a little below the champion, by 0.01 to 0.03 where the run-to-run spread
+is 0.004, and three of the four searches ended by handing back their own seed.
+
+So a graph searched for walking E1M1 still out-duels everything the league
+proposed against it. The proposer edits the champion's rules rather than
+building a duellist, and the compass that reports an opponent's bearing anywhere
+on the map went unused in every accepted candidate. The arena is what turns that
+from a hunch into a measurement.
+
 ## Graphs
 
 Two graphs the search found, in full. Each checks its rules in order, and the
