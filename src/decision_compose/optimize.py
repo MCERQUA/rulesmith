@@ -304,9 +304,15 @@ def optimize_plan(
         if adapter.failure is not None:
             raise adapter.failure
         if adapter.candidate is not None:
-            whole = "The rest of the graph, which you are not returning, is:\n" + json.dumps(
-                {k: json.loads(v) for k, v in adapter.candidate.items()}, indent=2
-            )
+            # Names and kinds only: enough to wire a rule up, or leave a node alone, without
+            # pasting a second copy of the graph into every prompt.
+            owned = {
+                part: {
+                    name: node["type"] for name, node in json.loads(text).get("nodes", {}).items()
+                }
+                for part, text in adapter.candidate.items()
+            }
+            whole = f"Nodes each part of the graph owns: {json.dumps(owned)}"
             prompt = (
                 [*prompt, {"role": "user", "content": whole}]
                 if isinstance(prompt, list)
