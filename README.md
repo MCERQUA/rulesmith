@@ -843,6 +843,16 @@ uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1
 
 See [Doom](docs/doom.md#arena) for how matches are played and scored.
 
+![The searched duellist hunting down the graph it dethroned](docs/assets/doom/duel-hunter.gif)
+
+The graph above is [duel-hunter](examples/doom/graphs/duel-hunter.json), searched
+against the champion it is hunting. It beat that champion 12-0 over the test
+seeds, 44 frags to none, and [the whole duel is
+here](docs/assets/doom/duel-hunter.mp4). What it added is a compass layer: reads
+of `compass.2.bearing` and `compass.2.distance` feed three rules that turn
+toward the opponent when none is on screen, so it hunts between fights instead
+of wandering toward an exit that does not exist. The table above predates it.
+
 Run that in a loop and it becomes a league: search a challenger against the
 champion, play it against everyone already in the pool, and hand over the title
 only when it wins the head-to-head. Two runs of it, judged locally by a 35B
