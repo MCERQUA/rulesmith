@@ -807,31 +807,29 @@ uv run decision-compose arena examples/doom/duel.json \
 
 ![The league's best graph fragging a rival](docs/assets/doom/duel.gif)
 
-Four call-free graphs, twelve seeds per pair on ViZDoom's `multi` deathmatch
-map, where a kill ends the round, so 41 of the 72 matches were settled on first
-blood and the rest timed out level. Rules are checked in order, and the first
-that fires wins, through a `coalesce` node:
+Four call-free graphs, twelve seeds per pair on `cig`'s MAP03, two minutes a
+match (72 matches, 23 of them decisive, 97 frags between them). Rules are
+checked in order, and the first that fires wins, through a `coalesce` node:
 
 | Graph | Elo | Won | Drawn | Lost | Frags for / against | In a duel it |
 | --- | --- | --- | --- | --- | --- | --- |
-| [duel-searched](examples/doom/graphs/duel-searched.json) | 1548 | 17 | 9 | 10 | 20 / 13 | Fights as e1m1-exit does, with one rule trimmed away: the league's own best graph |
-| [e1m1-exit](examples/doom/graphs/e1m1-exit.json) | 1541 | 12 | 18 | 6 | 20 / 13 | Backs off at low health or no ammo, fires when a target is centered, turns onto it otherwise, then walks and unsticks itself |
-| [duel-attack](examples/doom/graphs/duel-attack.json) | 1473 | 6 | 20 | 10 | 9 / 13 | Holds the trigger down, forever |
-| [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 1438 | 6 | 15 | 15 | 11 / 21 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward |
+| [e1m1-exit](examples/doom/graphs/e1m1-exit.json) | 1554 | 13 | 18 | 5 | 50 / 42 | Backs off at low health or no ammo, fires when a target is centered, turns onto it otherwise, then walks and unsticks itself |
+| [duel-attack](examples/doom/graphs/duel-attack.json) | 1500 | 0 | 36 | 0 | 0 / 0 | Holds the trigger down, forever: never frags anyone, never dies, draws every match |
+| [duel-searched](examples/doom/graphs/duel-searched.json) | 1500 | 6 | 24 | 6 | 36 / 36 | The same fighting rules with one trimmed away, from an earlier league |
+| [e1m1-searched](examples/doom/graphs/e1m1-searched.json) | 1446 | 4 | 20 | 12 | 11 / 19 | Fires when a target is centered, aims when it is not, then unsticks itself and explores forward |
 
-Above, `duel-searched` corners `e1m1-searched` on a `cig` map, where play
-continues after a kill; [the full minute is here](docs/assets/doom/duel-e1m1-exit.mp4).
-The two E1M1
-graphs were searched to walk a level toward an exit a deathmatch has none of,
-so every rule of theirs that reads `route` is skipped here, leaving the
-fighting half and a walk-forward default. Even so, a graph that only shoots
-finishes below them.
+Above, `duel-searched` corners `e1m1-searched`; [a longer duel is
+here](docs/assets/doom/duel-e1m1-exit.mp4). The two E1M1 graphs were searched to
+walk a level toward an exit a deathmatch has none of, so every rule of theirs
+that reads `route` is skipped here, leaving the fighting half and a walk-forward
+default. That is still enough to beat a graph that only shoots.
 
-The map matters as much as the graphs. On ViZDoom's larger `cig` layouts two
-wandering graphs never met at all, and in the tiny `multi_duel` arena both E1M1
-graphs scored -31, rocketing the wall in front of them thirty-one times over. A
-duel only measures anything if the duellists can find each other and the room is
-big enough to miss in.
+Seeds are screened for contact. On roughly a third of them the two players
+never meet at all, and a match nobody turns up to tells a search nothing. The
+map matters as much: ViZDoom's larger `cig` layouts produced no contact on any
+seed tried, the tiny `multi_duel` arena is small enough that both E1M1 graphs
+rocket themselves thirty-one times a match, and on `multi_deathmatch` the first
+kill ends the round.
 
 Search can then aim at the arena rather than at a scenario's own reward. With
 `--opponent`, every episode is a duel against a fixed graph, so the leader can
@@ -847,19 +845,21 @@ See [Doom](docs/doom.md#arena) for how matches are played and scored.
 
 Run that in a loop and it becomes a league: search a challenger against the
 champion, play it against everyone already in the pool, and hand over the title
-only when it wins the head-to-head. Four generations of it, judged locally,
-never unseated the graph they started from. The best challenger (`duel-searched`
-above) tops the ladder by seven points, which is well inside the noise: two
-identical graphs once finished 117 points apart over six matches. Three of the
-four generations ended with the search handing back its own seed unchanged.
+only when it wins the head-to-head. Two runs of it, judged locally by a 35B
+proposer, never unseated the graph they started from.
 
-So on this map, with this budget and a 35B proposer running locally, self-play
-did not beat a graph that had been searched for something else entirely. The
-arena is what makes that claim checkable rather than a hunch, and the honest
-reading is that a duel of one-minute matches gives a search very little to climb:
-most matches are drawn, and a whole match is worth one frag either way.
+The second run was the fair test. Matches were lengthened to two minutes on a
+map where play continues after a kill, and seeds were screened so every episode
+produces a fight, which lifted a match from one lucky frag to three to five
+exchanges. Across four generations and about forty proposals, every candidate
+scored a little below the champion, by 0.01 to 0.03 where the run-to-run spread
+is 0.004, and three of the four searches ended by handing back their own seed.
 
-
+So a graph searched for walking E1M1 still out-duels everything the league
+proposed against it. The proposer edits the champion's rules rather than
+building a duellist, and the compass that reports an opponent's bearing anywhere
+on the map went unused in every accepted candidate. The arena is what turns that
+from a hunch into a measurement.
 
 ## Use from Python
 

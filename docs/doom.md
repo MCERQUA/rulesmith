@@ -143,6 +143,8 @@ uv run decision-compose arena examples/doom/duel.json a.json b.json c.json --out
   ignores match order. Every pair also shares one virtual draw, which keeps an
   unbeaten graph's rating finite.
 - Entrants are named by file stem, so two entrants' files need different names.
+- Screen seeds before trusting a ladder. On many of them two graphs never meet,
+  and a match nobody turns up to scores the same whatever the graphs do.
 
 Opponents appear in `objects` with category `Player`, and `target` reports the
 nearest one on screen. [examples/doom/duel.json](../examples/doom/duel.json)

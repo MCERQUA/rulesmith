@@ -14,10 +14,10 @@
     "MOVE_FORWARD+USE"
   ],
   "reward_range": [
-    -60,
-    60
+    -100,
+    100
   ],
-  "episode_timeout": 2100,
+  "episode_timeout": 4200,
   "variables": [
     "HEALTH",
     "ARMOR",
@@ -37,107 +37,147 @@
   "train": [
     {
       "seed": 1,
-      "scenario": "multi",
-      "map": "MAP01"
-    },
-    {
-      "seed": 2,
-      "scenario": "multi",
-      "map": "MAP01"
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
       "seed": 3,
-      "scenario": "multi",
-      "map": "MAP01"
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
       "seed": 4,
-      "scenario": "multi",
-      "map": "MAP01"
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 5,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 9,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 10,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 15,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 16,
+      "scenario": "cig",
+      "map": "MAP03"
     }
   ],
   "validation": [
     {
-      "seed": 5,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 17,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 6,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 18,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 7,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 19,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 8,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 20,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 21,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 24,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 27,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 29,
+      "scenario": "cig",
+      "map": "MAP03"
     }
   ],
   "test": [
     {
-      "seed": 9,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 31,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 10,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 34,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 11,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 38,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 12,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 39,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 13,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 41,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 14,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 42,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 15,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 45,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 16,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 46,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 17,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 51,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 18,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 53,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 19,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 54,
+      "scenario": "cig",
+      "map": "MAP03"
     },
     {
-      "seed": 20,
-      "scenario": "multi",
-      "map": "MAP01"
+      "seed": 56,
+      "scenario": "cig",
+      "map": "MAP03"
     }
   ],
   "compass_targets": [
@@ -147,5 +187,6 @@
     "RocketAmmo",
     "Shell"
   ],
-  "map": "MAP03"
+  "map": "MAP03",
+  "feedback_steps": 3
 }
