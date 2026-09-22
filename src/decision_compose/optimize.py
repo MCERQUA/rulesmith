@@ -25,13 +25,12 @@ def text_adapter() -> dspy.ChatAdapter:
 
 
 class GraphProposal(dspy.Signature):
-    """Design a complete decision DAG that satisfies the supplied schema and feedback."""
+    """Design the requested decision DAG component using the supplied schema and feedback."""
 
     request: str = dspy.InputField()
-    # One whole-graph field: models asked for nodes and outputs separately tend to
-    # nest the complete graph inside nodes.
+    # One object field keeps models from nesting the component inside nodes.
     graph: dict[str, JsonValue] = dspy.OutputField(
-        desc='The complete graph: {"nodes": {...}, "outputs": {...}}'
+        desc='The requested component: {"nodes": {...}}, also including outputs for policy'
     )
 
 
@@ -174,9 +173,15 @@ def assemble(candidate: dict[str, str]) -> Plan:
             raise ValueError(f"{name} must be an object")
         if error := part.get("generation_error"):
             raise ValueError(f"{name} was not generated: {error}")
+        if not isinstance(part.get("nodes", {}), dict):
+            raise ValueError(f"{name}.nodes must be an object")
+        if "outputs" in part and not isinstance(part["outputs"], dict):
+            raise ValueError(f"{name}.outputs must be an object")
         # A part may carry nodes of any kind, but perception owns the reads and calls and
         # policy owns the rest: when both define a node, its kind decides whose copy stands.
-        for node, definition in (part.get("nodes") or {}).items():
+        for node, definition in part.get("nodes", {}).items():
+            if not isinstance(definition, dict):
+                raise ValueError(f"{name}.nodes.{node} must be an object")
             owner = "perception" if definition.get("type") in PERCEPTION else "policy"
             if node not in nodes or owner == name:
                 nodes[node] = definition
@@ -221,7 +226,6 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         # A graph scores the same however often GEPA asks, and the champion is re-scored
         # every round; without this the seed pays for its own validation over and over.
         self.scored: dict[tuple[str, str], Outcome] = {}
-        self.candidate: dict[str, str] | None = None
 
     def parse(self, candidate: dict[str, str]) -> Plan:
         plan = assemble(candidate)
@@ -276,8 +280,6 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return EvaluationBatch(outputs=outputs, scores=scores, trajectories=trajectories)
 
     def make_reflective_dataset(self, candidate, eval_batch, components_to_update):
-        # The graph being revised, so reflection can see the part it is not returning.
-        self.candidate = candidate
         return {component: eval_batch.trajectories for component in components_to_update}
 
 
@@ -318,25 +320,18 @@ def optimize_plan(
         }
     )
 
-    def reflect(prompt):
+    def reflect(prompt, candidate, component):
         nonlocal reflection_calls
         if adapter.failure is not None:
             raise adapter.failure
-        if adapter.candidate is not None:
-            # Names and kinds only: enough to wire a rule up, or leave a node alone, without
-            # pasting a second copy of the graph into every prompt.
-            owned = {
-                part: {
-                    name: node["type"] for name, node in json.loads(text).get("nodes", {}).items()
-                }
-                for part, text in adapter.candidate.items()
+        # Names and kinds let reflection wire up the unchanged component's nodes.
+        owned = {
+            part: {
+                name: node.get("type") for name, node in json.loads(text).get("nodes", {}).items()
             }
-            whole = f"Nodes each part of the graph owns: {json.dumps(owned)}"
-            prompt = (
-                [*prompt, {"role": "user", "content": whole}]
-                if isinstance(prompt, list)
-                else f"{prompt}\n\n{whole}"
-            )
+            for part, text in candidate.items()
+        }
+        prompt = f"{prompt}\n\nNodes each part of the graph owns: {json.dumps(owned)}"
         previous = adapter.proposal_feedback
         if previous is not None:
             feedback = (
@@ -345,11 +340,7 @@ def optimize_plan(
                 f"mistakes.\nPrevious proposal:\n{previous['graph']}\n"
                 f"Scores: {previous['scores']}\nResults: {json.dumps(previous['results'])}"
             )
-            prompt = (
-                [*prompt, {"role": "user", "content": feedback}]
-                if isinstance(prompt, list)
-                else f"{prompt}\n\n{feedback}"
-            )
+            prompt = f"{prompt}\n\n{feedback}"
             adapter.proposal_feedback = None
         nonlocal repairs
         request = prompt
@@ -362,7 +353,7 @@ def optimize_plan(
                 adapter.failure = error
                 raise
             try:
-                adapter.parse({"graph": proposal})
+                adapter.parse(candidate | {component: proposal})
                 break
             except ValueError as error:
                 if attempt == config.repair_attempts:
@@ -371,22 +362,17 @@ def optimize_plan(
                 # Validation is instant, so fix schema slips before spending episodes on them.
                 repair = (
                     f"This graph failed validation and was not run:\n{proposal}\n"
-                    f"Error: {error}\nReturn the complete corrected graph."
+                    f"Error: {error}\nReturn only the corrected {component} component."
                 )
                 # Only the latest attempt matters; earlier failures would bloat the prompt.
-                request = (
-                    [*prompt, {"role": "user", "content": repair}]
-                    if isinstance(prompt, list)
-                    else f"{prompt}\n\n{repair}"
-                )
+                request = f"{prompt}\n\n{repair}"
         adapter.proposed = proposal
-        # GEPA keeps only the text between the first and last ``` of a reply, so fence the
-        # proposal ourselves; backticks inside the graph then survive intact.
-        return f"```\n{adapter.proposed}\n```"
+        return proposal
 
     prompt = (
         "Improve this directed acyclic graph using observed execution failures. Return only "
-        "the complete replacement JSON object, with nodes and outputs. Add, remove, or rewrite "
+        "the replacement component JSON object, with nodes and, for policy, outputs. "
+        "Add, remove, or rewrite "
         "nodes, questions, input wiring, and conditions. Start from the current graph: keep "
         "the nodes, IDs, and conditions that work, and change only what the feedback shows is "
         "failing, since rewriting a working graph from scratch usually loses what worked. "
@@ -440,13 +426,25 @@ def optimize_plan(
         "its own part keeps that definition.\n"
         "Part to revise:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
+
+    def propose(candidate, reflective_dataset, components_to_update):
+        return {
+            component: reflect(
+                prompt.replace("<curr_param>", candidate[component]).replace(
+                    "<side_info>", json.dumps(reflective_dataset[component])
+                ),
+                candidate,
+                component,
+            )
+            for component in components_to_update
+        }
+
+    adapter.propose_new_texts = propose
     result = gepa.optimize(
         seed_candidate=components(initial),
         trainset=task.train,
         valset=task.validation,
         adapter=adapter,
-        reflection_lm=reflect,
-        reflection_prompt_template=prompt,
         reflection_minibatch_size=batch_size,
         max_metric_calls=config.max_metric_calls,
         seed=config.seed,

@@ -58,7 +58,10 @@ def test_a_reply_that_is_only_the_graph_is_taken_as_the_graph(provider):
 def test_a_graph_wrapped_in_prose_is_still_read(provider):
     # Small models explain themselves before answering; the graph is still in there.
     graph = binary_plan()
-    provider.completion = f"Based on the validation error I fixed the output.\n\n{json.dumps(graph)}\n\nThis keeps every node."
+    provider.completion = (
+        f"Based on the validation error I fixed the output.\n\n{json.dumps(graph)}\n\n"
+        "This keeps every node."
+    )
     proposer = GraphProposer(
         dspy.LM(
             "openai/fixture-model",

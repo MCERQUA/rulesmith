@@ -10,7 +10,7 @@ import pytest
 from conftest import chat_reply
 from PIL import Image
 from test_cli import invoke, write
-from test_graph import constant_plan
+from test_graph import binary_plan, constant_plan
 
 from decision_compose.arena import Duels, Entrant, free_port, match, ratings
 from decision_compose.doom import DEATHMATCH, DoomEnvironment, DoomTask
@@ -335,6 +335,42 @@ def test_cli_records_a_duel_from_one_graph_s_seat(tmp_path):
     with Image.open(output) as gif:
         # Every tic the seat played, less any the timeout cut from its final action.
         assert episode["steps"] * tics - tics < gif.n_frames <= episode["steps"] * tics
+
+
+@pytest.mark.parametrize("command", ["evaluate", "record"])
+def test_cli_initializes_judge_for_a_model_opponent(tmp_path, provider, command):
+    task = write(tmp_path / "duel.json", duel_data(episode_timeout=120, test=[3]))
+    plan = write(tmp_path / "runner.json", constant_plan("MOVE_FORWARD"))
+    opponent_graph = binary_plan()
+    opponent_graph["nodes"]["decision"].update(below="TURN_LEFT", above="ATTACK")
+    opponent = write(tmp_path / "opponent.json", opponent_graph)
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+    output = tmp_path / ("duel.gif" if command == "record" else "evaluation.json")
+    extra = ["--seed", SEEN_SEED] if command == "record" else []
+    completed = invoke(
+        command,
+        task,
+        plan,
+        "--opponent",
+        opponent,
+        "--backend",
+        "ruling",
+        "--base-url",
+        provider.url,
+        "--output",
+        output,
+        *extra,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert len(provider.requests) > 1
+    assert all(path == "/v1/systemone" for path, _ in provider.requests)
+    if command == "record":
+        (episode,) = json.loads(completed.stdout)["episodes"]
+        with Image.open(output) as gif:
+            assert gif.n_frames > 1
+    else:
+        (episode,) = json.loads(output.read_text())["examples"]
+    assert episode["steps"] > 1 and episode["error"] is None
 
 
 def test_a_distant_opponent_is_never_crowded_off_the_compass():

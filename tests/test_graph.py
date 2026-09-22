@@ -5,7 +5,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from decision_compose.graph import Plan, Task
+from decision_compose.graph import Plan, Task, references
+from decision_compose.optimize import assemble
 
 
 def ref(node, **kwargs):
@@ -38,6 +39,38 @@ def binary_plan(cutoff=0.5):
 
 def constant_plan(label="review"):
     return {"nodes": {}, "outputs": {"label": {"type": "literal", "value": label}}}
+
+
+@given(
+    st.recursive(
+        st.none() | st.booleans() | st.integers() | st.text(),
+        lambda values: st.lists(values) | st.dictionaries(st.text(), values),
+    )
+)
+def test_literal_payloads_never_create_dependencies(payload):
+    value = {"node": "unused", "source": "unused", "sources": payload}
+    for kind in ("value", "literal"):
+        assert references({"type": kind, "value": value}) == set()
+    graph = {
+        "nodes": {"data": {"type": "value", "value": value}},
+        "outputs": {"data": ref("data"), "literal": {"type": "literal", "value": value}},
+    }
+    assert assemble({"graph": json.dumps(graph)}) == Plan.model_validate(graph)
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        {"nodes": []},
+        {"nodes": 7},
+        {"nodes": {"bad": []}},
+        {"nodes": {}, "outputs": 7},
+        {"nodes": {}, "outputs": []},
+    ],
+)
+def test_malformed_fragment_shapes_raise_validation_errors(part):
+    with pytest.raises(ValueError):
+        assemble({"policy": json.dumps(part)})
 
 
 @given(st.lists(st.sets(st.integers(min_value=0, max_value=20)), max_size=20))

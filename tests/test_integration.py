@@ -209,6 +209,20 @@ def test_constant_program_never_calls_provider(provider, client):
     assert provider.requests == []
 
 
+def test_assembled_literal_data_reaches_the_provider_unchanged(provider, client):
+    payload = {"node": "spare", "source": "spare", "sources": 7}
+    graph = binary_plan()
+    graph["nodes"]["spare"] = {"type": "value", "value": "unused"}
+    graph["nodes"]["eligible"]["inputs"] = {"data": {"type": "literal", "value": payload}}
+    graph["outputs"]["data"] = {"type": "literal", "value": payload}
+    provider.answers = {"eligible": {"type": "noul", "noul": 0.9}}
+    plan = assemble({"graph": json.dumps(graph)})
+    result = DecisionProgram(plan, client, "fixture-model")(state="Example")
+    assert "spare" not in plan.nodes
+    assert result.outputs == {"label": "accept", "data": payload}
+    assert provider.requests[0][1]["state"] == {"data": payload}
+
+
 def test_reflection_outage_is_propagated_and_stops_search(client):
     task = Task.model_validate(task_data())
     initial = Plan.model_validate(constant_plan())
@@ -762,7 +776,7 @@ def test_proposals_containing_code_fences_reach_search_intact(provider, client):
 
 
 def test_invalid_proposals_are_repaired_before_search_scores_them(client):
-    broken = {"nodes": {}, "outputs": {"label": {"node": "missing"}}}
+    broken = {"nodes": ["invalid node container"]}
     fixed = Plan.model_validate(constant_plan("accept"))
     prompts = []
 
@@ -783,13 +797,55 @@ def test_invalid_proposals_are_repaired_before_search_scores_them(client):
     assert best == fixed
     assert report["invalid_candidate_evaluations"] == 0
     assert report["repairs"] == 1
-    assert json.dumps(broken) in prompts[1] and "type" in prompts[1]
+    assert json.dumps(broken) in prompts[1] and "nodes must be an object" in prompts[1]
+
+
+@pytest.mark.parametrize("malformed", [False, True])
+def test_real_gepa_repairs_fragments_in_parent_context_over_http(provider, client, malformed):
+    data = task_data()
+    data["validation"][0]["label"] = "accept"
+    proposed = Plan.model_validate(binary_plan())
+    parts = components(proposed)
+    offered = []
+
+    def respond(request):
+        shown = request["messages"][-1]["content"]
+        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
+        component = "policy" if "outputs" in asked else "perception"
+        fragment = json.loads(parts[component])
+        if malformed and not offered:
+            fragment["nodes"] = ["malformed"]
+        offered.append(component)
+        provider.completion = chat_reply(graph=fragment)
+
+    provider.on_chat = respond
+    provider.answers = {"eligible": {"type": "noul", "noul": 0.9}}
+    proposer = GraphProposer(
+        dspy.LM(
+            "openai/fixture-model",
+            api_base=provider.url + "/v1",
+            api_key="test-placeholder",
+            cache=False,
+            num_retries=0,
+        )
+    )
+    best, report = optimize_plan(
+        Task.model_validate(data),
+        Plan.model_validate(binary_plan(cutoff=0.95)),
+        client,
+        "fixture-model",
+        proposer,
+        SearchConfig(max_metric_calls=4, reflection_batch=1, repair_attempts=1),
+    )
+    assert best == proposed
+    assert report["repairs"] == int(malformed)
+    assert report["invalid_candidate_evaluations"] == 0
+    assert offered == (["perception"] * (1 + int(malformed)) + ["policy"])
+    assert report["validation_score"] == 1.0
 
 
 def test_repair_prompts_carry_only_the_latest_failed_attempt(client):
-    attempts = [
-        json.dumps({"nodes": {}, "outputs": {"label": {"node": f"missing_{n}"}}}) for n in range(3)
-    ]
+    attempts = [json.dumps({"nodes": [f"invalid_container_{n}"]}) for n in range(3)]
     prompts = []
 
     def reflect(prompt):

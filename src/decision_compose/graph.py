@@ -108,16 +108,25 @@ def reachable(dependencies: dict[str, set[str]], outputs) -> set[str]:
 
 
 def references(value: JsonValue) -> set[str]:
-    """Node names a raw node or output mentions, wherever they sit in its JSON."""
-    if isinstance(value, dict):
-        named = {value["node"]} if isinstance(value.get("node"), str) else set()
-        if isinstance(value.get("source"), str):
-            named.add(value["source"])
-        named.update(s for s in value.get("sources") or [] if isinstance(s, str))
-        return named.union(*(references(v) for v in value.values())) if value else named
+    """References in graph syntax; literal payloads and question text are opaque."""
     if isinstance(value, list):
-        return set().union(*(references(v) for v in value)) if value else set()
-    return set()
+        return set().union(*(references(v) for v in value))
+    if not isinstance(value, dict):
+        return set()
+    named: set[str] = set()
+    kind = value.get("type")
+    if kind in ("node", "compare", "present") and isinstance(value.get("node"), str):
+        named.add(value["node"])
+    if kind in ("switch", "threshold") and isinstance(value.get("source"), str):
+        named.add(value["source"])
+    if kind == "coalesce" and isinstance(value.get("sources"), list):
+        named.update(source for source in value["sources"] if isinstance(source, str))
+    for key in ("when", "condition", "conditions"):
+        named.update(references(value.get(key)))
+    if kind in ("call", "merge") and isinstance(value.get("inputs"), dict):
+        for source in value["inputs"].values():
+            named.update(references(source))
+    return named
 
 
 def predicates(condition: Condition | None) -> list[Compare | Present]:

@@ -42,6 +42,35 @@ def test_invalid_plan_exits_before_attempting_network(tmp_path):
     assert result.returncode != 0
 
 
+def test_invalid_opponent_is_rejected_before_judge_credentials(tmp_path, monkeypatch):
+    from test_arena import duel_data
+
+    from decision_compose.cli import main
+
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    task = write(tmp_path / "task.json", duel_data())
+    candidate = binary_plan()
+    candidate["nodes"]["decision"].update(below="TURN_LEFT", above="ATTACK")
+    plan = write(tmp_path / "plan.json", candidate)
+    opponent = write(tmp_path / "opponent.json", {"nodes": {}, "outputs": {}})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "decision-compose",
+            "evaluate",
+            str(task),
+            str(plan),
+            "--opponent",
+            str(opponent),
+            "--output",
+            str(tmp_path / "out.json"),
+        ],
+    )
+    with pytest.raises(ValueError, match="outputs"):
+        main()
+
+
 def test_cli_evaluation_persists_actual_sdk_results(tmp_path, provider, monkeypatch):
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
     task = write(tmp_path / "task.json", task_data())

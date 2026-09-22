@@ -265,6 +265,10 @@ def main() -> None:
     deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
     if args.command in ("evaluate", "optimize", "record") and deathmatch != bool(args.opponent):
         cli.error("--opponent is required for, and only for, deathmatch tasks")
+    opponent = None
+    if deathmatch:
+        opponent = Plan.model_validate_json(args.opponent.read_text())
+        opponent.check(task.labels, args.max_nodes, args.max_depth)
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
         cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")
     if args.command == "record" and not isinstance(task, DoomTask):
@@ -303,14 +307,18 @@ def main() -> None:
     execution = ExecutionConfig(max_workers=args.max_workers)
     model, judge_client = judge(
         args,
-        args.command == "optimize" or any(isinstance(node, Call) for node in plan.nodes.values()),
+        args.command == "optimize"
+        or any(
+            isinstance(node, Call)
+            for graph in (plan, opponent)
+            if graph is not None
+            for node in graph.nodes.values()
+        ),
     )
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
         score = classify
         if deathmatch:
-            opponent = Plan.model_validate_json(args.opponent.read_text())
-            opponent.check(task.labels, args.max_nodes, args.max_depth)
             score = Duels(task, DecisionProgram(opponent, client, model, execution))
         elif args.command != "run" and isinstance(task, DoomTask):
             env = DoomEnvironment(
