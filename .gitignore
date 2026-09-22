@@ -8,3 +8,4 @@ dist/
 runs/
 .env
 .env.*
+.DS_Store

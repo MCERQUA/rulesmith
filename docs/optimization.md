@@ -14,9 +14,14 @@ evaluate and keep.
 2. **Reflect.** When the current graph misses a training example, `GraphProposer`
    (a `dspy.Predict` with plain-text `ChatAdapter` fields, which any chat
    endpoint accepts) gets the graph, the inputs, its outputs, and the expected
-   labels or episode rewards, then writes a complete replacement graph.
-3. **Check.** The proposal is parsed and validated; no generated code runs.
-   Invalid graphs score zero, and the error goes to the next proposal.
+   labels or episode rewards. Search revises one component at a time:
+   **perception** holds reads and judge calls; **policy** holds the other nodes
+   and outputs. The proposer returns the replacement component, preserving
+   references to nodes owned by the unchanged component.
+3. **Check.** The replacement is assembled with the unchanged component and
+   validated as a complete graph; no generated code runs. Validation errors
+   go back to the proposer for up to `--repair-attempts` repairs. Candidates
+   that remain invalid score zero, and their errors inform later proposals.
 4. **Accept.** A proposal that beats its parent on the training batch is scored
    on validation.
 5. **Select.** The graph with the best validation score is saved. The seed
@@ -26,7 +31,7 @@ The test split never reaches the optimizer. Score it once, after selection:
 
 ```sh
 uv run decision-compose evaluate task.json runs/my-task/plan.json --split test \
-  --output runs/my-task/test.json
+  --backend ruling --max-workers 1 --output runs/my-task/test.json
 ```
 
 ## Settings

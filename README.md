@@ -33,17 +33,28 @@ flowchart LR
   P --> RUN["run / evaluate"]
 ```
 
-**1. Start a judge.** Ruling runs locally and needs no account:
+**1. Start a judge.** [Ruling](https://github.com/bradAGI/ruling) runs locally
+on an Apple Silicon Mac and needs no account. In a separate terminal, starting
+from your `decision-compose` checkout:
 
 ```sh
-cd ../ruling && uv sync && uv run ruling serve
+git clone https://github.com/bradAGI/ruling.git ../ruling
+uv sync --directory ../ruling
+uv run --directory ../ruling ruling serve
 ```
 
-**2. Configure a proposer**, the model that writes graphs. Any
-[DSPy model identifier](https://dspy.ai/learn/programming/language_models/) works:
+Leave that server running. Run the remaining commands from `decision-compose`
+in your original terminal. Ruling downloads its model on first use. On other
+hardware, use a remote Ruling server or the [hosted Jev backend](#backends).
+
+**2. Configure a proposer**, the model that writes graphs, using a
+[DSPy model identifier](https://dspy.ai/learn/programming/language_models/).
+The example below assumes you have separately started an OpenAI-compatible
+model server at `http://127.0.0.1:8080/v1`. Replace `<served-model-id>` with its
+model ID; Ruling provides the judge, not this generative endpoint:
 
 ```sh
-export REFLECTION_MODEL=openai/<served-model-id>
+export REFLECTION_MODEL="openai/<served-model-id>"
 export REFLECTION_BASE_URL=http://127.0.0.1:8080/v1
 export OPENAI_API_KEY=local-no-auth
 ```
@@ -59,7 +70,14 @@ List the allowed labels and your raw inputs in `inputs.json`:
 {
   "description": "Route each support ticket to billing, technical, or sales.",
   "labels": ["billing", "technical", "sales"],
-  "inputs": ["I was charged twice this month.", "The export button returns a 500 error."]
+  "inputs": [
+    "I was charged twice this month.",
+    "The export button returns a 500 error.",
+    "Can I get a quote for twenty seats?",
+    "Please refund the charge after my cancellation.",
+    "The app crashes when I open a project.",
+    "Can we schedule a product demo before buying?"
+  ]
 }
 ```
 
@@ -69,8 +87,12 @@ many inputs are held out for selection and final scoring:
 ```sh
 uv run decision-compose draft-labels inputs.json --output task.json \
   --labeler-model "$REFLECTION_MODEL" --labeler-base-url "$REFLECTION_BASE_URL" \
-  --validation 10 --test 10
+  --validation 1 --test 1
 ```
+
+This leaves four training inputs, one validation input, and one test input: a
+workflow example, too small to measure model quality reliably. For real work,
+use more examples and larger held-out splits.
 
 > [!IMPORTANT]
 > Review and correct `task.json` before optimizing. Search learns to agree with
@@ -84,15 +106,21 @@ judge is fit to its judgment.
 <details>
 <summary><b>I have labeled examples</b></summary>
 
-Write `task.json` directly, like [examples/task.json](examples/task.json):
+Start with the complete labeled sample:
+
+```sh
+cp examples/task.json task.json
+```
+
+Or write `task.json` directly. This minimal example shows the required shape:
 
 ```json
 {
   "description": "Route each support ticket to billing, technical, or sales.",
   "labels": ["billing", "technical", "sales"],
   "train": [{"id": "t1", "state": "I was charged twice.", "label": "billing"}],
-  "validation": [...],
-  "test": [...]
+  "validation": [{"id": "v1", "state": "The app crashes.", "label": "technical"}],
+  "test": [{"id": "e1", "state": "Can I get a price quote?", "label": "sales"}]
 }
 ```
 
@@ -129,14 +157,16 @@ uv run decision-compose run runs/my-task/plan.json examples/state.json \
 flowchart LR
   T["task.json<br/>labels + examples"] --> S["Starting graph<br/>majority label"]
   S --> E["Run on training examples<br/>via Ruling or Jev"]
-  E -->|"errors + expected labels"| P["DSPy proposer<br/>writes new graph JSON"]
-  P -->|"schema check"| E
+  E -->|"errors + expected labels"| P["DSPy proposer<br/>revises one graph component"]
+  P -->|"assemble + schema check"| E
   E -->|"better on the batch"| V["Score on validation examples"]
   V --> B["Best graph<br/>plan.json"]
 ```
 
-The proposer sees where the graph answered wrong and writes a complete
-replacement. A proposal is kept only if it beats its parent on the training
+The proposer sees where the graph answered wrong and revises one component:
+perception (reads and judge calls) or policy (decision rules and outputs).
+The replacement is assembled with the unchanged component and validated as a
+complete graph. A proposal is kept only if it beats its parent on the training
 batch; the best validation score wins. The test split never reaches the optimizer.
 
 The full DAG language is available. This hand-written example
@@ -235,12 +265,18 @@ that read the compass bearing to an opponent nobody can see, and turn onto it.
 ```sh
 uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
   --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
-  --reflection-model "$REFLECTION_MODEL" --output runs/challenger
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/challenger
 ```
 
-Every graph that won anything reads the observation and never calls a judge:
+The winning graphs reported above read the observation without calling a judge:
 `target.x < -0.12` is exact, free and instant, while a call costs a round trip
 each step. Candidates that kept calls were scored and dropped on the merits.
+
+[duel-jev.json](examples/doom/graphs/duel-jev.json) is also included for
+comparison. It uses a judge call to choose combat actions, so running it requires
+a configured [backend](#backends).
 
 ## Use from Python
 
@@ -283,3 +319,7 @@ charges: the search budget counts examples, not requests or dollars.
 uv run pytest -q
 uv run ruff check src tests && uv run ruff format --check src tests
 ```
+
+## License
+
+[MIT](LICENSE).

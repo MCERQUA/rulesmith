@@ -37,7 +37,8 @@ A Doom task replaces labeled examples with episode seeds. See
 | `tics_per_action` | Game tics each chosen button is held (default 4) |
 | `episode_timeout` | Tics before an episode ends (default: the scenario's own). Cap scenarios that otherwise run until death |
 | `feedback_steps` | Final steps shown to the proposer per episode (default 8) |
-| `deathmatch` | Arena-only: episodes are networked duels between graphs (default false) |
+| `deathmatch` | Episodes are networked duels between graphs; `evaluate` and `optimize` require `--opponent` (default false) |
+| `observe` | Additional observation fields: `pose`, `rangefinder`, `compass`, `memory`, `target`, `route` |
 | `train`, `validation`, `test` | Distinct episode seeds |
 
 ## Scenarios
@@ -55,9 +56,11 @@ configs, and a test plays every example to check them.
 | `take_cover` | Dodge fireballs, capped at 2100 tics | [0, 2100] |
 | `predict_position` | Lead a moving target with one slow rocket | [-0.35, 1] |
 
-`deadly_corridor` and `my_way_home` need navigation around walls, which the
-observations do not include, and the campaign and multiplayer configs are out of
-scope.
+Navigation tasks can add wall distances, movement history, and an exit route
+through `observe`. The [E1M1 example](../examples/doom/e1m1.json) uses these
+features for a campaign level; the [duel example](../examples/doom/duel.json)
+uses networked multiplayer games. These expose game state beyond the screen's
+labels buffer, so results depend on the task's observation settings.
 
 A file with a `scenario` field is treated as a Doom task. The same commands
 (`validate`, `evaluate`, `optimize`) work on it.
@@ -157,7 +160,9 @@ against the arena's current leader breeds a challenger:
 ```sh
 uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
   --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
-  --reflection-model "$REFLECTION_MODEL" --output runs/challenger
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/challenger
 ```
 
 The proposer sees each duel's frags, deaths, the opponent's frags, and whether
@@ -166,13 +171,15 @@ synchronous play they barely fire, even with perfect skill settings.
 
 ## Limits
 
-- Graphs keep no memory between steps; each action sees only the current observation.
-- The judge reads JSON, not pixels. Anything the labels buffer does not report,
-  such as walls and doors, is invisible to it.
-- Reactive scenarios fit best. Levels that need navigation or planning, like the
-  campaign maps, are out of reach for now.
-- Each step costs at least one judge call per call node, and episodes are
-  evaluated one at a time.
+- Graphs keep no internal memory between steps. With `observe: ["memory"]`,
+  the environment supplies recent actions, movement, and visit counts.
+- The judge reads JSON, not pixels. Optional `rangefinder` and `route` fields
+  supply wall distances and map-derived navigation hints; `compass` can reveal
+  opponents outside the field of view. This is not a screen-only benchmark.
+- Graphs with only reads and rules need no judge calls. Active call nodes use
+  the judge, with calls sharing identical inputs batched into one request.
+- Single-player episodes are evaluated one at a time. Deathmatch searches can
+  use `--parallel-examples` because each duel owns its game instances.
 - `rangefinder` crashes ViZDoom 1.3.0 on some maps, including E1M6 and the
   `cig` deathmatch maps, because it turns on sectors info. Leave it out there.
 
@@ -186,7 +193,9 @@ pool, and hand over the title only when it wins the head-to-head.
 ```sh
 uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
   --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
-  --reflection-model "$REFLECTION_MODEL" --output runs/challenger
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/challenger
 ```
 
 ### Making the measurement mean something
@@ -234,7 +243,8 @@ first whose conditions all hold sets the action.
 ### The E1M1 exit graph
 
 [examples/doom/graphs/e1m1-exit.json](../examples/doom/graphs/e1m1-exit.json),
-which exits E1M1 on 5 of 12 held-out seeds.
+which exits E1M1 on 5 of 12 seeds overall: 3 of 6 seeds used by search
+(1–6), and 2 of 6 held-out seeds (7–12). The five-clear reel combines both groups.
 
 How the graph decides: each step it reads 10 values from the observation
 (health · ammo · wall ahead · next on route · route bearing · waypoint distance · monster x · monster distance · recent movement · visits here), then checks 16 rules in order. The first rule whose
@@ -1647,4 +1657,3 @@ every step: inherited scaffolding the search kept but the map never exercises.
 ```
 
 </details>
-
