@@ -220,7 +220,10 @@ observations, and the arena.
 
 ![Search fitness: best validation score after each search round](docs/assets/fitness.svg)
 
-Each line stops where its run was stopped. Details and caveats: [Doom notes](docs/doom.md).
+Each line stops where its run was stopped, and the panels are not comparable:
+each is a different task, and the duel panel is drawn on its own scale, where
+0.5 is a drawn match. Generation 2 is the jump that produced `duel-hunter`.
+Details and caveats: [Doom notes](docs/doom.md).
 
 **`basic`** — kill one monster. From a graph that only strafes left, three
 rounds found one that strafes toward the monster and fires when it is centered.
