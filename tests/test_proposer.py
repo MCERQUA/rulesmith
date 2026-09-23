@@ -1,7 +1,6 @@
 import json
 
 import dspy
-import pytest
 from conftest import chat_reply
 from test_graph import binary_plan
 
@@ -9,23 +8,8 @@ from decision_compose.label import Labeler
 from decision_compose.optimize import GraphProposal, GraphProposer, text_adapter
 
 
-def test_signature_preserves_open_node_ids_and_wiring():
-    graph = binary_plan()
-    result = text_adapter().parse(GraphProposal, chat_reply(graph=graph))
-    assert result == {"graph": graph}
-
-
-@pytest.mark.parametrize(
-    "completion",
-    [
-        "not a graph",
-        "[1, 2]",
-        '{"nodes": {"x": {"type": "value", "value": 1e309}}, "outputs": {}}',
-    ],
-)
-def test_malformed_generation_is_reported_as_an_invalid_candidate(provider, completion):
-    provider.completion = completion
-    proposer = GraphProposer(
+def proposer(provider):
+    return GraphProposer(
         dspy.LM(
             "openai/fixture-model",
             api_base=provider.url + "/v1",
@@ -34,44 +18,30 @@ def test_malformed_generation_is_reported_as_an_invalid_candidate(provider, comp
             num_retries=0,
         )
     )
-    candidate = json.loads(proposer("Propose a decision graph."))
-    assert candidate["generation_error"]
+
+
+def test_a_part_comes_back_as_the_text_the_model_wrote():
+    rules = "read target.x in [-1, 1]\nwhen target.x >= 0.1: TURN_RIGHT\nalways: MOVE_FORWARD"
+    assert text_adapter().parse(GraphProposal, chat_reply(graph=rules)) == {"graph": rules}
+
+
+def test_whatever_the_model_answers_becomes_the_candidate(provider):
+    # Rules the compiler cannot read are reported by it, with the line, not hidden here.
+    provider.completion = "when nonsense: MOVE_FORWARD"
+    assert proposer(provider)("Propose rules.") == "when nonsense: MOVE_FORWARD"
     assert len(provider.requests) == 1
 
 
-def test_a_reply_that_is_only_the_graph_is_taken_as_the_graph(provider):
-    # Reasoning models with thinking off often drop the field header and send bare JSON.
-    graph = binary_plan()
-    provider.completion = json.dumps(graph, indent=2)
-    proposer = GraphProposer(
-        dspy.LM(
-            "openai/fixture-model",
-            api_base=provider.url + "/v1",
-            api_key="test-placeholder",
-            cache=False,
-            num_retries=0,
-        )
-    )
-    assert json.loads(proposer("Propose a decision graph.")) == graph
+def test_a_fenced_answer_loses_its_fence(provider):
+    provider.completion = "```\nalways: review\n```"
+    assert proposer(provider)("Propose rules.") == "always: review"
 
 
 def test_a_graph_wrapped_in_prose_is_still_read(provider):
     # Small models explain themselves before answering; the graph is still in there.
     graph = binary_plan()
-    provider.completion = (
-        f"Based on the validation error I fixed the output.\n\n{json.dumps(graph)}\n\n"
-        "This keeps every node."
-    )
-    proposer = GraphProposer(
-        dspy.LM(
-            "openai/fixture-model",
-            api_base=provider.url + "/v1",
-            api_key="test-placeholder",
-            cache=False,
-            num_retries=0,
-        )
-    )
-    assert json.loads(proposer("Propose a decision graph.")) == graph
+    provider.completion = f"Based on the error I fixed the output.\n\n{json.dumps(graph)}\n\nDone."
+    assert json.loads(proposer(provider)("Propose a decision graph.")) == graph
 
 
 def test_proposer_and_labeler_work_on_servers_without_json_mode(provider):

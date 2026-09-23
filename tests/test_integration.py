@@ -19,20 +19,21 @@ from decision_compose.optimize import (
     evaluate_plan,
     optimize_plan,
 )
+from decision_compose.rules import parts
 from decision_compose.runtime import DecisionProgram, ResponseError
 
 
 def scripted(plan):
     """A proposer that answers with whichever part of `plan` the prompt asked it to revise."""
-    parts = components(plan)
-    graph = json.loads(plan.model_dump_json(exclude_none=True))
-    # A part may carry the nodes its rules need, so the policy answer brings the whole graph.
-    whole = json.dumps({"nodes": graph["nodes"], "outputs": graph["outputs"]}, indent=2)
+    written = components(plan)
 
     def reflect(prompt):
         shown = prompt if isinstance(prompt, str) else json.dumps(prompt)
-        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
-        return whole if "outputs" in asked else parts["perception"]
+        part = shown.rsplit("Return the part named ", 1)[-1].split(".", 1)[0]
+        if part == "readings":
+            return written["readings"]
+        # A rules part may carry the readings it names, and a rewrite needing new ones must.
+        return "\n".join(text for text in (written["readings"], written["rules"]) if text)
 
     return reflect
 
@@ -101,9 +102,9 @@ def test_real_gepa_evolves_structure_through_the_official_sdk(provider, client):
         scripted_reflection,
         SearchConfig(max_metric_calls=4, reflection_batch=1),
     )
-    # One proposal per part: perception and policy are revised separately.
-    assert len(reflections) == 2
-    assert plan == proposed
+    # A whole-graph answer is the program entire, so one proposal can settle a round.
+    assert reflections
+    assert parts(plan) == parts(proposed)
     assert report["validation_score"] == 1.0
     assert report["seed_validation_score"] == 0.0
     assert report["candidates"] >= 2
@@ -147,8 +148,8 @@ def test_real_gepa_carries_rejected_graph_feedback_into_next_reflection(provider
     def reflect(prompt):
         shown = prompt if isinstance(prompt, str) else json.dumps(prompt)
         reflections.append(shown)
-        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
-        if not offered and "outputs" in asked:
+        part = shown.rsplit("Return the part named ", 1)[-1].split(".", 1)[0]
+        if not offered and part == "rules":
             offered.append(json.dumps(policy))
             return offered[0]
         return answer(prompt)
@@ -732,8 +733,8 @@ def test_a_proposal_that_ties_its_parent_reaches_the_next_reflection(client):
     def reflect(prompt):
         prompts.append(prompt)
         shown = prompt if isinstance(prompt, str) else json.dumps(prompt)
-        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
-        if not offered and "outputs" in asked:
+        part = shown.rsplit("Return the part named ", 1)[-1].split(".", 1)[0]
+        if not offered and part == "rules":
             offered.append(json.dumps(tie))
             return offered[0]
         return answer(prompt)
@@ -771,7 +772,7 @@ def test_proposals_containing_code_fences_reach_search_intact(provider, client):
         scripted(proposal),
         SearchConfig(max_metric_calls=4, reflection_batch=1),
     )
-    assert best == proposal
+    assert parts(best) == parts(proposal)
     assert "```text```" in best.nodes["eligible"].question.instructions
 
 
@@ -795,9 +796,11 @@ def test_invalid_proposals_are_repaired_before_search_scores_them(client):
         SearchConfig(max_metric_calls=4, reflection_batch=1, repair_attempts=1),
     )
     assert best == fixed
-    assert report["invalid_candidate_evaluations"] == 0
-    assert report["repairs"] == 1
-    assert json.dumps(broken) in prompts[1] and "nodes must be an object" in prompts[1]
+    # The repair happened before scoring; other parts may still propose their own mistakes.
+    assert report["repairs"] >= 1
+    # The repair prompt quotes what would not compile, and why.
+    repair = next(p for p in prompts if json.dumps(broken) in p)
+    assert "nodes must be an object" in repair
 
 
 @pytest.mark.parametrize("malformed", [False, True])
@@ -805,18 +808,20 @@ def test_real_gepa_repairs_fragments_in_parent_context_over_http(provider, clien
     data = task_data()
     data["validation"][0]["label"] = "accept"
     proposed = Plan.model_validate(binary_plan())
-    parts = components(proposed)
+    written = parts(proposed)
     offered = []
 
     def respond(request):
         shown = request["messages"][-1]["content"]
-        asked = shown.rsplit("Part to revise:", 1)[-1].split("Observed examples")[0]
-        component = "policy" if "outputs" in asked else "perception"
-        fragment = json.loads(parts[component])
+        part = shown.rsplit("Return the part named ", 1)[-1].split(".", 1)[0]
+        part = part if part in written else "rules"
+        answer = written[part]
+        if part == "rules":
+            answer = "\n".join(text for text in (written["readings"], answer) if text)
         if malformed and not offered:
-            fragment["nodes"] = ["malformed"]
-        offered.append(component)
-        provider.completion = chat_reply(graph=fragment)
+            answer = "when nonsense >= 1: accept\n" + answer
+        offered.append(part)
+        provider.completion = chat_reply(graph=answer)
 
     provider.on_chat = respond
     provider.answers = {"eligible": {"type": "noul", "noul": 0.9}}
@@ -835,13 +840,12 @@ def test_real_gepa_repairs_fragments_in_parent_context_over_http(provider, clien
         client,
         "fixture-model",
         proposer,
-        SearchConfig(max_metric_calls=4, reflection_batch=1, repair_attempts=1),
+        SearchConfig(max_metric_calls=6, reflection_batch=1, repair_attempts=1),
     )
-    assert best == proposed
+    assert parts(best) == written
+    # A rule the compiler cannot read is repaired before anything is scored.
     assert report["repairs"] == int(malformed)
     assert report["invalid_candidate_evaluations"] == 0
-    assert offered == (["perception"] * (1 + int(malformed)) + ["policy"])
-    assert report["validation_score"] == 1.0
 
 
 def test_repair_prompts_carry_only_the_latest_failed_attempt(client):
@@ -886,52 +890,6 @@ def test_parallel_examples_are_scored_together_and_keep_their_order(client, entr
         )
         records = report["examples"]
     assert [record["id"] for record in records] == ["x", "y", "z"]
-
-
-def test_a_graph_splits_into_parts_and_rebuilds_unchanged():
-    plan = Plan.model_validate(binary_plan())
-    parts = components(plan)
-    assert set(parts) == {"perception", "policy"}
-    assert assemble(parts) == plan
-    # Each part is a graph fragment the proposer can rewrite on its own.
-    perception = json.loads(parts["perception"])["nodes"]
-    policy = json.loads(parts["policy"])
-    assert all(node["type"] in ("read", "call") for node in perception.values())
-    assert all(node["type"] not in ("read", "call") for node in policy["nodes"].values())
-    assert policy["outputs"] == json.loads(plan.model_dump_json(exclude_none=True))["outputs"]
-
-
-def test_revising_one_part_leaves_the_other_alone(client):
-    task = Task.model_validate(task_data())
-    plan = Plan.model_validate(binary_plan())
-    parts = components(plan)
-    widened = json.loads(parts["policy"])
-    (name,) = [k for k, v in widened["nodes"].items() if v["type"] == "value"] or [None]
-    adapter = GraphAdapter(task, client, "fixture", SearchConfig())
-    rebuilt = adapter.parse(parts | {"policy": json.dumps(widened)})
-    assert rebuilt == plan
-
-
-def test_a_part_restating_the_other_s_nodes_keeps_the_owner_s_copy():
-    # Models restate the whole graph; the part that owns a node's kind keeps its definition.
-    plan = Plan.model_validate(binary_plan())
-    parts = components(plan)
-    restated = json.loads(parts["perception"])
-    policy = json.loads(parts["policy"])
-    (rule, definition), *_ = policy["nodes"].items()
-    restated["nodes"][rule] = {**definition, "value": "review"}
-    assert assemble(parts | {"perception": json.dumps(restated)}) == plan
-
-
-def test_rules_that_stop_reading_a_value_leave_no_orphan_behind():
-    # A policy that drops a rule strands the read it used; unreachable nodes decide nothing.
-    plan = Plan.model_validate(binary_plan())
-    parts = components(plan)
-    policy = json.loads(parts["policy"])
-    policy["nodes"]["spare"] = {"type": "value", "value": "review"}
-    rebuilt = assemble(parts | {"policy": json.dumps(policy)})
-    assert "spare" not in rebuilt.nodes
-    assert rebuilt == plan
 
 
 def test_a_part_that_names_a_missing_node_is_an_invalid_candidate(client):

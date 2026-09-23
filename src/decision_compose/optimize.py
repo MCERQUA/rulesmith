@@ -12,10 +12,11 @@ import dspy
 import gepa
 from dspy.utils.exceptions import AdapterParseError
 from gepa.core.adapter import EvaluationBatch, GEPAAdapter
-from pydantic import Field, JsonValue, ValidationError
+from pydantic import Field, ValidationError
 from typesafe_sdk import TypeSafeClient
 
-from decision_compose.graph import Example, Plan, StrictModel, references
+from decision_compose.graph import Example, Plan, StrictModel
+from decision_compose.rules import RuleError, parts, whole
 from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
 
 
@@ -25,13 +26,11 @@ def text_adapter() -> dspy.ChatAdapter:
 
 
 class GraphProposal(dspy.Signature):
-    """Design the requested decision DAG component using the supplied schema and feedback."""
+    """Revise the requested part of a decision program, using the feedback supplied."""
 
     request: str = dspy.InputField()
-    # One object field keeps models from nesting the component inside nodes.
-    graph: dict[str, JsonValue] = dspy.OutputField(
-        desc='The requested component: {"nodes": {...}}, also including outputs for policy'
-    )
+    # Rules are text, and so is the whole-graph JSON a program beyond rules falls back to.
+    graph: str = dspy.OutputField(desc="The requested part, complete and alone")
 
 
 class GraphProposer(dspy.Module):
@@ -45,33 +44,39 @@ class GraphProposer(dspy.Module):
         # Syntax failures remain candidates so GEPA can score and reflect on them.
         with dspy.context(lm=self.lm, adapter=text_adapter()):
             try:
-                graph = self.predict(request=request).graph
+                answer = self.predict(request=request).graph
             except AdapterParseError as error:
-                graph = headless_graph(error)
+                answer = headless_part(error)
             except ValidationError as error:
-                graph = {"generation_error": str(error)}
-        try:
-            return json.dumps(graph, allow_nan=False)
-        except ValueError as error:
-            return json.dumps({"generation_error": str(error)})
+                answer = json.dumps({"generation_error": str(error)})
+        return unfenced(answer if isinstance(answer, str) else json.dumps(answer))
 
 
-def headless_graph(error: AdapterParseError) -> dict:
-    """The graph from a reply that carries no field header. Models with thinking off answer
-    with the bare JSON, sometimes with a sentence either side of it, and since the signature
-    has one output field that JSON is unambiguously the graph."""
-    reply = error.lm_response
-    start = reply.find("{")
-    while start != -1:
-        try:
-            graph, _ = json.JSONDecoder().raw_decode(reply[start:])
-        except json.JSONDecodeError:
-            start = reply.find("{", start + 1)
-            continue
-        if isinstance(graph, dict) and "nodes" in graph:
-            return graph
-        start = reply.find("{", start + 1)
-    return {"generation_error": str(error)}
+def headless_part(error: AdapterParseError) -> str:
+    """The answer from a reply that carries no field header. Models with thinking off answer
+    with the part alone, sometimes with a sentence either side of it."""
+    return error.lm_response
+
+
+def unfenced(answer: str) -> str:
+    """The answer without the code fence models wrap it in, and without the sentence some
+    write before a whole-graph JSON reply."""
+    text = answer.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1] if "\n" in text else text
+        text = text.rsplit("```", 1)[0].strip()
+    if not text.startswith("{") and '"nodes"' in text:
+        start = text.find("{")
+        while start != -1:
+            try:
+                graph, end = json.JSONDecoder().raw_decode(text[start:])
+            except json.JSONDecodeError:
+                start = text.find("{", start + 1)
+                continue
+            if isinstance(graph, dict) and "nodes" in graph:
+                return text[start : start + end]
+            start = text.find("{", start + 1)
+    return text
 
 
 @dataclass(frozen=True)
@@ -146,58 +151,17 @@ def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, paral
         return list(pool.map(lambda example: score(program, example), examples))
 
 
-# What the graph perceives, and what it does about it. GEPA revises one at a time, so a
-# better rule does not have to survive a rewrite of every read beside it.
-PERCEPTION = ("read", "call")
-
-
 def components(plan: Plan) -> dict[str, str]:
-    """The graph as the two parts search revises independently."""
-    graph = json.loads(plan.model_dump_json(exclude_none=True))
-    parts: dict[str, dict] = {"perception": {"nodes": {}}, "policy": {"nodes": {}}}
-    for name, node in graph["nodes"].items():
-        parts["perception" if node["type"] in PERCEPTION else "policy"]["nodes"][name] = node
-    parts["policy"]["outputs"] = graph["outputs"]
-    return {name: json.dumps(part, indent=2) for name, part in parts.items()}
+    """The candidate a proposer revises: rules, not the graph they compile to."""
+    return parts(plan)
 
 
 def assemble(candidate: dict[str, str]) -> Plan:
-    """One plan from the parts, however the proposer rewrote them."""
-    nodes, outputs = {}, None
-    for name, text in candidate.items():
-        try:
-            part = json.loads(text)
-        except json.JSONDecodeError as error:
-            raise ValueError(f"{name} is not JSON: {error}") from error
-        if not isinstance(part, dict):
-            raise ValueError(f"{name} must be an object")
-        if error := part.get("generation_error"):
-            raise ValueError(f"{name} was not generated: {error}")
-        if not isinstance(part.get("nodes", {}), dict):
-            raise ValueError(f"{name}.nodes must be an object")
-        if "outputs" in part and not isinstance(part["outputs"], dict):
-            raise ValueError(f"{name}.outputs must be an object")
-        # A part may carry nodes of any kind, but perception owns the reads and calls and
-        # policy owns the rest: when both define a node, its kind decides whose copy stands.
-        for node, definition in part.get("nodes", {}).items():
-            if not isinstance(definition, dict):
-                raise ValueError(f"{name}.nodes.{node} must be an object")
-            owner = "perception" if definition.get("type") in PERCEPTION else "policy"
-            if node not in nodes or owner == name:
-                nodes[node] = definition
-        outputs = part.get("outputs", outputs)
-    outputs = outputs or {}
-    # A rewritten part can strand a node the other part still defines. A node no output
-    # depends on decides nothing, so drop it rather than fail the candidate over it.
-    wanted: set[str] = set()
-    pending = list(set().union(*(references(o) for o in outputs.values())) if outputs else set())
-    while pending:
-        node = pending.pop()
-        if node not in wanted and node in nodes:
-            wanted.add(node)
-            pending.extend(references(nodes[node]))
-    kept = {name: node for name, node in nodes.items() if name in wanted}
-    return Plan.model_validate({"nodes": kept, "outputs": outputs})
+    """The plan a candidate describes, however its parts were rewritten."""
+    try:
+        return whole(candidate)
+    except RuleError as error:
+        raise ValueError(str(error)) from error
 
 
 class GraphAdapter(GEPAAdapter[object, dict, dict]):
@@ -324,14 +288,12 @@ def optimize_plan(
         nonlocal reflection_calls
         if adapter.failure is not None:
             raise adapter.failure
-        # Names and kinds let reflection wire up the unchanged component's nodes.
-        owned = {
-            part: {
-                name: node.get("type") for name, node in json.loads(text).get("nodes", {}).items()
-            }
-            for part, text in candidate.items()
-        }
-        prompt = f"{prompt}\n\nNodes each part of the graph owns: {json.dumps(owned)}"
+        # Name the part, and show the rest, so a rule can use a reading that already exists.
+        context = "\n".join(f"{part}:\n{text}" for part, text in candidate.items() if text)
+        prompt = (
+            f"{prompt}\n\nReturn the part named {component}.\n"
+            f"The whole program as it stands:\n{context}"
+        )
         previous = adapter.proposal_feedback
         if previous is not None:
             feedback = (
@@ -417,13 +379,19 @@ def optimize_plan(
         f"JSON schema: {json.dumps(Plan.model_json_schema())}\n"
         "Minimal syntax example using two labels (not a solution):\n"
         f"{syntax_example.model_dump_json(exclude_none=True)}\n"
-        "Use the task's full label set when appropriate. You may replace this topology "
-        "with any valid DAG, including multiple calls, branches, and joins.\n"
-        "You are revising one part of a graph: perception holds its read and call nodes, "
-        "policy holds the rest and the outputs. Return that part alone, in the same shape, "
-        "with every node it had unless you mean to drop one. You may add the nodes a new rule "
-        "needs, including its reads. Restating a node the other part owns changes nothing: "
-        "its own part keeps that definition.\n"
+        "Use the task's full label set when appropriate.\n"
+        "Write the program as rules, tried in order, the first whose condition holds "
+        "deciding. Declare what it may look at: 'read target.x in [-1, 1]', "
+        "'read route.next one of [path, door, exit]', or a judgement "
+        '\'ask threat = "question" [fight: "when it applies"] [clear: "when it applies"]\', '
+        "which may end 'when <condition>' to be asked only then. Then the rules: "
+        "'when <condition>: <action>' or 'always: <action>', where an action is a label, an "
+        "ask written the same way, or 'route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT'. "
+        "Conditions join with 'and', name a reading to test that it has a value, or compare "
+        "one with >=, < or ==. The readings part holds declarations and the rules part holds "
+        "rules; return the part you are asked for, complete and alone, except that a rules "
+        "part may declare any reading its rules need. A program that rules cannot express "
+        "may be returned as whole graph JSON instead, matching the schema above.\n"
         "Part to revise:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
 
