@@ -27,6 +27,7 @@ from decision_compose.optimize import (
     evaluate_plan,
     optimize_plan,
 )
+from decision_compose.rules import compile_rules
 from decision_compose.runtime import DecisionProgram, ExecutionConfig
 
 
@@ -171,7 +172,7 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     for path in args.plans:
         if path.stem in plans:
             cli.error(f"entrants share the name {path.stem}; rename a plan file")
-        plans[path.stem] = Plan.model_validate_json(path.read_text())
+        plans[path.stem] = read_plan(path)
         plans[path.stem].check(task.labels, args.max_nodes, args.max_depth)
     if len(plans) < 2:
         cli.error("the arena needs at least two entrants")
@@ -235,6 +236,12 @@ def save_video(frames: list, fps: int, path: Path) -> None:
     first.save(path, save_all=True, append_images=rest, duration=delay, loop=0)
 
 
+def read_plan(path: Path) -> Plan:
+    """A graph from its JSON, or from the rules it is written as."""
+    text = path.read_text()
+    return compile_rules(text) if path.suffix == ".rules" else Plan.model_validate_json(text)
+
+
 def load_task(path: Path) -> Task | DoomTask:
     data = json.loads(path.read_text())
     return (DoomTask if "scenario" in data else Task).model_validate(data)
@@ -254,7 +261,7 @@ def main() -> None:
         return
     if args.command != "run":
         task = load_task(args.task)
-    plan = Plan.model_validate_json(args.plan.read_text()) if args.plan else task.baseline_plan()
+    plan = read_plan(args.plan) if args.plan else task.baseline_plan()
     if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
@@ -267,7 +274,7 @@ def main() -> None:
         cli.error("--opponent is required for, and only for, deathmatch tasks")
     opponent = None
     if deathmatch:
-        opponent = Plan.model_validate_json(args.opponent.read_text())
+        opponent = read_plan(args.opponent)
         opponent.check(task.labels, args.max_nodes, args.max_depth)
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
         cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")

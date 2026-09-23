@@ -295,6 +295,23 @@ when severity >= 2: queue_urgent
 always: queue_normal
 ```
 
+**Spend the judge only where it decides something**
+([gating.rules](examples/rules/gating.rules)) — readings settle the clear cases,
+and the question is asked only about orders big enough to matter:
+
+```
+# Cheap readings decide the clear cases; the judge is asked only about the rest.
+read order.total in [0, 1000000]
+read order.country one of [domestic, eu, rest]
+read customer.orders in [0, 10000]
+ask suspicious = "This order reads like card testing or resale fraud." when order.total >= 500
+when customer.orders >= 5 and order.total < 500: ship
+when order.total < 50: ship
+when suspicious >= 0.7: hold_for_review
+when suspicious >= 0.3 and order.country == "rest": hold_for_review
+always: ship
+```
+
 **Check a draft reply before sending it**
 ([grounding.rules](examples/rules/grounding.rules)) — probabilities compose, so
 two judgements set a floor and a ceiling with a human in between:
@@ -398,6 +415,15 @@ each step. Candidates that kept calls were scored and dropped on the merits.
 comparison. It uses a judge call to choose combat actions, so running it requires
 a configured [backend](#backends).
 
+Any of them runs as it stands, because a `.rules` file is a graph wherever the
+CLI takes one:
+
+```sh
+uv run decision-compose validate examples/task.json examples/rules/routing.rules
+uv run decision-compose run examples/rules/routing.rules examples/state.json \
+  --backend ruling --max-workers 1
+```
+
 ## Use from Python
 
 A graph runs as a `dspy.Module`:
@@ -415,6 +441,24 @@ with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") a
     program = DecisionProgram(plan, client, model="default")
     result = program(state="Please correct the duplicate charge on my invoice.")
     print(result.label, result.answers)
+```
+
+`result.answers` holds what each judgement said, so a decision can be logged or
+audited, not just acted on. Rules load the same way, and a graph of reads alone
+needs no judge at all:
+
+```python
+from decision_compose.rules import compile_rules, render_rules
+
+plan = compile_rules(Path("examples/rules/gating.rules").read_text())
+print(render_rules(plan))  # and back again: the graph reads as the rules it came from
+
+triage = compile_rules("""
+read order.total in [0, 1000000]
+when order.total >= 500: hold_for_review
+always: ship
+""")
+print(DecisionProgram(triage, None, "none")(state={"order": {"total": 900}}).label)
 ```
 
 ## Backends

@@ -92,11 +92,13 @@ EXAMPLES = sorted((Path(__file__).resolve().parents[1] / "examples/rules").glob(
 def test_every_example_program_compiles_and_survives_the_round_trip(path):
     plan = compile_rules(path.read_text())
     assert render_rules(compile_rules(render_rules(plan))) == render_rules(plan)
-    # Each example shows one kind of judgement doing the work its kind is for.
     kinds = {node.question.type for node in plan.nodes.values() if node.type == "call"}
-    assert kinds == {
-        path.stem and {"routing": "choice", "triage": "score", "grounding": "noul"}[path.stem]
-    }
+    # Each example shows one kind of judgement doing the work that kind is for, and the last
+    # keeps its judgement behind readings, asked only when they cannot settle the case.
+    shown = {"routing": "choice", "triage": "score", "grounding": "noul", "gating": "noul"}
+    assert kinds == {shown[path.stem]}
+    if path.stem == "gating":
+        assert all(node.when is not None for node in plan.nodes.values() if node.type == "call")
 
 
 def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():

@@ -252,11 +252,15 @@ def parse_test(text: str, reads: dict) -> dict:
     for symbol, op in OPERATORS.items():
         if f" {symbol} " in text:
             path, _, value = text.partition(f" {symbol} ")
+            try:
+                compared = json.loads(value.strip())
+            except json.JSONDecodeError as error:
+                raise RuleError(f"{value.strip()!r} is not a number or a quoted label") from error
             return {
                 "type": "compare",
                 "node": named(path.strip(), reads),
                 "op": op,
-                "value": json.loads(value.strip()),
+                "value": compared,
             }
     return {"type": "present", "node": named(text, reads)}
 

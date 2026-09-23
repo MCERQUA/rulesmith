@@ -358,3 +358,22 @@ def test_a_hung_proposer_fails_the_search_instead_of_stalling(tmp_path, provider
         released.set()
     assert result.returncode != 0
     assert "Timeout" in result.stderr
+
+
+def test_a_graph_can_be_written_as_rules_and_run_from_the_file(tmp_path):
+    task = write(tmp_path / "task.json", task_data())
+    rules = tmp_path / "policy.rules"
+    rules.write_text("always: review\n")
+    state = write(tmp_path / "state.json", "Please refund the duplicate charge.")
+    assert invoke("validate", task, rules).returncode == 0
+    result = invoke("run", rules, state)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["label"] == "review"
+
+
+def test_rules_that_will_not_compile_name_the_line(tmp_path):
+    task = write(tmp_path / "task.json", task_data())
+    rules = tmp_path / "policy.rules"
+    rules.write_text("always: review\nwhen nonsense >= 1: accept\n")
+    result = invoke("validate", task, rules)
+    assert result.returncode != 0 and "line 2" in result.stderr

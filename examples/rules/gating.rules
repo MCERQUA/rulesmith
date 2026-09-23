@@ -1,0 +1,10 @@
+# Cheap readings decide the clear cases; the judge is asked only about the rest.
+read order.total in [0, 1000000]
+read order.country one of [domestic, eu, rest]
+read customer.orders in [0, 10000]
+ask suspicious = "This order reads like card testing or resale fraud." when order.total >= 500
+when customer.orders >= 5 and order.total < 500: ship
+when order.total < 50: ship
+when suspicious >= 0.7: hold_for_review
+when suspicious >= 0.3 and order.country == "rest": hold_for_review
+always: ship
