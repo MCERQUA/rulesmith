@@ -104,6 +104,41 @@ judge is fit to its judgment.
 </details>
 
 <details>
+<summary><b>My inputs are more than text</b></summary>
+
+An input may be a string, a JSON object, or an array. Structure is worth giving
+it: a rule can only `read` what has a path, so on a bare string every read is
+missing and the graph has nothing to go on but judgements.
+
+```json
+{
+  "description": "Route each refund request.",
+  "labels": ["auto_refund", "review", "decline"],
+  "inputs": [
+    {"charge": {"amount": 40, "days_ago": 2}, "account": {"plan": "pro", "chargebacks": 0},
+     "message": "Charged twice for the same seat."},
+    {"charge": {"amount": 900, "days_ago": 60}, "account": {"plan": "free", "chargebacks": 2},
+     "message": "I want all of it back."},
+    {"charge": {"amount": 12, "days_ago": 1}, "account": {"plan": "enterprise", "chargebacks": 0},
+     "message": "Wrong seat count on this invoice."}
+  ]
+}
+```
+
+Rules then mix what is known with what must be judged:
+
+```
+read charge.amount in [0, 100000]
+read account.chargebacks in [0, 100]
+ask genuine = "The message describes a mistake the customer did not cause."
+when account.chargebacks >= 1: review
+when charge.amount < 50 and genuine >= 0.8: auto_refund
+always: review
+```
+
+</details>
+
+<details>
 <summary><b>I have labeled examples</b></summary>
 
 Start with the complete labeled sample:
