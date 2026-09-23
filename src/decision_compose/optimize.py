@@ -247,24 +247,8 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return {component: eval_batch.trajectories for component in components_to_update}
 
 
-def optimize_plan(
-    task: SearchTask,
-    initial: Plan,
-    client: TypeSafeClient,
-    model: str,
-    reflection_lm: Callable,
-    config: SearchConfig,
-    execution: ExecutionConfig | None = None,
-    score: Scorer = classify,
-) -> tuple[Plan, dict]:
-    initial.check(task.labels, config.max_nodes, config.max_depth)
-    batch_size = min(config.reflection_batch, len(task.train))
-    minimum_budget = 2 * (len(task.validation) + batch_size)
-    if config.max_metric_calls < minimum_budget:
-        raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
-    adapter = GraphAdapter(task, client, model, config, execution, score)
-    reflection_calls = 0
-    repairs = 0
+def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
+    """Everything the proposer is told: the language, the task, and the part to return."""
     syntax_example = Plan.model_validate(
         {
             "nodes": {
@@ -283,55 +267,7 @@ def optimize_plan(
             "outputs": {"label": {"type": "node", "node": "decision"}},
         }
     )
-
-    def reflect(prompt, candidate, component):
-        nonlocal reflection_calls
-        if adapter.failure is not None:
-            raise adapter.failure
-        # Name the part, and show the rest, so a rule can use a reading that already exists.
-        context = "\n".join(f"{part}:\n{text}" for part, text in candidate.items() if text)
-        prompt = (
-            f"{prompt}\n\nReturn the part named {component}.\n"
-            f"The whole program as it stands:\n{context}"
-        )
-        previous = adapter.proposal_feedback
-        if previous is not None:
-            feedback = (
-                "Your previous proposal was scored on training examples (1 is best per "
-                "example) and discarded unless it beat the current graph. Do not repeat its "
-                f"mistakes.\nPrevious proposal:\n{previous['graph']}\n"
-                f"Scores: {previous['scores']}\nResults: {json.dumps(previous['results'])}"
-            )
-            prompt = f"{prompt}\n\n{feedback}"
-            adapter.proposal_feedback = None
-        nonlocal repairs
-        request = prompt
-        for attempt in range(config.repair_attempts + 1):
-            try:
-                reflection_calls += 1
-                proposal = reflection_lm(request).strip()
-            except Exception as error:
-                # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
-                adapter.failure = error
-                raise
-            try:
-                adapter.parse(candidate | {component: proposal})
-                break
-            except ValueError as error:
-                if attempt == config.repair_attempts:
-                    break
-                repairs += 1
-                # Validation is instant, so fix schema slips before spending episodes on them.
-                repair = (
-                    f"This graph failed validation and was not run:\n{proposal}\n"
-                    f"Error: {error}\nReturn only the corrected {component} component."
-                )
-                # Only the latest attempt matters; earlier failures would bloat the prompt.
-                request = f"{prompt}\n\n{repair}"
-        adapter.proposed = proposal
-        return proposal
-
-    prompt = (
+    return (
         "Improve this directed acyclic graph using observed execution failures. Return only "
         "the replacement component JSON object, with nodes and, for policy, outputs. "
         "Add, remove, or rewrite "
@@ -381,10 +317,18 @@ def optimize_plan(
         f"{syntax_example.model_dump_json(exclude_none=True)}\n"
         "Use the task's full label set when appropriate.\n"
         "Write the program as rules, tried in order, the first whose condition holds "
-        "deciding. Declare what it may look at: 'read target.x in [-1, 1]', "
-        "'read route.next one of [path, door, exit]', or a judgement "
-        '\'ask threat = "question" [fight: "when it applies"] [clear: "when it applies"]\', '
-        "which may end 'when <condition>' to be asked only then. Then the rules: "
+        "deciding. Declare what it may look at: 'read target.x in [-1, 1]' or "
+        "'read route.next one of [path, door, exit]'. A judgement is asked in one of three "
+        "ways, and its kind decides how a rule tests it: "
+        '\'ask threat = "question" [fight: "when it applies"] [clear: "when it applies"]\' '
+        "answers one of those labels, tested 'threat == \"fight\"'; "
+        "'ask severity = \"question\" [minor] [major] [critical]' answers a position on that "
+        "rubric, ordered, tested 'severity >= 2'; and "
+        "'ask winning = \"a statement that is either true or false\"' answers the probability "
+        "that it is true, tested 'winning >= 0.8'. Ask for a probability when a threshold "
+        "suits the decision, and for labels when the answers have no order. Any judgement may "
+        "end 'when <condition>' to be asked only then, which is how a costly question is kept "
+        "behind a cheap reading. Then the rules: "
         "'when <condition>: <action>' or 'always: <action>', where an action is a label, an "
         "ask written the same way, or 'route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT'. "
         "Conditions join with 'and', name a reading to test that it has a value, or compare "
@@ -394,6 +338,75 @@ def optimize_plan(
         "may be returned as whole graph JSON instead, matching the schema above.\n"
         "Part to revise:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
+
+
+def optimize_plan(
+    task: SearchTask,
+    initial: Plan,
+    client: TypeSafeClient,
+    model: str,
+    reflection_lm: Callable,
+    config: SearchConfig,
+    execution: ExecutionConfig | None = None,
+    score: Scorer = classify,
+) -> tuple[Plan, dict]:
+    initial.check(task.labels, config.max_nodes, config.max_depth)
+    batch_size = min(config.reflection_batch, len(task.train))
+    minimum_budget = 2 * (len(task.validation) + batch_size)
+    if config.max_metric_calls < minimum_budget:
+        raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
+    adapter = GraphAdapter(task, client, model, config, execution, score)
+    reflection_calls = 0
+    repairs = 0
+
+    def reflect(prompt, candidate, component):
+        nonlocal reflection_calls
+        if adapter.failure is not None:
+            raise adapter.failure
+        # Name the part, and show the rest, so a rule can use a reading that already exists.
+        context = "\n".join(f"{part}:\n{text}" for part, text in candidate.items() if text)
+        prompt = (
+            f"{prompt}\n\nReturn the part named {component}.\n"
+            f"The whole program as it stands:\n{context}"
+        )
+        previous = adapter.proposal_feedback
+        if previous is not None:
+            feedback = (
+                "Your previous proposal was scored on training examples (1 is best per "
+                "example) and discarded unless it beat the current graph. Do not repeat its "
+                f"mistakes.\nPrevious proposal:\n{previous['graph']}\n"
+                f"Scores: {previous['scores']}\nResults: {json.dumps(previous['results'])}"
+            )
+            prompt = f"{prompt}\n\n{feedback}"
+            adapter.proposal_feedback = None
+        nonlocal repairs
+        request = prompt
+        for attempt in range(config.repair_attempts + 1):
+            try:
+                reflection_calls += 1
+                proposal = reflection_lm(request).strip()
+            except Exception as error:
+                # Preserve the provider failure if GEPA treats it as an unsuccessful mutation.
+                adapter.failure = error
+                raise
+            try:
+                adapter.parse(candidate | {component: proposal})
+                break
+            except ValueError as error:
+                if attempt == config.repair_attempts:
+                    break
+                repairs += 1
+                # Validation is instant, so fix schema slips before spending episodes on them.
+                repair = (
+                    f"This graph failed validation and was not run:\n{proposal}\n"
+                    f"Error: {error}\nReturn only the corrected {component} component."
+                )
+                # Only the latest attempt matters; earlier failures would bloat the prompt.
+                request = f"{prompt}\n\n{repair}"
+        adapter.proposed = proposal
+        return proposal
+
+    prompt = proposer_prompt(task, config)
 
     def propose(candidate, reflective_dataset, components_to_update):
         return {

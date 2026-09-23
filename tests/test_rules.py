@@ -1,6 +1,7 @@
 """The rule surface a proposer writes, and the graph it compiles to."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -96,3 +97,19 @@ def test_every_example_program_compiles_and_survives_the_round_trip(path):
     assert kinds == {
         path.stem and {"routing": "choice", "triage": "score", "grounding": "noul"}[path.stem]
     }
+
+
+def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
+    # Search can only use what its instructions describe, and the language has three kinds.
+    from decision_compose.graph import Task
+    from decision_compose.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    asked = re.findall(r"'(ask [^']+)'", prompt)
+    kinds = set()
+    for form in asked:
+        name = form.split()[1]
+        # A judgement nothing asks about is pruned, so give each one a rule that uses it.
+        plan = compile_rules(f"{form}\nwhen {name}: review\nalways: accept")
+        kinds |= {node.question.type for node in plan.nodes.values() if node.type == "call"}
+    assert kinds == {"choice", "score", "noul"}
