@@ -163,11 +163,11 @@ flowchart LR
   V --> B["Best graph<br/>plan.json"]
 ```
 
-The proposer sees where the graph answered wrong and revises one component:
-perception (reads and judge calls) or policy (decision rules and outputs).
-The replacement is assembled with the unchanged component and validated as a
-complete graph. A proposal is kept only if it beats its parent on the training
-batch; the best validation score wins. The test split never reaches the optimizer.
+The proposer sees where the graph answered wrong and revises one part: the
+readings it may look at, or the rules that decide. The revision is compiled with
+the part it did not touch and validated as a complete graph. A proposal is kept
+only if it beats its parent on the training batch; the best validation score
+wins. The test split never reaches the optimizer.
 
 The full DAG language is available. This hand-written example
 ([examples/dag.json](examples/dag.json)) asks two questions in parallel, then
@@ -206,6 +206,31 @@ Rules are tried in order and the first whose condition holds decides. A judgemen
 can sit behind a cheap read, so the judge is asked only where a number cannot
 settle it. Programs that rules cannot express, such as two judgements merged into
 one input, are proposed as whole-graph JSON instead.
+
+### What a judgement can be
+
+A judge answers three kinds of question, and only the first is classification:
+
+| Kind | Answer | Written as | Tested with |
+| --- | --- | --- | --- |
+| `choice` | one of the labels you name | `ask route = "Which team?" [billing: "..."] [technical: "..."]` | `route == "billing"` |
+| `score` | a position on the rubric, ordered | `ask severity = "How bad is this?" [minor] [major] [critical]` | `severity >= 2` |
+| `noul` | the probability its statement is true | `ask grounded = "The reply follows from the context."` | `grounded >= 0.85` |
+
+A probability is a number, so it composes like any read:
+
+```
+ask grounded = "The reply follows from the retrieved context."
+when grounded >= 0.85: send
+when grounded < 0.4: escalate
+always: ask_for_review
+```
+
+That covers uses a classifier has no form for: gating an action on confidence,
+verifying a generated answer before it goes out, ranking candidates by asking
+which is better, or serving as the metric a search optimises against rather than
+the policy it searches. What a judge will not do is extract or compute: if the
+answer is already a value in the input, read it.
 
 See [Graph format](docs/graphs.md) for the JSON behind each node, and
 [Optimization](docs/optimization.md) for the rule surface search writes.
