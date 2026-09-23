@@ -193,7 +193,22 @@ flowchart LR
   A ==> AS(["assessment"])
 ```
 
-See [Graph format](docs/graphs.md) for the JSON behind each node.
+Search does not write that JSON. It writes rules, which compile to it:
+
+```
+read target.x in [-1, 1]
+ask threat = "Is this worth fighting?" [fight: "A live opponent is in view."] [clear: "Nothing is."]
+when target.x and threat == "fight": ATTACK
+always: MOVE_FORWARD
+```
+
+Rules are tried in order and the first whose condition holds decides. A judgement
+can sit behind a cheap read, so the judge is asked only where a number cannot
+settle it. Programs that rules cannot express, such as two judgements merged into
+one input, are proposed as whole-graph JSON instead.
+
+See [Graph format](docs/graphs.md) for the JSON behind each node, and
+[Optimization](docs/optimization.md) for the rule surface search writes.
 
 ## Play Doom
 

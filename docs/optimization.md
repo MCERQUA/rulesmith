@@ -142,3 +142,35 @@ shows the pipeline works end to end, not a benchmark result.
   make selection noisy.
 - DSPy's LiteLLM dependency may load `.env` files, so shell variables may not be
   the only configuration source.
+
+## What search writes
+
+A candidate is a rule list, not graph JSON. It compiles to the graph language and
+renders back from it, so the runtime, the validators and the saved `plan.json` are
+unchanged: only the surface a proposer writes is different.
+
+```
+read variables.HEALTH in [0, 200]
+read compass.2.bearing in [-180, 180]
+ask threat = "Fight or fall back?" [fight: "Ammo and health allow it."] [flee: "They do not."] when variables.HEALTH < 40
+when variables.HEALTH >= 25 and threat == "fight": ATTACK
+when compass.2.bearing >= 45: TURN_LEFT
+always: MOVE_FORWARD
+```
+
+- **Readings** declare what the program may look at: `read <path> in [low, high]`,
+  `read <path> one of [a, b]`, or `ask <name> = "question" [label: "when it applies"] ...`
+  for a judgement, which may end `when <condition>` to be asked only then.
+- **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
+  An action is a label, an ask written the same way, or
+  `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`.
+- **Conditions** join with `and`, name a reading to test that it has a value, or
+  compare one with `>=`, `<` or `==`.
+- The two parts, readings and rules, are revised separately and may be merged
+  between candidates. A rules part may declare any reading its rules need.
+- A program beyond rules is proposed as whole-graph JSON, which is accepted as the
+  complete program.
+
+Why: two fifths of proposals against a 36-node graph scored zero, not because the
+graphs played badly but because the JSON came back malformed. Every searched graph
+had the same shape anyway, so that shape became the surface.
