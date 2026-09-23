@@ -1,0 +1,5 @@
+# choice: pick one of the labels you named, the classic classification.
+ask team = "Which team should answer this ticket?" [billing: "Charges, invoices, refunds."] [technical: "Errors, outages, anything broken."] [sales: "Pricing, plans, buying more."]
+when team == "billing": billing
+when team == "technical": technical
+always: sales

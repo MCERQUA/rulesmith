@@ -1,0 +1,7 @@
+# noul: a probability, so the decision is a threshold on confidence.
+ask grounded = "Every claim in the draft reply follows from the retrieved context."
+ask harmful = "The draft reply would embarrass us if a customer read it."
+when harmful >= 0.2: rewrite
+when grounded >= 0.85: send
+when grounded < 0.4: escalate
+always: ask_for_review

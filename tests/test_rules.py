@@ -82,3 +82,17 @@ def test_rules_only_name_labels_the_task_allows():
     task = Task.model_validate(task_data())
     plan = compile_rules("always: review")
     plan.check(task.labels, 16, 8)
+
+
+EXAMPLES = sorted((Path(__file__).resolve().parents[1] / "examples/rules").glob("*.rules"))
+
+
+@pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.stem)
+def test_every_example_program_compiles_and_survives_the_round_trip(path):
+    plan = compile_rules(path.read_text())
+    assert render_rules(compile_rules(render_rules(plan))) == render_rules(plan)
+    # Each example shows one kind of judgement doing the work its kind is for.
+    kinds = {node.question.type for node in plan.nodes.values() if node.type == "call"}
+    assert kinds == {
+        path.stem and {"routing": "choice", "triage": "score", "grounding": "noul"}[path.stem]
+    }

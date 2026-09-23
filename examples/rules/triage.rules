@@ -1,0 +1,7 @@
+# score: a position on a rubric, so it can be compared and thresholded.
+read variables.customer_tier in [0, 3]
+ask severity = "How badly is this customer blocked?" [annoyance] [degraded] [blocked] [outage]
+when severity >= 3: page_oncall
+when severity >= 2 and variables.customer_tier >= 2: escalate
+when severity >= 2: queue_urgent
+always: queue_normal

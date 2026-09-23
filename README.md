@@ -232,6 +232,48 @@ which is better, or serving as the metric a search optimises against rather than
 the policy it searches. What a judge will not do is extract or compute: if the
 answer is already a value in the input, read it.
 
+One worked example of each, runnable from
+[examples/rules](examples/rules):
+
+**Route a ticket** ([routing.rules](examples/rules/routing.rules)) — a choice is
+a label, and the rules act on it:
+
+```
+# choice: pick one of the labels you named, the classic classification.
+ask team = "Which team should answer this ticket?" [billing: "Charges, invoices, refunds."] [technical: "Errors, outages, anything broken."] [sales: "Pricing, plans, buying more."]
+when team == "billing": billing
+when team == "technical": technical
+always: sales
+```
+
+**Triage by how blocked the customer is**
+([triage.rules](examples/rules/triage.rules)) — a score is ordered, so one
+judgement feeds several thresholds, and a read decides who jumps the queue:
+
+```
+# score: a position on a rubric, so it can be compared and thresholded.
+read variables.customer_tier in [0, 3]
+ask severity = "How badly is this customer blocked?" [annoyance] [degraded] [blocked] [outage]
+when severity >= 3: page_oncall
+when severity >= 2 and variables.customer_tier >= 2: escalate
+when severity >= 2: queue_urgent
+always: queue_normal
+```
+
+**Check a draft reply before sending it**
+([grounding.rules](examples/rules/grounding.rules)) — probabilities compose, so
+two judgements set a floor and a ceiling with a human in between:
+
+```
+# noul: a probability, so the decision is a threshold on confidence.
+ask grounded = "Every claim in the draft reply follows from the retrieved context."
+ask harmful = "The draft reply would embarrass us if a customer read it."
+when harmful >= 0.2: rewrite
+when grounded >= 0.85: send
+when grounded < 0.4: escalate
+always: ask_for_review
+```
+
 See [Graph format](docs/graphs.md) for the JSON behind each node, and
 [Optimization](docs/optimization.md) for the rule surface search writes.
 
