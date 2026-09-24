@@ -27,6 +27,8 @@ from decision_compose.graph import (
 OPERATORS = {">=": "ge", "<": "lt", "==": "eq"}
 SYMBOLS = {name: symbol for symbol, name in OPERATORS.items()}
 LABEL = r"[A-Za-z_][\w+.]*"
+SECTIONS = ("readings", "rules")
+JOINERS = ((" or ", "any"), (" and ", "all"))
 
 
 def parts(plan: Plan) -> dict[str, str]:
@@ -37,13 +39,14 @@ def parts(plan: Plan) -> dict[str, str]:
     except RuleError:
         return {"readings": "", "rules": plan.model_dump_json(indent=2)}
     declared = [line for line in lines if line.startswith(("read ", "ask "))]
-    return {"readings": "\n".join(declared), "rules": "\n".join(lines[len(declared) :])}
+    readings, rules = SECTIONS
+    return {readings: "\n".join(declared), rules: "\n".join(lines[len(declared) :])}
 
 
 def whole(candidate: dict[str, str]) -> Plan:
     """One plan from the parts a proposer returned: readings first, so rules can name them."""
-    order = [part for part in ("readings", "rules") if part in candidate]
-    order += [part for part in candidate if part not in ("readings", "rules")]
+    order = [part for part in SECTIONS if part in candidate]
+    order += [part for part in candidate if part not in SECTIONS]
     written = [candidate[part] for part in order if candidate[part]]
     # An answer in whole-graph JSON is the program entire, not a part to join to the rules.
     graph = [text for text in written if text.lstrip().startswith("{")]
@@ -155,7 +158,9 @@ def compile_rules(text: str) -> Plan:
     sources: list[str] = []
     for number, line in enumerate(stripped.splitlines(), start=1):
         line = line.strip()
-        if not line or line.startswith("#"):
+        # Asked for one part, a proposer tends to answer with the whole program: fenced, and with
+        # the section headings written back out. Neither says anything about the rules themselves.
+        if not line or line.startswith(("#", "```")) or line.rstrip(":") in SECTIONS:
             continue
         try:
             read_rule(line, nodes, names, sources)
@@ -241,14 +246,29 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
 
 
 def parse_condition(text: str, reads: dict) -> dict:
-    parts = [part.strip() for part in text.split(" and ")]
-    conditions = [parse_test(part, reads) for part in parts]
-    return conditions[0] if len(conditions) == 1 else {"type": "all", "conditions": conditions}
+    # 'or' binds loosest, so it splits first and each side may still be a run of 'and'.
+    for joiner, kind in JOINERS:
+        if joiner in text:
+            sides = [parse_condition(side.strip(), reads) for side in text.split(joiner)]
+            return {"type": kind, "conditions": sides}
+    return parse_test(text.strip(), reads)
 
 
 def parse_test(text: str, reads: dict) -> dict:
     if text.startswith("not "):
         return {"type": "not", "condition": parse_test(text[4:].strip(), reads)}
+    for symbol in ("<=", ">"):
+        if f" {symbol} " in text:
+            path, _, value = text.partition(f" {symbol} ")
+            # A graph compares with '<', '>=' and '=='; the other two orderings are made of those.
+            below = {
+                "type": "any",
+                "conditions": [
+                    parse_test(f"{path.strip()} < {value.strip()}", reads),
+                    parse_test(f"{path.strip()} == {value.strip()}", reads),
+                ],
+            }
+            return below if symbol == "<=" else {"type": "not", "condition": below}
     for symbol, op in OPERATORS.items():
         if f" {symbol} " in text:
             path, _, value = text.partition(f" {symbol} ")

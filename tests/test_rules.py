@@ -5,10 +5,13 @@ import re
 from pathlib import Path
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
 from decision_compose.graph import Plan, Task
 from decision_compose.rules import RuleError, compile_rules, render_rules
+from decision_compose.runtime import DecisionProgram
 
 GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").glob("*.json"))
 
@@ -42,6 +45,33 @@ def test_a_rule_may_ask_the_judge_and_fall_through_when_it_declines():
     kinds = [node.type for node in plan.nodes.values()]
     assert "call" in kinds and "value" in kinds
     assert render_rules(compile_rules(render_rules(plan))) == render_rules(plan)
+
+
+def test_a_proposal_that_fences_its_answer_and_restates_the_sections_still_compiles():
+    # What the proposer actually writes when asked for one part: the whole program, in a fence,
+    # with the section headings repeated. None of that changes the rules it is proposing.
+    plain = "read variables.HEALTH in [0, 200]\nwhen variables.HEALTH < 20: MOVE_BACKWARD\nalways: ATTACK"
+    dressed = "```\nreadings:\nread variables.HEALTH in [0, 200]\n\nrules:\nwhen variables.HEALTH < 20: MOVE_BACKWARD\nalways: ATTACK\n```"
+    assert render_rules(compile_rules(dressed)) == render_rules(compile_rules(plain))
+
+
+@given(st.floats(min_value=0, max_value=1))
+def test_the_ordering_operators_partition_every_reading(value):
+    # '<=' and '>' are exact complements, so one arm fires for any reading, the boundary included.
+    plan = compile_rules("read score in [0, 1]\nwhen score > 0.5: high\nwhen score <= 0.5: low")
+    assert DecisionProgram(plan, None, "none")({"score": value}).label == ("high" if value > 0.5 else "low")
+
+
+def test_a_rule_that_accepts_either_of_two_readings_round_trips():
+    # Rendering a graph produced ' or ' that nothing could read back.
+    text = "read variables.HEALTH in [0, 200]\nread target.distance in [0, 6000]\nwhen variables.HEALTH < 20 or target.distance < 100: MOVE_BACKWARD\nalways: ATTACK"
+    plan = compile_rules(text)
+    rules = render_rules(plan)
+    assert " or " in rules and render_rules(compile_rules(rules)) == rules
+    program = DecisionProgram(plan, None, "none")
+    assert program({"variables": {"HEALTH": 10}, "target": {"distance": 900}}).label == "MOVE_BACKWARD"
+    assert program({"variables": {"HEALTH": 90}, "target": {"distance": 10}}).label == "MOVE_BACKWARD"
+    assert program({"variables": {"HEALTH": 90}, "target": {"distance": 900}}).label == "ATTACK"
 
 
 def test_a_constant_policy_is_one_line():
