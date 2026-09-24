@@ -17,7 +17,7 @@ from test_graph import constant_plan
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Plan
 from decision_compose.optimize import SearchConfig, optimize_plan
-from decision_compose.runtime import DecisionProgram
+from decision_compose.runtime import MISSING, DecisionProgram, resolve_node
 
 ACTIONS = ["MOVE_LEFT", "MOVE_RIGHT", "ATTACK"]
 # Half-width of the aiming window, as a fraction of the half-screen.
@@ -176,6 +176,23 @@ def test_aiming_policy_kills_the_monster_through_the_sdk(task, env, provider, cl
     assert outcome.record["steps"] == len(provider.requests)
     assert "ATTACK" in outcome.record["actions"]
     assert "reward" in outcome.trace["Feedback"]
+
+
+def test_the_example_the_proposer_sees_is_readable_by_a_read_node(task, env, client):
+    # Search writes read paths by copying them out of the example in its feedback, so that
+    # example has to be the observation itself. Nested under a key of its own, the proposer
+    # wrote paths through that key, and every read it declared resolved to nothing.
+    program = DecisionProgram(Plan.constant("ATTACK"), client, "fixture")
+    outcome = Episodes(task, env)(program, 7)
+    shown = outcome.trace["Inputs"]
+    assert "objects" in shown
+    plan = Plan.model_validate(
+        {
+            "nodes": {"seen": {"type": "read", "path": ["objects", 0, "x"], "bounds": [-1, 1]}},
+            "outputs": {"label": {"type": "node", "node": "seen"}},
+        }
+    )
+    assert resolve_node(plan.nodes["seen"], shown, {}, {}) is not MISSING
 
 
 def test_real_gepa_improves_a_doom_policy(task, env, provider, client):

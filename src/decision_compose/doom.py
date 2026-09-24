@@ -523,18 +523,17 @@ class Episodes:
             "error": error,
         }
         feedback = error or (
-            f"Episode reward {total} in range {[low, high]} (score {score:.3f}) "
-            f"after {len(steps)} actions, with {stats}. Higher reward is better."
+            f"Episode {episode.seed} on {episode.map or self.task.scenario}: reward {total} in "
+            f"range {[low, high]} (score {score:.3f}) after {len(steps)} actions, with {stats}. "
+            "Higher reward is better."
         )
         return Outcome(
             score=score,
             record=record,
             trace={
-                "Inputs": {
-                    "seed": episode.seed,
-                    "map": episode.map,
-                    "first_observation": steps[0]["observation"] if steps else observation,
-                },
+                # The observation itself, not wrapped: search writes read paths by copying them
+                # out of this example, so a key around it becomes a prefix on every path it writes.
+                "Inputs": steps[0]["observation"] if steps else observation,
                 "Generated Outputs": {
                     "actions": dict(actions),
                     "last_steps": steps[-self.task.feedback_steps :],
