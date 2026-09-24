@@ -169,6 +169,15 @@ The proposer sees each duel's frags, deaths, the opponent's frags, and whether
 the graph won. ZDoom's built-in bots are left out: under ViZDoom's
 synchronous play they barely fire, even with perfect skill settings.
 
+Split by map, not by seed. A task whose three splits are seeds of one level
+measures how well a graph knows that level: a champion bred on cig MAP03 shut
+out a hand-written always-attack graph 9-0 there and lost to it on every other
+map where the two met. [examples/doom/duel-maps.json](../examples/doom/duel-maps.json)
+trains on four maps, validates on three others and tests on four more, so the
+validation score falls when a graph has learned a level rather than duelling.
+A map only earns a place if graphs reliably meet on it; the scenario's other
+levels are too big, and matches there end 0-0 whatever the graphs do.
+
 ## Limits
 
 - Graphs keep no internal memory between steps. With `observe: ["memory"]`,

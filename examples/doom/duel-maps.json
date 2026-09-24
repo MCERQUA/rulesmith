@@ -1,0 +1,196 @@
+{
+  "description": "Win a deathmatch against another graph on a level you have not played before. The compass gives the bearing and distance to the opponent and to pickups anywhere on the map, and the target is the nearest opponent on screen. The label is your next action.",
+  "scenario": "cig",
+  "deathmatch": true,
+  "labels": [
+    "MOVE_FORWARD",
+    "MOVE_FORWARD+TURN_LEFT",
+    "MOVE_FORWARD+TURN_RIGHT",
+    "TURN_LEFT",
+    "TURN_RIGHT",
+    "MOVE_BACKWARD",
+    "ATTACK",
+    "USE",
+    "MOVE_FORWARD+USE"
+  ],
+  "reward_range": [
+    -100,
+    100
+  ],
+  "episode_timeout": 2100,
+  "variables": [
+    "HEALTH",
+    "ARMOR",
+    "SELECTED_WEAPON_AMMO"
+  ],
+  "observe": [
+    "memory",
+    "target",
+    "compass"
+  ],
+  "rewards": {
+    "frag_reward": 1,
+    "death_penalty": 1,
+    "damage_made_reward": 0.01,
+    "damage_taken_penalty": 0.01
+  },
+  "train": [
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP32"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP32"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP13"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP13"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP19"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP19"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP26"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP26"
+    }
+  ],
+  "validation": [
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP03"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP20"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP20"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP20"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP21"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP21"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP21"
+    }
+  ],
+  "test": [
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP23"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP23"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP23"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP14"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP14"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP14"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP28"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP28"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP28"
+    },
+    {
+      "seed": 7,
+      "scenario": "cig",
+      "map": "MAP25"
+    },
+    {
+      "seed": 12,
+      "scenario": "cig",
+      "map": "MAP25"
+    },
+    {
+      "seed": 23,
+      "scenario": "cig",
+      "map": "MAP25"
+    }
+  ],
+  "compass_targets": [
+    "DoomPlayer",
+    "Medikit",
+    "Stimpack",
+    "RocketAmmo",
+    "Shell"
+  ],
+  "feedback_steps": 2
+}
