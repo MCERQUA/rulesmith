@@ -164,9 +164,10 @@ always: MOVE_FORWARD
 - **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
   An action is a label, an ask written the same way, or
   `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`.
-- **Conditions** join with `and` and `or`, invert with `not`, name a reading to test
-  that it has a value, or compare one with `>=`, `>`, `<=`, `<` or `==`. The graph
-  compares with three of those; `<=` and `>` compile to the same thing said longhand.
+- **Conditions** join with `and` and `or`, group with parentheses, invert with `not`,
+  name a reading to test that it has a value, or compare one with `>=`, `>`, `<=`, `<`
+  or `==`. The graph compares with three of those; `<=` and `>` compile to the same
+  thing said longhand.
 - The two parts, readings and rules, are revised separately and may be merged
   between candidates. A rules part may declare any reading its rules need.
 - A program beyond rules is proposed as whole-graph JSON, which is accepted as the

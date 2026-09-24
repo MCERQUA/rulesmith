@@ -74,6 +74,38 @@ def test_a_rule_that_accepts_either_of_two_readings_round_trips():
     assert program({"variables": {"HEALTH": 90}, "target": {"distance": 900}}).label == "ATTACK"
 
 
+def test_a_group_of_alternatives_is_read_as_one_test():
+    # The bearing rules a proposer writes put the wrap-around case in parentheses.
+    text = (
+        "read compass.2.bearing in [-180, 180]\n"
+        "when compass.2.bearing and (compass.2.bearing >= 135 or compass.2.bearing < -135): MOVE_BACKWARD\n"
+        "always: MOVE_FORWARD"
+    )
+    program = DecisionProgram(compile_rules(text), None, "none")
+    # compass.2 indexes the third thing on the compass, as the game reports it.
+    seen = lambda bearing: {"compass": [{}, {}, {"bearing": bearing}]}
+    assert program(seen(170)).label == "MOVE_BACKWARD"
+    assert program(seen(-170)).label == "MOVE_BACKWARD"
+    assert program(seen(10)).label == "MOVE_FORWARD"
+
+
+def test_a_group_inside_a_longer_condition_keeps_its_grouping_through_the_round_trip():
+    # Rendered without parentheses, 'a and (b or c)' reads back as '(a and b) or c', which is a
+    # different program that still compiles -- the drift has to fail here, not in a duel.
+    text = (
+        "read variables.HEALTH in [0, 200]\n"
+        "read target.distance in [0, 6000]\n"
+        "when variables.HEALTH >= 25 and (target.distance < 100 or target.distance >= 900): ATTACK\n"
+        "always: MOVE_FORWARD"
+    )
+    plan = compile_rules(text)
+    assert compile_rules(render_rules(plan)) == plan
+    program = DecisionProgram(plan, None, "none")
+    assert program({"variables": {"HEALTH": 10}, "target": {"distance": 50}}).label == "MOVE_FORWARD"
+    assert program({"variables": {"HEALTH": 90}, "target": {"distance": 50}}).label == "ATTACK"
+    assert program({"variables": {"HEALTH": 90}, "target": {"distance": 500}}).label == "MOVE_FORWARD"
+
+
 def test_a_constant_policy_is_one_line():
     plan = Plan.model_validate(constant_plan("review"))
     assert render_rules(plan).strip() == "always: review"

@@ -10,6 +10,7 @@ import re
 
 from decision_compose.graph import (
     All,
+    Any,
     Call,
     Coalesce,
     Compare,
@@ -69,9 +70,16 @@ def render_condition(condition: Condition, reads: dict[str, Read]) -> str:
     if isinstance(condition, Present):
         return name_of(condition.node, reads)
     if isinstance(condition, Not):
-        return f"not {render_condition(condition.condition, reads)}"
+        return f"not {group(condition.condition, reads)}"
     joiner = " and " if condition.type == "all" else " or "
-    return joiner.join(render_condition(part, reads) for part in condition.conditions)
+    return joiner.join(group(part, reads) for part in condition.conditions)
+
+
+def group(condition: Condition, reads: dict[str, Read]) -> str:
+    """One part of a longer condition. A group of its own needs parentheses, or reading it back
+    would join it to its neighbours: 'a and (b or c)' is not 'a and b, or c'."""
+    text = render_condition(condition, reads)
+    return f"({text})" if isinstance(condition, (All, Any)) else text
 
 
 def name_of(node: str, reads: dict[str, Read]) -> str:
@@ -246,17 +254,45 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
 
 
 def parse_condition(text: str, reads: dict) -> dict:
+    text = ungrouped(text.strip())
     # 'or' binds loosest, so it splits first and each side may still be a run of 'and'.
     for joiner, kind in JOINERS:
-        if joiner in text:
-            sides = [parse_condition(side.strip(), reads) for side in text.split(joiner)]
-            return {"type": kind, "conditions": sides}
-    return parse_test(text.strip(), reads)
+        sides = split_outside(text, joiner)
+        if len(sides) > 1:
+            return {"type": kind, "conditions": [parse_condition(side, reads) for side in sides]}
+    return parse_test(text, reads)
+
+
+def ungrouped(text: str) -> str:
+    """The condition inside a pair of parentheses that wraps the whole of it."""
+    while text.startswith("(") and depths(text)[-1] == 0 and min(depths(text)[:-1]) > 0:
+        text = text[1:-1].strip()
+    return text
+
+
+def depths(text: str) -> list[int]:
+    """How deep in parentheses each character leaves the text, after that character."""
+    depth, reached = 0, []
+    for character in text:
+        depth += (character == "(") - (character == ")")
+        reached.append(depth)
+    return reached
+
+
+def split_outside(text: str, joiner: str) -> list[str]:
+    """The text split on a joiner, ignoring the ones inside a group."""
+    sides, start = [], 0
+    for index, depth in enumerate(depths(text)):
+        if depth == 0 and text.startswith(joiner, index + 1):
+            sides.append(text[start : index + 1])
+            start = index + 1 + len(joiner)
+    return [side.strip() for side in sides + [text[start:]]]
 
 
 def parse_test(text: str, reads: dict) -> dict:
     if text.startswith("not "):
-        return {"type": "not", "condition": parse_test(text[4:].strip(), reads)}
+        # What follows may be a group of its own, so read it as a whole condition.
+        return {"type": "not", "condition": parse_condition(text[4:], reads)}
     for symbol in ("<=", ">"):
         if f" {symbol} " in text:
             path, _, value = text.partition(f" {symbol} ")
