@@ -715,7 +715,7 @@ def test_reflection_prompt_shows_choice_options_mapped_to_descriptions(client):
         reflect,
         SearchConfig(max_metric_calls=4, reflection_batch=1),
     )
-    example = re.search(r"not a solution\):\n(.*)\n", prompts[0]).group(1)
+    example = re.search(r"An example of one: ?\n(\{.*\})\n", prompts[0]).group(1)
     (node,) = Plan.model_validate_json(example).nodes.values()
     criteria = node.question.criteria
     assert set(criteria) == {"accept", "review"}
