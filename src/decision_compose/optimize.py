@@ -312,8 +312,12 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
-        f"JSON schema: {json.dumps(Plan.model_json_schema())}\n"
-        "Minimal syntax example using two labels (not a solution):\n"
+        # The schema is twelve thousand characters and rules need none of it; a proposal
+        # that falls back to whole-graph JSON is rare enough to ask for the schema then.
+        "A whole-graph JSON answer, for the rare program rules cannot express, is "
+        '{"nodes": {...}, "outputs": {"label": {"type": "node", "node": "..."}}} whose nodes '
+        "are call, switch, threshold, merge, coalesce, value or read, each optionally guarded "
+        'by "when". An example of one: \n'
         f"{syntax_example.model_dump_json(exclude_none=True)}\n"
         "Use the task's full label set when appropriate.\n"
         "Write the program as rules, tried in order, the first whose condition holds "
