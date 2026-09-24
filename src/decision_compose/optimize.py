@@ -341,8 +341,10 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "code fences, no section headings, no comments. "
         "The readings part holds declarations and the rules part holds "
         "rules; return the part you are asked for, complete and alone, except that a rules "
-        "part may declare any reading its rules need. A program that rules cannot express "
-        "may be returned as whole graph JSON instead, matching the schema above.\n"
+        "part may declare any reading its rules need. Answer in the same form the part arrives "
+        "in: a readings part is always lines beginning 'read' or 'ask', never JSON. Only a rules "
+        "part may be answered as whole-graph JSON, for a program rules cannot express, matching "
+        "the schema above; invent no field that schema does not list.\n"
         "Part to revise:\n<curr_param>\nObserved examples and feedback:\n<side_info>"
     )
 
