@@ -388,6 +388,23 @@ back to checking once clearly winning (`>= 6`). That is the split the ladder
 shows: a graph that only ever checks wins 75 games while shedding 4,103 points
 of material, and a graph that only ever takes material wins 5.
 
+A league runs that loop: breed a challenger from the champion, play it eighty
+times against every graph in the pool, refit Elo over every game ever played, and
+the best rating holds the title. Generation 1 improved on validation, 0.479 to
+0.525, and its graph rated 1533 across 400 games against a champion on 1544. No
+crown, and an eleven-point gap is a number you can act on. The equivalent moment
+in Doom read "head to head 6.5/12", which is a coin flip wearing a result's
+clothes.
+
+```sh
+uv run decision-compose optimize examples/chess/league.json \
+  examples/chess/graphs/searched.json \
+  --opponent examples/chess/graphs/hunter.rules \
+  --max-metric-calls 200 --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" \
+  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/chess-generation
+```
+
 Be careful reading a single split, though. On the twelve test games the searched
 graph scores 0.533 and `hunter` scores 0.531. Twelve games cannot resolve a
 17-Elo gap, and the validation jump oversold it. Only the ladder, which is cheap
