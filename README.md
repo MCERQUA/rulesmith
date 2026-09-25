@@ -390,6 +390,9 @@ material on the board at the end, which is what tells a graph holding a won
 position apart from one shuffling in a dead equal one. Set `material_weight` to
 0 in the task if you want results only.
 
+See [chess](docs/chess.md) for the policies, what a graph sees, and a baseline
+ladder of 900 games.
+
 ## Results
 
 ![Search fitness: best validation score after each search round](docs/assets/fitness.svg)
