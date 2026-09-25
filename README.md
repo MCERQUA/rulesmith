@@ -239,8 +239,10 @@ always: MOVE_FORWARD
 
 Rules are tried in order and the first whose condition holds decides. A judgement
 can sit behind a cheap read, so the judge is asked only where a number cannot
-settle it. Programs that rules cannot express, such as two judgements merged into
-one input, are proposed as whole-graph JSON instead.
+settle it. Conditions join with `and` and `or`, group with parentheses, invert
+with `not`, name a reading to test that it has a value, or compare one with `>=`,
+`>`, `<=`, `<` or `==`. Programs that rules cannot express, such as two judgements
+merged into one input, are proposed as whole-graph JSON instead.
 
 ### What a judgement can be
 
@@ -394,10 +396,22 @@ uv run decision-compose arena examples/doom/duel.json \
 pool, hand over the title only on a winning head-to-head. Run with a local
 35B mixture model it never unseated the graph it started from; swapped to a
 dense 27B, generation two produced [duel-hunter](examples/doom/graphs/duel-hunter.json),
-which beat the champion **12-0, 44 frags to none**. What it added is three rules
-that read the compass bearing to an opponent nobody can see, and turn onto it.
+which beat the champion **12-0, 44 frags to none** on the map it trained on.
+What it added is three rules that read the compass bearing to an opponent nobody
+can see, and turn onto it.
 [the duel](docs/assets/doom/duel-hunter.mp4) · [rule by rule](docs/doom.md#the-duel-hunter)
 · [how matches work](docs/doom.md#arena)
+
+That result does not travel. Played across all 32 maps the scenario will load, the
+same graph finishes behind the hand-written `duel-attack` it shut out 9-0 at home:
+its compass rules hunt across geometry it has never seen, and the level kills it
+before an opponent does. A task whose three splits are seeds of one map measures
+how well a graph knows that map, so
+[duel-maps.json](examples/doom/duel-maps.json) trains on four maps, validates on
+three others and tests on four more. Twelve generations on it crowned nobody —
+two thirds of matches between evenly matched graphs end 0-0, and a metric that
+cannot separate them cannot select between them either.
+[what the sweep measured](docs/doom.md#the-league)
 
 ```sh
 uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
