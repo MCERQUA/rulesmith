@@ -1,0 +1,3 @@
+read capture.best_gain in [-9, 9]
+when capture.best_gain >= 1: CAPTURE
+always: QUIET
