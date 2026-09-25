@@ -1,0 +1,5 @@
+read development.minor_home in [0, 4]
+read king.can_castle in [0, 1]
+when development.minor_home >= 1: DEVELOP
+when king.can_castle >= 1: CASTLE
+always: ADVANCE

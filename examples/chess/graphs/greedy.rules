@@ -1,0 +1,9 @@
+read capture.best_gain in [-9, 9]
+read hanging.worst in [0, 9]
+read king.can_castle in [0, 1]
+read king.in_check in [0, 1]
+when king.in_check >= 1: SAVE
+when capture.best_gain >= 1: CAPTURE
+when hanging.worst >= 3: SAVE
+when king.can_castle >= 1: CASTLE
+always: DEVELOP

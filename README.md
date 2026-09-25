@@ -352,6 +352,44 @@ uv run decision-compose evaluate examples/doom/basic.json runs/doom/plan.json \
 `--visible` opens the game window. See [Doom](docs/doom.md) for task format,
 observations, and the arena.
 
+## Play chess
+
+A graph cannot name a chess move. There are thousands of them and which ones are
+legal changes every ply, so the label names a policy and the board turns it into
+a move: `CAPTURE` plays the capture that wins most material, `SAVE` moves a
+hanging piece somewhere it is not attacked, `CHECK` gives check and prefers mate
+in one, `CASTLE`, `DEVELOP`, `ADVANCE` and `QUIET` do what they say. Every policy
+always returns a legal move. The graph sees material, hanging pieces, what the
+best capture is worth, whether it can castle: numbers, by path, the same as
+Doom's game variables.
+
+```sh
+uv run decision-compose evaluate examples/chess/duel.json \
+  examples/chess/graphs/hunter.rules \
+  --opponent examples/chess/graphs/developer.rules \
+  --split test --backend ruling --output runs/chess.json
+```
+
+Twelve games take about a second, which is the point of having it. A generation
+of search costs minutes; a Doom league generation takes half an hour, and two
+thirds of its matches end with the graphs never having found each other.
+
+Seven policies and a handful of readings are enough to separate graphs. Over the
+twelve test games, `hunter` beats a graph that only ever plays safe quiet moves
+4-0 with 8 draws, and beats `developer` 2-0 with 10 draws:
+
+| Pairing | Score | W-D-L | Material |
+| --- | --- | --- | --- |
+| hunter vs always-quiet | 0.678 | 4-8-0 | +99 |
+| greedy vs developer | 0.540 | 0-12-0 | +81 |
+| developer vs hunter | 0.405 | 0-10-2 | -51 |
+
+Most games are still drawn, because a rule list cannot force mate from a winning
+position. So the score is not the result alone: a fifth of it comes from the
+material on the board at the end, which is what tells a graph holding a won
+position apart from one shuffling in a dead equal one. Set `material_weight` to
+0 in the task if you want results only.
+
 ## Results
 
 ![Search fitness: best validation score after each search round](docs/assets/fitness.svg)

@@ -17,6 +17,7 @@ from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from decision_compose.arena import Duels, Entrant, duel, tournament
+from decision_compose.chess import ChessTask, Games
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
 from decision_compose.label import Labeler, Unlabeled, draft_task
@@ -242,9 +243,10 @@ def read_plan(path: Path) -> Plan:
     return compile_rules(text) if path.suffix == ".rules" else Plan.model_validate_json(text)
 
 
-def load_task(path: Path) -> Task | DoomTask:
+def load_task(path: Path) -> Task | DoomTask | ChessTask:
     data = json.loads(path.read_text())
-    return (DoomTask if "scenario" in data else Task).model_validate(data)
+    kind = ChessTask if data.get("game") == "chess" else DoomTask if "scenario" in data else Task
+    return kind.model_validate(data)
 
 
 def main() -> None:
@@ -270,10 +272,11 @@ def main() -> None:
     if getattr(args, "visible", False) and not isinstance(task, DoomTask):
         cli.error("--visible requires a Doom task")
     deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
-    if args.command in ("evaluate", "optimize", "record") and deathmatch != bool(args.opponent):
-        cli.error("--opponent is required for, and only for, deathmatch tasks")
+    played = deathmatch or (args.command != "run" and isinstance(task, ChessTask))
+    if args.command in ("evaluate", "optimize", "record") and played != bool(args.opponent):
+        cli.error("--opponent is required for, and only for, tasks played against another graph")
     opponent = None
-    if deathmatch:
+    if played:
         opponent = read_plan(args.opponent)
         opponent.check(task.labels, args.max_nodes, args.max_depth)
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
@@ -327,6 +330,8 @@ def main() -> None:
         score = classify
         if deathmatch:
             score = Duels(task, DecisionProgram(opponent, client, model, execution))
+        elif args.command != "run" and isinstance(task, ChessTask):
+            score = Games(task, DecisionProgram(opponent, client, model, execution))
         elif args.command != "run" and isinstance(task, DoomTask):
             env = DoomEnvironment(
                 task, visible=getattr(args, "visible", False), record=args.command == "record"
