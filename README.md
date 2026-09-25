@@ -374,17 +374,26 @@ Twelve games take about a second, which is the point of having it. A generation
 of search costs minutes; a Doom league generation takes half an hour, and two
 thirds of its matches end with the graphs never having found each other.
 
-Seven policies and a handful of readings are enough to separate graphs. Over the
-twelve test games, `hunter` beats a graph that only ever plays safe quiet moves
-4-0 with 8 draws, and beats `developer` 2-0 with 10 draws:
+![Chess: the search curve, and the ladder the graph it found lands on](docs/assets/chess.svg)
 
-| Pairing | Score | W-D-L | Material |
-| --- | --- | --- | --- |
-| hunter vs always-quiet | 0.678 | 4-8-0 | +99 |
-| greedy vs developer | 0.540 | 0-12-0 | +81 |
-| developer vs hunter | 0.405 | 0-10-2 | -51 |
+Search beat the best graph I wrote by hand. Breeding `hunter` against `greedy`
+for ten rounds, round 7 proposed a graph scoring 0.602 on validation against the
+seed's 0.473, and it holds up where it counts: over 1,680 ladder games it takes
+113 wins to `hunter`'s 99 and loses 18 where `hunter` loses 31.
 
-Most games are still drawn, because a rule list cannot force mate from a winning
+What it changed is a real idea. `hunter` only looked for checks when already
+three points ahead. The searched graph checks when the position is level or
+close (`material.balance <= 2`), takes material through the middlegame, and goes
+back to checking once clearly winning (`>= 6`). That is the split the ladder
+shows: a graph that only ever checks wins 75 games while shedding 4,103 points
+of material, and a graph that only ever takes material wins 5.
+
+Be careful reading a single split, though. On the twelve test games the searched
+graph scores 0.533 and `hunter` scores 0.531. Twelve games cannot resolve a
+17-Elo gap, and the validation jump oversold it. Only the ladder, which is cheap
+enough to play hundreds of games, settles it.
+
+Most games are drawn, because a rule list cannot force mate from a winning
 position. So the score is not the result alone: a fifth of it comes from the
 material on the board at the end, which is what tells a graph holding a won
 position apart from one shuffling in a dead equal one. Set `material_weight` to
