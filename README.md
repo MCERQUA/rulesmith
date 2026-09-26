@@ -390,11 +390,33 @@ of material, and a graph that only ever takes material wins 5.
 
 A league runs that loop: breed a challenger from the champion, play it eighty
 times against every graph in the pool, refit Elo over every game ever played, and
-the best rating holds the title. Generation 1 improved on validation, 0.479 to
-0.525, and its graph rated 1533 across 400 games against a champion on 1544. No
-crown, and an eleven-point gap is a number you can act on. The equivalent moment
-in Doom read "head to head 6.5/12", which is a coin flip wearing a result's
-clothes.
+hand over the title when someone clears the champion by twenty points. Five
+generations in:
+
+| Generation | Validation | Challenger's Elo | Games |
+| --- | --- | --- | --- |
+| 1 | 0.479 → 0.525 | 1533 | 400 |
+| 2 | 0.463 → 0.472 | 1503 | 480 |
+| 3 | 0.479 → 0.576 | 1545 | 560 |
+| 4 | — | decided as a graph already in the pool, skipped | — |
+| 5 | 0.479 → 0.497 | 1482 | 640 |
+
+Nobody has taken the title. `gen3` leads the ladder at 1548 to the champion's
+1536, which is twelve points and not enough: a few hundred games carry about ten
+points of standard error, so a belt that changes hands on one point changes hands
+on noise. The margin is there because the champion is also the graph every
+challenger is bred from, and a noisy crown redirects the whole lineage.
+
+The Doom equivalent of that sentence was "head to head 6.5/12", a coin flip
+wearing a result's clothes. Here the same question costs 640 games and 30
+seconds, and the answer is a number with an error bar you can reason about.
+
+Three of the five searched graphs now rate above the best one written by hand:
+
+```
+gen3 1548   searched 1536   gen1 1534   hunter 1509   gen2 1503
+always-check 1491   gen5 1482   greedy 1454   developer 1442
+```
 
 ```sh
 uv run decision-compose optimize examples/chess/league.json \
