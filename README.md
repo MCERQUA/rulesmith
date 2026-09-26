@@ -390,8 +390,8 @@ of material, and a graph that only ever takes material wins 5.
 
 A league runs that loop: breed a challenger from the champion, play it eighty
 times against every graph in the pool, refit Elo over every game ever played, and
-hand over the title when someone clears the champion by twenty points. Five
-generations in:
+hand over the title when someone clears the champion by twenty points. Eighteen
+generations and 3,600 games in, five graphs have entered the pool:
 
 | Generation | Validation | Challenger's Elo | Games |
 | --- | --- | --- | --- |
@@ -400,12 +400,28 @@ generations in:
 | 3 | 0.479 → 0.576 | 1545 | 560 |
 | 4 | — | decided as a graph already in the pool, skipped | — |
 | 5 | 0.479 → 0.497 | 1482 | 640 |
+| 7 | 0.479 → 0.508 | 1542 | 720 |
+| 8–18 | — | every one returned a graph already in the pool | — |
 
-Nobody has taken the title. `gen3` leads the ladder at 1548 to the champion's
-1536, which is twelve points and not enough: a few hundred games carry about ten
-points of standard error, so a belt that changes hands on one point changes hands
-on noise. The margin is there because the champion is also the graph every
-challenger is bred from, and a noisy crown redirects the whole lineage.
+Nobody has taken the title, and after generation 7 nobody has produced a new
+graph at all. Eleven generations in a row returned their own seed unchanged,
+from three different lineages, and the last four of those had a richer
+observation to work with: what is loose on the opponent's side, how many squares
+around each king are attacked, passed pawns, and a policy that pushes the pawn
+nearest queening. The proposer used the new readings immediately, with
+`pawns.furthest` appearing in seven proposals of one generation, and still found
+nothing better.
+
+That is a converged search, not a broken one. The budget is proposer calls, not
+games: a generation affords about twelve proposals, of which two or three earn a
+full evaluation, and the good arrangements of a dozen readings over eight
+policies were all in the pool by generation 7.
+
+`gen3` leads the ladder at 1544 to the champion's 1531, thirteen points. A few
+hundred games carry about ten points of standard error, so a belt that changes
+hands on one point changes hands on noise. The margin is there because the
+champion is also the graph every challenger is bred from, and a noisy crown
+redirects the whole lineage.
 
 The Doom equivalent of that sentence was "head to head 6.5/12", a coin flip
 wearing a result's clothes. Here the same question costs 640 games and 30
@@ -414,8 +430,8 @@ seconds, and the answer is a number with an error bar you can reason about.
 Three of the five searched graphs now rate above the best one written by hand:
 
 ```
-gen3 1548   searched 1536   gen1 1534   hunter 1509   gen2 1503
-always-check 1491   gen5 1482   greedy 1454   developer 1442
+gen3 1544   gen7 1542   searched 1531   gen1 1528   hunter 1504
+gen2 1500   always-check 1487   gen5 1478   greedy 1452   developer 1435
 ```
 
 ```sh
