@@ -3,7 +3,7 @@
 import chess
 import pytest
 
-from decision_compose.chess import POLICIES, ChessTask, Games, chosen, material, played
+from decision_compose.chess import POLICIES, ChessTask, Games, chosen, material, observe, played
 from decision_compose.rules import compile_rules
 from decision_compose.runtime import MISSING, DecisionProgram, resolve_node
 
@@ -122,3 +122,36 @@ def test_seeds_must_not_repeat_across_splits():
 
     with pytest.raises(ValidationError):
         ChessTask.model_validate(task_data(validation=[0]))
+
+
+def test_promote_pushes_the_pawn_that_is_furthest_home():
+    # A pawn on the seventh queens; the policy has to prefer it over the one on the third.
+    board = chess.Board("8/1P6/8/8/8/2P3k1/8/6K1 w - - 0 1")
+    move = chosen(board, "PROMOTE")
+    assert move.uci() == "b7b8q" and move.promotion == chess.QUEEN
+
+
+def test_a_graph_can_see_what_is_loose_on_the_other_side():
+    # The black queen on d5 is attacked by the pawn on e4 and defended by nothing. Before this
+    # reading a graph could only see its own hanging pieces and its own best capture.
+    board = chess.Board("rnb1kbnr/ppp1pppp/8/3q4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1")
+    seen = observe(board)
+    assert seen["target"]["loose_count"] >= 1
+    assert seen["target"]["loose_worst"] == 9
+
+
+def test_passed_pawns_are_counted_for_the_side_to_move():
+    # White's b-pawn has no black pawn on a, b or c ahead of it; black's g-pawn is not passed
+    # because White's h-pawn stands beside its path.
+    board = chess.Board("6k1/6p1/8/8/8/1P5P/8/6K1 w - - 0 1")
+    assert observe(board)["pawns"]["passed"] == 1
+    board.push_san("b4")
+    assert observe(board)["pawns"]["passed"] == 0
+
+
+def test_every_new_reading_is_a_number_a_read_node_can_take(task):
+    shown = Games(task, program("always: QUIET"))(program(GREEDY), 0).trace["Inputs"]
+    for group in ("target", "pawns", "safety"):
+        assert group in shown
+        for name, value in shown[group].items():
+            assert isinstance(value, (int, float)), f"{group}.{name} is {type(value)}"

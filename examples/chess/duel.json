@@ -1,6 +1,6 @@
 {
   "game": "chess",
-  "description": "Win the game. Each label is a policy the board turns into a move: CAPTURE takes the best capture, SAVE moves a hanging piece to safety, CASTLE castles, DEVELOP brings a knight or bishop off the back rank, ADVANCE pushes a pawn, CHECK gives check, QUIET plays a safe quiet move. The label is your policy for this move.",
+  "description": "Win the game. Each label is a policy the board turns into a move: CAPTURE takes the best capture, SAVE moves a hanging piece to safety, CASTLE castles, DEVELOP brings a knight or bishop off the back rank, ADVANCE pushes a pawn, PROMOTE pushes the passed pawn nearest queening, CHECK gives check, QUIET plays a safe quiet move. The label is your policy for this move.",
   "labels": [
     "CAPTURE",
     "SAVE",
@@ -8,7 +8,8 @@
     "DEVELOP",
     "ADVANCE",
     "CHECK",
-    "QUIET"
+    "QUIET",
+    "PROMOTE"
   ],
   "opening_plies": 4,
   "move_limit": 120,

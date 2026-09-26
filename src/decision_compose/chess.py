@@ -158,6 +158,64 @@ def settle(board: chess.Board) -> chess.Move:
     return max(moves, key=lambda move: (gain(board, move), move.uci()))
 
 
+def loose_for(board: chess.Board, colour: bool) -> list[tuple[int, int]]:
+    """Pieces of one colour the other side attacks and that colour does not defend, worst first."""
+    found = []
+    for square, piece in board.piece_map().items():
+        if piece.color != colour or piece.piece_type == chess.KING:
+            continue
+        if board.is_attacked_by(not colour, square) and not board.is_attacked_by(colour, square):
+            found.append((worth(piece), square))
+    return sorted(found, reverse=True)
+
+
+def ring(board: chess.Board, colour: bool) -> int:
+    """How many squares around a king the other side attacks: pressure before it becomes check."""
+    king = board.king(colour)
+    if king is None:
+        return 0
+    around = chess.SquareSet(chess.BB_KING_ATTACKS[king])
+    return sum(1 for square in around if board.is_attacked_by(not colour, square))
+
+
+def passers(board: chess.Board, colour: bool) -> list[int]:
+    """Own pawns with no enemy pawn ahead of them on their file or the ones beside it, by how
+    far up the board they are."""
+    ahead = 1 if colour == chess.WHITE else -1
+    ranks = []
+    for square in board.pieces(chess.PAWN, colour):
+        file, rank = chess.square_file(square), chess.square_rank(square)
+        blocked = any(
+            chess.square_file(other) in (file - 1, file, file + 1)
+            and (chess.square_rank(other) - rank) * ahead > 0
+            for other in board.pieces(chess.PAWN, not colour)
+        )
+        if not blocked:
+            ranks.append(rank if colour == chess.WHITE else 7 - rank)
+    return sorted(ranks, reverse=True)
+
+
+def promote(board: chess.Board) -> chess.Move | None:
+    """Push the passed pawn that is furthest up the board, promoting when it can."""
+    ahead = 1 if board.turn == chess.WHITE else -1
+    free = {square for square in board.pieces(chess.PAWN, board.turn)
+            if (7 - chess.square_rank(square) if board.turn == chess.WHITE
+                else chess.square_rank(square)) >= 0}
+    pushes = [
+        move
+        for move in board.legal_moves
+        if move.from_square in free
+        and (piece := board.piece_at(move.from_square))
+        and piece.piece_type == chess.PAWN
+        and (chess.square_rank(move.to_square) - chess.square_rank(move.from_square)) * ahead > 0
+        and gain(board, move) >= 0
+    ]
+    if not pushes:
+        return None
+    reach = lambda move: chess.square_rank(move.to_square) if board.turn == chess.WHITE else 7 - chess.square_rank(move.to_square)
+    return max(pushes, key=lambda move: (move.promotion or 0, reach(move), move.uci()))
+
+
 POLICIES = {
     "CAPTURE": take,
     "CHECK": check,
@@ -165,6 +223,7 @@ POLICIES = {
     "DEVELOP": develop,
     "ADVANCE": advance,
     "SAVE": save,
+    "PROMOTE": promote,
     "QUIET": lambda board: None,
 }
 
@@ -183,6 +242,8 @@ def observe(board: chess.Board) -> dict:
         worth(piece) for piece in board.piece_map().values() if piece.color != board.turn
     )
     loose = hanging(board)
+    theirs_loose = loose_for(board, not board.turn)
+    mine_passed = passers(board, board.turn)
     best = take(board)
     checking = check(board)
     back = 0 if board.turn == chess.WHITE else 7
@@ -205,6 +266,18 @@ def observe(board: chess.Board) -> dict:
             "gain": gain(board, checking) if checking else 0,
         },
         "hanging": {"count": len(loose), "worst": loose[0][0] if loose else 0},
+        # What is loose on the other side is a reason to go looking, not only a capture to take.
+        "target": {
+            "loose_count": len(theirs_loose),
+            "loose_worst": theirs_loose[0][0] if theirs_loose else 0,
+            "king_ring": ring(board, not board.turn),
+        },
+        "pawns": {
+            "passed": len(mine_passed),
+            "furthest": mine_passed[0] if mine_passed else 0,
+            "theirs_passed": len(passers(board, not board.turn)),
+        },
+        "safety": {"king_ring": ring(board, board.turn)},
         "development": {
             "minor_home": sum(
                 1
