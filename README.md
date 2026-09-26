@@ -390,58 +390,40 @@ of material, and a graph that only ever takes material wins 5.
 
 A league runs that loop: breed a challenger from the champion, play it eighty
 times against every graph in the pool, refit Elo over every game ever played, and
-hand over the title when someone clears the champion by twenty points. Eighteen
-generations and 3,600 games in, five graphs have entered the pool:
+hand over the title when someone clears the champion by twenty points. Forty
+generations and 4,400 games later, six graphs had entered the pool and the title
+had not moved:
 
-| Generation | Validation | Challenger's Elo | Games |
-| --- | --- | --- | --- |
-| 1 | 0.479 → 0.525 | 1533 | 400 |
-| 2 | 0.463 → 0.472 | 1503 | 480 |
-| 3 | 0.479 → 0.576 | 1545 | 560 |
-| 4 | — | decided as a graph already in the pool, skipped | — |
-| 5 | 0.479 → 0.497 | 1482 | 640 |
-| 7 | 0.479 → 0.508 | 1542 | 720 |
-| 8–18 | — | every one returned a graph already in the pool | — |
+| Generation | Validation | Challenger's Elo |
+| --- | --- | --- |
+| 1 | 0.479 → 0.525 | 1533 |
+| 2 | 0.463 → 0.472 | 1503 |
+| 3 | 0.479 → 0.576 | 1545 |
+| 5 | 0.479 → 0.497 | 1482 |
+| 7 | 0.479 → 0.508 | 1542 |
+| 27 | 0.555 → 0.556 | 1537 |
 
-Nobody has taken the title, and after generation 7 nobody has produced a new
-graph at all. Eleven generations in a row returned their own seed unchanged,
-from three different lineages, and the last four of those had a richer
-observation to work with: what is loose on the opponent's side, how many squares
-around each king are attacked, passed pawns, and a policy that pushes the pawn
-nearest queening. The proposer used the new readings immediately, with
-`pawns.furthest` appearing in seven proposals of one generation, and still found
-nothing better.
-
-That is a converged search, not a broken one. The budget is proposer calls, not
-games: a generation affords about twelve proposals, of which two or three earn a
-full evaluation, and the good arrangements of a dozen readings over eight
-policies were all in the pool by generation 7.
-
-`gen3` leads the ladder at 1544 to the champion's 1531, thirteen points. A few
-hundred games carry about ten points of standard error, so a belt that changes
-hands on one point changes hands on noise. The margin is there because the
-champion is also the graph every challenger is bred from, and a noisy crown
-redirects the whole lineage.
-
-The Doom equivalent of that sentence was "head to head 6.5/12", a coin flip
-wearing a result's clothes. Here the same question costs 640 games and 30
-seconds, and the answer is a number with an error bar you can reason about.
-
-Three of the five searched graphs now rate above the best one written by hand:
+The other 34 generations returned a graph already in the pool. The final ladder:
 
 ```
-gen3 1544   gen7 1542   searched 1531   gen1 1528   hunter 1504
-gen2 1500   always-check 1487   gen5 1478   greedy 1452   developer 1435
+gen3 1540   gen7 1538   gen27 1537   searched 1526   gen1 1524
+hunter 1500   gen2 1498   always-check 1484   gen5 1475   greedy 1450   developer 1429
 ```
 
-```sh
-uv run decision-compose optimize examples/chess/league.json \
-  examples/chess/graphs/searched.json \
-  --opponent examples/chess/graphs/hunter.rules \
-  --max-metric-calls 200 --backend ruling --max-workers 1 \
-  --reflection-model "$REFLECTION_MODEL" \
-  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/chess-generation
-```
+Read the top five together: they are all graphs search wrote, they sit inside
+fourteen points of each other, and a few hundred games carry about ten points of
+standard error. So the honest statement is that search beat every hand-written
+graph and then stopped, and that it converged by generation 7. The thirty-three
+generations after it produced one new graph, at generation 27, which landed in
+the same cluster.
+
+The plateau is not the search failing. The budget is proposer calls, not games:
+a generation affords about twelve proposals, two or three of which earn a full
+evaluation, and a dozen readings over eight policies run out of good arrangements
+quickly. Adding readings at generation 11 (loose enemy pieces, pressure around each
+king, passed pawns, a policy that pushes the pawn nearest queening) changed what
+the proposer wrote (`pawns.furthest` appeared in seven proposals of one
+generation) without changing where it landed.
 
 Be careful reading a single split, though. On the twelve test games the searched
 graph scores 0.533 and `hunter` scores 0.531. Twelve games cannot resolve a

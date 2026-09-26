@@ -1,0 +1,144 @@
+{
+  "nodes": {
+    "read_capture_best_gain": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "capture",
+        "best_gain"
+      ],
+      "bounds": [
+        -9.0,
+        9.0
+      ],
+      "categories": null
+    },
+    "read_check_available": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "check",
+        "available"
+      ],
+      "bounds": [
+        0.0,
+        1.0
+      ],
+      "categories": null
+    },
+    "read_hanging_worst": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "hanging",
+        "worst"
+      ],
+      "bounds": [
+        0.0,
+        9.0
+      ],
+      "categories": null
+    },
+    "read_king_can_castle": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "king",
+        "can_castle"
+      ],
+      "bounds": [
+        0.0,
+        1.0
+      ],
+      "categories": null
+    },
+    "read_king_in_check": {
+      "when": null,
+      "type": "read",
+      "path": [
+        "king",
+        "in_check"
+      ],
+      "bounds": [
+        0.0,
+        1.0
+      ],
+      "categories": null
+    },
+    "rule_1": {
+      "when": {
+        "type": "compare",
+        "node": "read_king_in_check",
+        "op": "ge",
+        "value": 1.0
+      },
+      "type": "value",
+      "value": "SAVE"
+    },
+    "rule_2": {
+      "when": {
+        "type": "compare",
+        "node": "read_capture_best_gain",
+        "op": "ge",
+        "value": 1.0
+      },
+      "type": "value",
+      "value": "CAPTURE"
+    },
+    "rule_3": {
+      "when": {
+        "type": "compare",
+        "node": "read_hanging_worst",
+        "op": "ge",
+        "value": 1.0
+      },
+      "type": "value",
+      "value": "SAVE"
+    },
+    "rule_4": {
+      "when": {
+        "type": "compare",
+        "node": "read_king_can_castle",
+        "op": "ge",
+        "value": 1.0
+      },
+      "type": "value",
+      "value": "CASTLE"
+    },
+    "rule_5": {
+      "when": {
+        "type": "compare",
+        "node": "read_check_available",
+        "op": "ge",
+        "value": 1.0
+      },
+      "type": "value",
+      "value": "CHECK"
+    },
+    "rule_6": {
+      "when": null,
+      "type": "value",
+      "value": "DEVELOP"
+    },
+    "decision": {
+      "when": null,
+      "type": "coalesce",
+      "sources": [
+        "rule_1",
+        "rule_2",
+        "rule_3",
+        "rule_4",
+        "rule_5",
+        "rule_6"
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "decision",
+      "view": "value",
+      "optional": false
+    }
+  }
+}

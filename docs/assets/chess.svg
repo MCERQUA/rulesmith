@@ -80,17 +80,19 @@ text{font-size:12px}.surface{fill:#fcfcfb}.ink{fill:#0b0b0b}.ink2{fill:#52514e}.
 <line class="grid" x1="62" x2="950" y1="420.0" y2="420.0"/>
 <text class="muted" x="54.0" y="424.0" text-anchor="end">1558</text>
 <text class="muted" x="62.0" y="538.0" text-anchor="middle">1</text>
-<text class="muted" x="284.0" y="538.0" text-anchor="middle">2</text>
-<text class="muted" x="506.0" y="538.0" text-anchor="middle">3</text>
-<text class="muted" x="728.0" y="538.0" text-anchor="middle">5</text>
-<text class="muted" x="950.0" y="538.0" text-anchor="middle">7</text>
+<text class="muted" x="239.6" y="538.0" text-anchor="middle">2</text>
+<text class="muted" x="417.2" y="538.0" text-anchor="middle">3</text>
+<text class="muted" x="594.8" y="538.0" text-anchor="middle">5</text>
+<text class="muted" x="772.4" y="538.0" text-anchor="middle">7</text>
+<text class="muted" x="950.0" y="538.0" text-anchor="middle">27</text>
 <text class="muted" x="506.0" y="556.0" text-anchor="middle">generation</text>
 <circle class="plain" cx="62.0" cy="449.3" r="3.5" stroke-width="1.5"/>
-<circle class="plain" cx="284.0" cy="483.6" r="3.5" stroke-width="1.5"/>
-<circle class="plain" cx="506.0" cy="434.7" r="3.5" stroke-width="1.5"/>
-<circle class="plain" cx="728.0" cy="508.4" r="3.5" stroke-width="1.5"/>
-<circle class="plain" cx="950.0" cy="438.7" r="3.5" stroke-width="1.5"/>
-<path class="line" d="M62.0,435.8L284.0,436.8L506.0,434.7L728.0,431.6L950.0,436.7" fill="none" stroke-width="2"/>
-<text class="ink" x="962.0" y="440.7" text-anchor="start">1544  searched</text>
+<circle class="plain" cx="239.6" cy="483.6" r="3.5" stroke-width="1.5"/>
+<circle class="plain" cx="417.2" cy="434.7" r="3.5" stroke-width="1.5"/>
+<circle class="plain" cx="594.8" cy="508.4" r="3.5" stroke-width="1.5"/>
+<circle class="plain" cx="772.4" cy="438.7" r="3.5" stroke-width="1.5"/>
+<circle class="plain" cx="950.0" cy="444.0" r="3.5" stroke-width="1.5"/>
+<path class="line" d="M62.0,435.8L239.6,436.8L417.2,434.7L594.8,431.6L772.4,436.7L950.0,441.3" fill="none" stroke-width="2"/>
+<text class="ink" x="962.0" y="445.3" text-anchor="start">1540  searched</text>
 <text class="muted" x="62.0" y="572.0" text-anchor="start">A grey dot is the challenger that generation bred; the line is the best graph in the pool, rated over every game played.</text>
 </svg>
