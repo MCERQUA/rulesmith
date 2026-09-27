@@ -511,8 +511,10 @@ uv run decision-compose ablate task.json plan.json --split validation \
   --backend ruling --output runs/ablation.json
 ```
 
-Run against the best graph the chess league produced, over 116 positions from
-one game:
+The command reads its states from a task's examples. A Doom or chess task keeps
+seeds instead, so for those, record the observations a graph saw and pass them to
+`effects(plan, states)` in `decision_compose.ablate`. Run that way against the
+best graph the chess league produced, over 116 positions from one game:
 
 ```
 reading                       changed   share   why not

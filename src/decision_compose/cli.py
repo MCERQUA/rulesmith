@@ -178,11 +178,15 @@ def judge(args: argparse.Namespace, needed: bool):
 def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """What each input is worth, over the states the task itself supplies."""
     task = load_task(args.task)
+    # A plan is structurally valid once it loads; size limits bound what search may write, and
+    # have nothing to say about measuring a graph that already exists.
     plan = read_plan(args.plan)
-    plan.check(task.labels, args.max_nodes if hasattr(args, "max_nodes") else 999, 999)
     examples = getattr(task, args.split)
     if not all(hasattr(example, "state") for example in examples):
-        cli.error("ablate needs a task whose examples carry their own state")
+        cli.error(
+            "ablate reads states from a task's examples; a Doom or chess task keeps seeds, "
+            "so measure those graphs with decision_compose.ablate.effects over recorded states"
+        )
     states = [example.state for example in examples]
     calls = any(isinstance(node, Call) for node in plan.nodes.values())
     model, judge_client = judge(args, calls)

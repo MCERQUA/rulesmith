@@ -5,10 +5,17 @@ beats to the decision, or a threshold real data never trips. All three look iden
 -- the graph runs, decides something, and scores like a graph that simply decides badly.
 """
 
+import json
 from dataclasses import dataclass
 
 from decision_compose.graph import Call, Plan, Read, State
-from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
+from decision_compose.runtime import (
+    MISSING,
+    DecisionProgram,
+    ExecutionConfig,
+    GraphExecutionError,
+    read_path,
+)
 
 
 @dataclass(frozen=True)
@@ -24,6 +31,24 @@ class Effect:
     @property
     def share(self) -> float:
         return self.changed / self.decided if self.decided else 0.0
+
+
+class Remembered:
+    """A judge that answers each question about each state once. A replay with a reading taken
+    away asks the same questions of the same states, so it gets the answers the baseline paid
+    for; a call whose inputs did change is a different question and goes to the judge."""
+
+    def __init__(self, client):
+        self.client = client
+        self.answers: dict[str, object] = {}
+
+    def system_one(self, *, state, questions, model):
+        key = json.dumps([state, questions, model], sort_keys=True)
+        if key not in self.answers:
+            self.answers[key] = self.client.system_one(
+                state=state, questions=questions, model=model
+            )
+        return self.answers[key]
 
 
 def decisions(program: DecisionProgram, states: list[State]) -> list[object | None]:
@@ -48,10 +73,11 @@ def effects(plan: Plan, states: list[State], client=None, model: str = "none") -
         for name, node in plan.nodes.items()
         if isinstance(node, (Read, Call))
     }
-    baseline = decisions(DecisionProgram(plan, client, model), states)
+    judge = Remembered(client) if client is not None else None
+    baseline = decisions(DecisionProgram(plan, judge, model), states)
     found = []
     for name, kind in inputs.items():
-        suppressed = DecisionProgram(plan, client, model, ExecutionConfig(suppress=(name,)))
+        suppressed = DecisionProgram(plan, judge, model, ExecutionConfig(suppress=(name,)))
         changed = sum(
             mine != theirs for mine, theirs in zip(baseline, decisions(suppressed, states), strict=True)
         )
@@ -66,8 +92,6 @@ def blank(plan: Plan, name: str, states: list[State]) -> str:
     node = plan.nodes[name]
     if not isinstance(node, Read):
         return "the graph decides the same without it"
-    from decision_compose.runtime import MISSING, read_path
-
     present = sum(read_path(node, state) is not MISSING for state in states)
     if not present:
         return "this path is never in the state"

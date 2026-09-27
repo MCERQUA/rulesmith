@@ -47,3 +47,25 @@ def test_effects_are_ranked_and_counted_against_the_states_given():
     found = effects(compile_rules(DECIDER), states([0.3, 0.7, 0.9]))
     assert [effect.decided for effect in found] == [3]
     assert found == sorted(found, key=lambda effect: (-effect.changed, effect.node))
+
+
+def test_the_judge_is_asked_once_per_state_however_many_inputs_are_ablated(provider, client):
+    # Taking a reading away cannot change what the judge said about the same state, so only the
+    # baseline pass may reach it. Every later pass must replay those answers.
+    plan = compile_rules(
+        "read score in [0, 1]\n"
+        'ask team = "Which team?" [billing: "Charges."] [technical: "Bugs."]\n'
+        'when score >= 0.5 and team == "billing": high\n'
+        "always: low"
+    )
+    provider.body["answers"] = {
+        "team": {
+            "type": "choice",
+            "choice": "billing",
+            "probabilities": {"billing": 0.9, "technical": 0.1},
+            "confidence": 0.9,
+        }
+    }
+    effects(plan, states([0.2, 0.7, 0.9]), client, "fixture")
+    asked = [path for path, _ in provider.requests if path == "/v1/systemone"]
+    assert len(asked) == 3
