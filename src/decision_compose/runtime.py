@@ -98,6 +98,10 @@ class GraphExecutionError(ValueError):
 
 class ExecutionConfig(StrictModel):
     max_workers: int = Field(default=4, ge=1)
+    suppress: frozenset[str] = Field(
+        default_factory=frozenset,
+        description="Nodes forced absent, for measuring what a graph decides without them",
+    )
 
 
 # JSON null is a valid value, so absence needs a distinct sentinel.
@@ -163,9 +167,9 @@ def read_path(node: Read, state: State):
     return value if allowed else MISSING
 
 
-def resolve_node(node: Node, state: State, values: dict, answers: dict):
+def resolve_node(node: Node, state: State, values: dict, answers: dict, suppressed: bool = False):
     """Resolve deterministic values, or a call's input object; skipped nodes stay absent."""
-    if not matches(node.when, values):
+    if suppressed or not matches(node.when, values):
         return MISSING
     if isinstance(node, Value):
         return deepcopy(node.value)
@@ -233,7 +237,9 @@ class DecisionProgram(dspy.Module):
                     deferred, progressed, requests = [], False, {}
                     for key in sorted(ready):
                         node = self.plan.nodes[key]
-                        value = resolve_node(node, state, values, answers)
+                        value = resolve_node(
+                            node, state, values, answers, key in self.execution.suppress
+                        )
                         if value is MISSING:
                             sorter.done(key)
                             progressed = True
