@@ -127,7 +127,7 @@ def test_a_graph_node_rules_cannot_write_is_refused_rather_than_dropped():
     plan = Plan.model_validate(
         {
             "nodes": {
-                "odds": call("Is it fraud?"),
+                "odds": call("Is it fraud?", observation={"type": "state"}),
                 "gate": {
                     "type": "threshold",
                     "source": "odds",

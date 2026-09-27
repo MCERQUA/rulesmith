@@ -24,6 +24,7 @@ from rulesmith.graph import (
     Present,
     Read,
     Relation,
+    StateInput,
     Sum,
     Threshold,
     Value,
@@ -43,6 +44,8 @@ COMPARING = re.compile(r"[<>=]|\band\b|\bor\b|\bnot\b")
 # The compiler names what the rules leave unnamed, so a written name must not look like one.
 GENERATED = re.compile(r"(read|rule)_\w*|decision")
 SECTIONS = ("readings", "rules")
+# What a judgment asked about the whole input calls it.
+WHOLE = "observation"
 JOINERS = ((" or ", "any"), (" and ", "all"))
 
 
@@ -142,7 +145,7 @@ def render_rules(plan: Plan) -> str:
         node = plan.nodes[name]
         condition = render_condition(guard, reads, plan) if guard else None
         lines.append(
-            f"{'when ' + condition if condition else 'always'}: {render_action(node, reads)}"
+            f"{'when ' + condition if condition else 'always'}: {render_action(node, reads, plan)}"
         )
     return "\n".join(lines)
 
@@ -180,7 +183,7 @@ def declarations(plan: Plan, acting: set[str], reads: dict[str, Read]) -> list[s
 def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
     if isinstance(node, Call):
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
-        return f"ask {name} = {render_action(node, reads).removeprefix('ask ')}{gate}"
+        return f"ask {name} = {render_action(node, reads, plan).removeprefix('ask ')}{gate}"
     if isinstance(node, Vote):
         return f"vote {name} = {node.rule} of [{', '.join(node.sources)}]"
     if isinstance(node, Value) and node.value is True and node.when is not None:
@@ -221,23 +224,37 @@ def ordered(plan: Plan, top: str, guard: Condition | None = None) -> list[tuple[
     raise RuleError(f"{node.type} node {top!r} has no rule form")
 
 
-def render_action(node, reads: dict[str, Read]) -> str:
+def render_action(node, reads: dict[str, Read], plan: Plan) -> str:
     if isinstance(node, Value):
         return json.dumps(node.value).strip('"')
     if isinstance(node, Threshold):
-        return (
-            f"{name_of(node.source, reads)} >= {number(node.cutoff)} ? {node.above} : {node.below}"
-        )
-    if len(node.inputs) != 1:
-        raise RuleError(f"a judgment over {sorted(node.inputs)} has no rule form")
+        source = name_of(node.source, reads, plan)
+        return f"{source} >= {number(node.cutoff)} ? {node.above} : {node.below}"
     question = node.question
-    if question.type == "noul":
-        return f"ask {json.dumps(question.instructions)}"
+    asked = f"ask {json.dumps(question.instructions)}"
     if question.type == "score":
-        levels = " ".join(f"[{level}]" for level in question.criteria)
-        return f"ask {json.dumps(question.instructions)} {levels}"
-    criteria = " ".join(f"[{k}: {json.dumps(v)}]" for k, v in question.criteria.items())
-    return f"ask {json.dumps(question.instructions)} {criteria}"
+        asked += " " + " ".join(f"[{level}]" for level in question.criteria)
+    elif question.type == "choice":
+        asked += " " + " ".join(f"[{k}: {json.dumps(v)}]" for k, v in question.criteria.items())
+    return asked + render_given(node, reads, plan)
+
+
+def render_given(node: Call, reads: dict[str, Read], plan: Plan) -> str:
+    """What a judgment is shown: nothing to say for the whole input, which rules call
+    'observation', and otherwise each value by the name that is also its key."""
+    if node.inputs == {WHOLE: StateInput()}:
+        return ""
+    for key, source in node.inputs.items():
+        if isinstance(source, StateInput):
+            written = WHOLE
+        elif isinstance(source, NodeInput) and source.view == "value" and not source.optional:
+            written = name_of(source.node, reads, plan)
+        else:
+            written = None
+        # The key is what the judge reads, so a rule form under another key would change it.
+        if written != key:
+            raise RuleError(f"a judgment's input {key!r} has no rule form")
+    return f" given [{', '.join(node.inputs)}]"
 
 
 def compile_rules(text: str) -> Plan:
@@ -301,7 +318,7 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
     if line.startswith("ask ") and "=" in line.split("[", 1)[0]:
         name, _, question = line[4:].partition("=")
         question, gate = split_gate(question.strip())
-        node = parse_action(f"ask {question}", names)
+        node = parse_action(f"ask {question}", names, nodes)
         if gate:
             node["when"] = parse_condition(gate, names, nodes)
         claim(name.strip(), node, nodes, names)
@@ -341,7 +358,7 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         else parse_condition(head.removeprefix("when").strip(), names, nodes)
     )
     name = f"rule_{len(sources) + 1}"
-    nodes[name] = parse_action(action.strip(), names) | ({"when": guard} if guard else {})
+    nodes[name] = parse_action(action.strip(), names, nodes) | ({"when": guard} if guard else {})
     sources.append(name)
 
 
@@ -506,9 +523,20 @@ def named(path: str, names: dict, nodes: dict | None = None) -> str:
     return names[path]
 
 
-def parse_action(text: str, names: dict) -> dict:
+def parse_action(text: str, names: dict, nodes: dict) -> dict:
     if text.startswith("ask "):
         body = text[4:].strip()
+        given = re.search(r"\s+given\s+\[([^\]]*)\]\s*$", body)
+        inputs = {WHOLE: {"type": "state"}}
+        if given:
+            body = body[: given.start()]
+            listed = [name.strip() for name in given.group(1).split(",")]
+            inputs = {
+                name: {"type": "state"}
+                if name == WHOLE
+                else {"type": "node", "node": named(name, names, nodes)}
+                for name in listed
+            }
         instructions, bracket, criteria = body.partition("[")
         question: dict = {"instructions": json.loads(instructions.strip())}
         pairs = re.findall(r"\[([^:\]]+):\s*(\"(?:[^\"\\\\]|\\\\.)*\")\]", bracket + criteria)
@@ -522,7 +550,7 @@ def parse_action(text: str, names: dict) -> dict:
         return {
             "type": "call",
             "question": question,
-            "inputs": {"observation": {"type": "state"}},
+            "inputs": inputs,
         }
     if "?" in text and ":" in text:
         test, _, arms = text.partition("?")
@@ -530,7 +558,7 @@ def parse_action(text: str, names: dict) -> dict:
         path, _, cutoff = test.strip().partition(" >= ")
         return {
             "type": "threshold",
-            "source": named(path.strip(), names),
+            "source": named(path.strip(), names, nodes),
             "cutoff": float(cutoff),
             "above": above.strip(),
             "below": below.strip(),

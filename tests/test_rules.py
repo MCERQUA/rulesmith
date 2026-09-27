@@ -191,7 +191,8 @@ def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
     from rulesmith.optimize import SearchConfig, proposer_prompt
 
     prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
-    asked = re.findall(r"'(ask [^']+)'", prompt)
+    # A form given named values needs readings declared, and has a test of its own.
+    asked = [form for form in re.findall(r"'(ask [^']+)'", prompt) if " given [" not in form]
     kinds = set()
     for form in asked:
         name = form.split()[1]
@@ -254,3 +255,16 @@ def test_the_proposer_is_told_how_to_name_a_reading():
     for line, name in named:
         plan = compile_rules(f"{line}\nwhen {name}: review\nalways: accept")
         assert plan.nodes[name].type == "read"
+
+
+def test_the_proposer_is_told_how_to_give_a_judgment_only_some_values():
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    forms = re.findall(r"'(ask (\w+) = [^']+ given \[([^\]]+)\])'", prompt)
+    assert forms
+    for line, name, listed in forms:
+        given = [part.strip() for part in listed.split(",")]
+        reads = "\n".join(f"read {path} in [0, 99]" for path in given if path != "observation")
+        plan = compile_rules(f"{reads}\n{line}\nwhen {name}: review\nalways: accept")
+        assert list(plan.nodes[name].inputs) == given

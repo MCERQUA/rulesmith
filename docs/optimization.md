@@ -161,7 +161,9 @@ always: MOVE_FORWARD
 - **Readings** declare what the program may look at: `read <path> in [low, high]`,
   `read <path> one of [a, b]`, `read <name> = <path> in [low, high]` to give a
   reading a name the rules use instead of its path, or `ask <name> = "question" [label: "when it applies"] ...`
-  for a judgment, which may end `when <condition>` to be asked only then.
+  for a judgment, which may end `when <condition>` to be asked only then. A judgment
+  reads the whole input unless it names what it is shown with `given [a, b]`;
+  `observation` in that list is the whole input.
 - **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
   An action is a label, an ask written the same way, or
   `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`.

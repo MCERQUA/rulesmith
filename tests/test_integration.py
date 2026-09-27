@@ -835,11 +835,18 @@ def test_invalid_proposals_are_repaired_before_search_scores_them(client):
     assert "nodes must be an object" in repair
 
 
+def rule_plan(cutoff=0.5):
+    """binary_plan with its judgment asked about the whole input, which rules can write."""
+    plan = binary_plan(cutoff)
+    plan["nodes"]["eligible"] = call(observation={"type": "state"})
+    return plan
+
+
 @pytest.mark.parametrize("malformed", [False, True])
 def test_real_gepa_repairs_fragments_in_parent_context_over_http(provider, client, malformed):
     data = task_data()
     data["validation"][0]["label"] = "accept"
-    proposed = Plan.model_validate(binary_plan())
+    proposed = Plan.model_validate(rule_plan())
     written = parts(proposed)
     offered = []
 
@@ -868,7 +875,7 @@ def test_real_gepa_repairs_fragments_in_parent_context_over_http(provider, clien
     )
     best, report = optimize_plan(
         Task.model_validate(data),
-        Plan.model_validate(binary_plan(cutoff=0.95)),
+        Plan.model_validate(rule_plan(cutoff=0.95)),
         client,
         "fixture-model",
         proposer,

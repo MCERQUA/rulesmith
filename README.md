@@ -274,6 +274,18 @@ A judge answers three kinds of question, and only the first is classification:
 | `score` | a position on the rubric, ordered | `ask severity = "How bad is this?" [minor] [major] [critical]` | `severity >= 2` |
 | `noul` | the probability its statement is true | `ask grounded = "The reply follows from the context."` | `grounded >= 0.85` |
 
+A judgment reads the whole input unless you say what it is shown. `given` hands
+it named values instead, which is less to read and keeps it on the question:
+
+```
+read health = variables.HEALTH in [0, 200]
+read enemy.distance in [0, 4096]
+ask close = "The enemy is close enough to fight." given [enemy.distance, health]
+```
+
+`given [observation, first]` shows it the whole input and another judgment's
+answer, which is how one judgment checks another's work.
+
 Two things a rule can say about a judgment besides what it answered.
 
 **How sure it was.** A choice or a score comes back with a confidence, and
