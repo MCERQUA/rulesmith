@@ -63,8 +63,14 @@ def resolve_backend(name: str, model: str | None = None, base_url: str | None = 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     commands = root.add_subparsers(dest="command", required=True)
-    for name in ("validate", "evaluate", "optimize", "record"):
-        command = commands.add_parser(name)
+    helps = {
+        "validate": "Check a graph against a task without calling any model",
+        "evaluate": "Score a graph on one split of a task",
+        "optimize": "Search for the graph with the best validation score",
+        "record": "Play a graph in Doom and save the video",
+    }
+    for name, summary in helps.items():
+        command = commands.add_parser(name, help=summary)
         command.add_argument("task", type=Path)
         if name == "optimize":
             command.add_argument(
@@ -156,7 +162,7 @@ def parser() -> argparse.ArgumentParser:
     ablation.add_argument("--split", choices=("train", "validation", "test"), default="validation")
     ablation.add_argument("--output", type=Path)
     provider_arguments(ablation)
-    run = commands.add_parser("run")
+    run = commands.add_parser("run", help="Run a graph on one input and print what it decided")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
     provider_arguments(run)
