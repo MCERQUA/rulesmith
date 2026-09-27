@@ -1,8 +1,9 @@
 """A rule list: the shape every searched graph takes, in a form a model can write.
 
 Rules compile to the graph language and render back from it, so search can propose rules
-while the runtime keeps executing graphs. Graphs that do more than try rules in order --
-merges, switches, several outputs -- have no rule form and stay JSON.
+while the runtime keeps executing graphs. A graph rules cannot state exactly -- a merge, a
+switch, a label with a newline in it -- has no rule form and stays JSON, rather than coming
+back as a slightly different graph.
 """
 
 import json
@@ -41,9 +42,13 @@ NAME = re.compile(r"[A-Za-z_]\w*")
 # and leaves no way to confuse it with a condition.
 ARITHMETIC = re.compile(r" [-+*] ")
 NUMBER = re.compile(r"-?\d+(\.\d+)?(e-?\d+)?")
-COMPARING = re.compile(r"[<>=]|\band\b|\bor\b|\bnot\b")
+# A keyword counts only as a word of its own: 'flags.not' is a path, not a negation.
+COMPARING = re.compile(r"[<>=]|(?:^|\s)(?:and|or|not)(?:\s|$)")
 # The compiler names what the rules leave unnamed, so a written name must not look like one.
-GENERATED = re.compile(r"(read|rule|decision)_\w*|decision")
+GENERATED = re.compile(r"(read|rule|decision|confidence)_\w*|decision")
+QUOTED = re.compile(r'\s*"(?:[^"\\]|\\.)*"')
+PAIR = re.compile(r'\[([^:\]]+):\s*("(?:[^"\\]|\\.)*")\]')
+LEVEL = re.compile(r"\[([^:\]\[]+)\]")
 # The output a task scores, and the one rules decide unless a section names another.
 LABEL_OUTPUT = "label"
 OUTPUT = re.compile(r"output (\w+):")
@@ -84,11 +89,42 @@ class RuleError(ValueError):
 def number(value: float | str) -> str:
     """A value as rule text: whole numbers without a trailing '.0', and every other number in
     full, since a rounded cutoff is a different graph."""
-    whole = isinstance(value, float) and value.is_integer()
-    return json.dumps(int(value) if whole else value)
+    integral = isinstance(value, float) and value.is_integer()
+    return json.dumps(int(value) if integral else value, ensure_ascii=False)
+
+
+def quoted(text: str) -> str:
+    """Text in quotes, readable as written. JSON escapes the control characters, but three more
+    end a line for splitlines, and a rule is one line."""
+    written = json.dumps(text, ensure_ascii=False)
+    for breaking in "\x85\u2028\u2029":
+        written = written.replace(breaking, f"\\u{ord(breaking):04x}")
+    return written
+
+
+def listed(items: list[str], what: str, marks: str = ",[]") -> str:
+    """Items a rule writes inside brackets, each exactly as it will be read back."""
+    for item in items:
+        broken = len(item.splitlines()) != 1 or item != item.strip()
+        if broken or any(mark in item for mark in marks):
+            raise RuleError(f"{what} {item!r} has no rule form")
+    return ", ".join(items)
+
+
+def label_text(value) -> str:
+    """A label as a rule writes it: the text itself, which must read back as a plain label."""
+    # Anything splitlines breaks on, not only '\n', would end the rule mid-label.
+    if not isinstance(value, str) or len(value.splitlines()) != 1 or value != value.strip():
+        raise RuleError(f"the value {value!r} has no rule form")
+    if value.startswith("ask ") or ("?" in value and ":" in value):
+        raise RuleError(f"the label {value!r} would read back as an action")
+    return value
 
 
 def path_of(read: Read) -> str:
+    # A digit is read back as a list index, so a text key made of digits cannot be written.
+    if any(isinstance(part, str) and part.isdigit() for part in read.path):
+        raise RuleError(f"the path {read.path!r} has a key made of digits, which reads as an index")
     return ".".join(str(part) for part in read.path)
 
 
@@ -143,7 +179,7 @@ def render_rules(plan: Plan) -> str:
         domain = (
             f"in [{number(read.bounds[0])}, {number(read.bounds[1])}]"
             if read.bounds
-            else "one of [" + ", ".join(read.categories or []) + "]"
+            else f"one of [{listed(read.categories, 'the category')}]"
         )
         named = "" if GENERATED.fullmatch(name) else f"{name} = "
         lines.append(f"read {named}{path_of(read)} {domain}")
@@ -153,7 +189,7 @@ def render_rules(plan: Plan) -> str:
             lines.append(f"output {output}:")
         source = plan.outputs[output]
         if isinstance(source, LiteralInput):
-            lines.append("always: " + json.dumps(source.value).strip('"'))
+            lines.append(f"always: {label_text(source.value)}")
             continue
         for name, guard in ordered(plan, source.node):
             action = render_action(plan.nodes[name], reads, plan)
@@ -202,7 +238,8 @@ def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
         return f"ask {name} = {render_action(node, reads, plan).removeprefix('ask ')}{gate}"
     if isinstance(node, Vote):
-        return f"vote {name} = {node.rule} of [{', '.join(node.sources)}]"
+        voters = ", ".join(name_of(source, reads, plan) for source in node.sources)
+        return f"vote {name} = {node.rule} of [{voters}]"
     if named_condition(node):
         return f"let {name} = {render_condition(node.when, reads, plan)}"
     if isinstance(node, Sum) and node.when is None:
@@ -212,15 +249,18 @@ def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
 
 def render_sum(node: Sum, reads: dict[str, Read], plan: Plan) -> str:
     """A sum as arithmetic: terms in order, a weight only where it is not one, the constant
-    last, and each sign carried by the operator before it."""
-    text = ""
-    for index, term in enumerate(node.terms):
+    last, and later signs carried by the operator before them. The first term carries its own
+    sign as a weight, and a lone term keeps its '+ 0', so the text always reads as arithmetic
+    rather than as a condition naming a value."""
+    first, *rest = node.terms
+    operand = name_of(first.node, reads, plan)
+    text = operand if first.weight == 1 else f"{number(first.weight)} * {operand}"
+    for term in rest:
         weight = abs(term.weight)
         operand = name_of(term.node, reads, plan)
         operand = operand if weight == 1 else f"{number(weight)} * {operand}"
-        sign = "-" if term.weight < 0 else "+"
-        text += (f" {sign} " if index else "-" if sign == "-" else "") + operand
-    if node.constant:
+        text += f" {'-' if term.weight < 0 else '+'} {operand}"
+    if node.constant or text == name_of(first.node, reads, plan):
         text += f" {'-' if node.constant < 0 else '+'} {number(abs(node.constant))}"
     return text
 
@@ -243,16 +283,19 @@ def ordered(plan: Plan, top: str, guard: Condition | None = None) -> list[tuple[
 
 def render_action(node, reads: dict[str, Read], plan: Plan) -> str:
     if isinstance(node, Value):
-        return json.dumps(node.value).strip('"')
+        return label_text(node.value)
     if isinstance(node, Threshold):
         source = name_of(node.source, reads, plan)
-        return f"{source} >= {number(node.cutoff)} ? {node.above} : {node.below}"
+        above, below = (label_text(arm) for arm in (node.above, node.below))
+        return f"{source} >= {number(node.cutoff)} ? {above} : {below}"
     question = node.question
-    asked = f"ask {json.dumps(question.instructions)}"
+    asked = f"ask {quoted(question.instructions)}"
     if question.type == "score":
+        listed(question.criteria, "the rubric level", ",[]:")
         asked += " " + " ".join(f"[{level}]" for level in question.criteria)
     elif question.type == "choice":
-        asked += " " + " ".join(f"[{k}: {json.dumps(v)}]" for k, v in question.criteria.items())
+        listed(list(question.criteria), "the choice", ",[]:")
+        asked += " " + " ".join(f"[{k}: {quoted(v)}]" for k, v in question.criteria.items())
     return asked + render_given(node, reads, plan)
 
 
@@ -286,7 +329,7 @@ def compile_rules(text: str) -> Plan:
     nodes: dict[str, dict] = {}
     names: dict[str, str] = {}
     sections: dict[str, list[str]] = {LABEL_OUTPUT: []}
-    for number, line in enumerate(stripped.splitlines(), start=1):
+    for line_number, line in enumerate(stripped.splitlines(), start=1):
         line = line.strip()
         # Asked for one part, a proposer tends to answer with the whole program: fenced, and with
         # the section headings written back out. Neither says anything about the rules themselves.
@@ -294,14 +337,15 @@ def compile_rules(text: str) -> Plan:
             continue
         heading = OUTPUT.fullmatch(line)
         if heading and heading.group(1) in sections:
-            raise RuleError(f"line {number}: output {heading.group(1)!r} is declared twice")
+            raise RuleError(f"line {line_number}: output {heading.group(1)!r} is declared twice")
         if heading:
             sections[heading.group(1)] = []
             continue
         try:
             read_rule(line, nodes, names, list(sections.values())[-1])
-        except RuleError as error:
-            raise RuleError(f"line {number}: {error}") from error
+        # Malformed JSON inside a line is as much the line's fault as a rule error.
+        except ValueError as error:
+            raise RuleError(f"line {line_number}: {error}") from error
     if not any(sections.values()):
         raise RuleError("no rules")
     outputs = {}
@@ -359,7 +403,8 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
     if line.startswith("let ") and "=" in line:
         name, _, body = line[4:].partition("=")
         body = body.strip()
-        if ARITHMETIC.search(f" {body}") and not COMPARING.search(body):
+        arithmetic = ARITHMETIC.search(f" {body}") or re.match(r"-\s*[A-Za-z_]", body)
+        if arithmetic and not COMPARING.search(body):
             node = parse_sum(body, names, nodes)
         else:
             # A named condition holds when its condition does: a value that exists only then,
@@ -374,17 +419,18 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
             raise RuleError(
                 f"a vote is 'majority of [...]' or 'agree of [...]', not {rule.strip()!r}"
             )
-        sources = [named(part.strip(), names, nodes) for part in listed.strip(" []").split(",")]
+        voters = listed.strip(" []").split(",")
+        sources = [named(part.strip(), names, nodes) for part in voters]
         if len(sources) < 2:
             raise RuleError("a vote needs at least two judgments")
         claim(
             name.strip(), {"type": "vote", "rule": rule.strip(), "sources": sources}, nodes, names
         )
         return
-    head, _, action = line.partition(":")
-    if not action:
+    colon = find_outside(line, ":")
+    if colon < 0:
         raise RuleError("a rule reads 'when <condition>: <action>' or 'always: <action>'")
-    head = head.strip()
+    head, action = line[:colon].strip(), line[colon + 1 :]
     guard = (
         None
         if head == "always"
@@ -452,7 +498,7 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     path, _, domain = text.partition(" ")
     node: dict = {"type": "read", "path": [int(p) if p.isdigit() else p for p in path.split(".")]}
     if domain.startswith("in "):
-        low, high = json.loads(domain[3:].replace("[", "[").strip())
+        low, high = json.loads(domain[3:].strip())
         node["bounds"] = [low, high]
     elif domain.startswith("one of "):
         node["categories"] = [c.strip() for c in domain[7:].strip(" []").split(",")]
@@ -461,9 +507,19 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     if alias:
         claim(alias.group(1), node, nodes, names)
         return
-    name = "read_" + re.sub(r"\W", "_", path)
+    # A path restated keeps its node; a new one gets a name no other reading has taken.
+    name = names.get(path) or fresh("read_" + re.sub(r"\W", "_", path), nodes)
     nodes[name] = node
     names[path] = name
+
+
+def fresh(base: str, nodes: dict) -> str:
+    """A generated name no node has yet: 'a.b' and 'a_b' flatten to the same one."""
+    name, count = base, 1
+    while name in nodes:
+        count += 1
+        name = f"{base}_{count}"
+    return name
 
 
 def parse_condition(text: str, reads: dict, nodes: dict | None = None) -> dict:
@@ -487,21 +543,36 @@ def ungrouped(text: str) -> str:
 
 
 def depths(text: str) -> list[int]:
-    """How deep in parentheses each character leaves the text, after that character."""
-    depth, reached = 0, []
+    """How deep in parentheses each character leaves the text, after that character. Quoted
+    text counts as one level deeper, so a label's 'or', ':' or '(' is never read as syntax."""
+    depth, reached, quoting, escaped = 0, [], False, False
     for character in text:
-        depth += (character == "(") - (character == ")")
-        reached.append(depth)
+        if quoting:
+            quoting = escaped or character != '"'
+            escaped = not escaped and character == "\\"
+        elif character == '"':
+            quoting = True
+        else:
+            depth += (character == "(") - (character == ")")
+        reached.append(depth + (quoting or character == '"'))
     return reached
 
 
+def find_outside(text: str, token: str, start: int = 0) -> int:
+    """Where a token first appears outside any group or quote, or -1."""
+    levels = depths(text)
+    for index in range(start, len(text)):
+        if text.startswith(token, index) and not any(levels[index : index + len(token)]):
+            return index
+    return -1
+
+
 def split_outside(text: str, joiner: str) -> list[str]:
-    """The text split on a joiner, ignoring the ones inside a group."""
+    """The text split on a joiner, ignoring the ones inside a group or a quote."""
     sides, start = [], 0
-    for index, depth in enumerate(depths(text)):
-        if depth == 0 and text.startswith(joiner, index + 1):
-            sides.append(text[start : index + 1])
-            start = index + 1 + len(joiner)
+    while (index := find_outside(text, joiner, start)) >= 0:
+        sides.append(text[start:index])
+        start = index + len(joiner)
     return [side.strip() for side in sides + [text[start:]]]
 
 
@@ -510,8 +581,8 @@ def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
         # What follows may be a group of its own, so read it as a whole condition.
         return {"type": "not", "condition": parse_condition(text[4:], reads, nodes)}
     for symbol in ("<=", ">"):
-        if f" {symbol} " in text:
-            path, _, value = text.partition(f" {symbol} ")
+        if (at := find_outside(text, f" {symbol} ")) >= 0:
+            path, value = text[:at], text[at + len(symbol) + 2 :]
             # A graph compares with '<', '>=' and '=='; the other two orderings are made of those.
             below = {
                 "type": "any",
@@ -522,8 +593,8 @@ def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
             }
             return below if symbol == "<=" else {"type": "not", "condition": below}
     for symbol, op in OPERATORS.items():
-        if f" {symbol} " in text:
-            path, _, value = text.partition(f" {symbol} ")
+        if (at := find_outside(text, f" {symbol} ")) >= 0:
+            path, value = text[:at], text[at + len(symbol) + 2 :]
             node = named(path.strip(), reads, nodes)
             try:
                 compared = json.loads(value.strip())
@@ -535,6 +606,9 @@ def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
                         f"{value.strip()!r} is not a number, a quoted label or a declared name"
                     ) from error
                 return {"type": "relation", "node": node, "op": op, "other": other}
+            # JSON's true, false and null would pass as 1, 0 and nothing at all.
+            if isinstance(compared, bool) or not isinstance(compared, (str, int, float)):
+                raise RuleError(f"{value.strip()!r} is not a number or a quoted label")
             return {"type": "compare", "node": node, "op": op, "value": compared}
     return {"type": "present", "node": named(text, reads, nodes)}
 
@@ -546,8 +620,8 @@ def named(path: str, names: dict, nodes: dict | None = None) -> str:
         asked = path.removesuffix(".confidence")
         # Only a judgment has a confidence. A reading is a number the input already carried.
         if asked in names and nodes.get(names[asked], {}).get("type") == "call":
-            name = f"{names[asked]}_confidence"
-            nodes.setdefault(name, {"type": "confidence", "source": names[asked]})
+            name = fresh(f"confidence_{names[asked]}", nodes)
+            nodes[name] = {"type": "confidence", "source": names[asked]}
             names[path] = name
     if path not in names:
         raise RuleError(
@@ -571,10 +645,19 @@ def parse_action(text: str, names: dict, nodes: dict) -> dict:
                 else {"type": "node", "node": named(name, names, nodes)}
                 for name in listed
             }
-        instructions, bracket, criteria = body.partition("[")
-        question: dict = {"instructions": json.loads(instructions.strip())}
-        pairs = re.findall(r"\[([^:\]]+):\s*(\"(?:[^\"\\\\]|\\\\.)*\")\]", bracket + criteria)
-        levels = re.findall(r"\[([^:\]]+)\]", bracket + criteria)
+        instructions = QUOTED.match(body)
+        if not instructions:
+            if re.match(r"\w+\s*=", body):
+                raise RuleError("an ask inside a rule has no name; declare a named one on its own")
+            raise RuleError(f"a question is quoted text, not {body!r}")
+        question: dict = {"instructions": json.loads(instructions.group())}
+        criteria = body[instructions.end() :]
+        pairs = PAIR.findall(criteria)
+        levels = [] if pairs else LEVEL.findall(criteria)
+        # Whatever the brackets fail to account for would be dropped without a word.
+        left = (PAIR if pairs else LEVEL).sub("", criteria).strip()
+        if left:
+            raise RuleError(f'{left!r} is not a choice [label: "when"] or a level [level]')
         if pairs:
             question |= {"type": "choice", "criteria": {k.strip(): json.loads(v) for k, v in pairs}}
         elif levels:

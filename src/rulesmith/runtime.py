@@ -163,8 +163,10 @@ def read_path(node: Read, state: State):
     for step in node.path:
         if isinstance(step, int) and isinstance(value, list) and -len(value) <= step < len(value):
             value = value[step]
-        elif isinstance(step, str) and isinstance(value, dict) and step in value:
-            value = value[step]
+        elif isinstance(value, dict) and str(step) in value:
+            # A rule's 'years.2024' is an index into a list and a key into an object alike,
+            # since JSON object keys are always text.
+            value = value[str(step)]
         else:
             return MISSING
     if node.categories is not None:
