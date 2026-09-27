@@ -1,5 +1,6 @@
 """Draft labels for unlabeled inputs with a generative model, for human review."""
 
+import json
 import random
 from collections.abc import Callable
 from typing import Literal
@@ -45,8 +46,14 @@ def draft_task(
     test: int,
     seed: int,
 ) -> Task:
+    # Every label is paid for, so a task that cannot be built is refused before the first one.
+    if validation < 1 or test < 1:
+        raise ValueError("validation and test splits each need at least one input")
     if validation + test >= len(states):
         raise ValueError("validation and test splits must leave at least one training input")
+    written = [json.dumps(state, sort_keys=True) for state in states]
+    if len(set(written)) != len(written):
+        raise ValueError("inputs repeat; a task may hold each input once")
     examples = [{"id": str(index), "state": state} for index, state in enumerate(states)]
     random.Random(seed).shuffle(examples)
     for example in examples:

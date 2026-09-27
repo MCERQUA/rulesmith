@@ -42,7 +42,7 @@ def test_invalid_plan_exits_before_attempting_network(tmp_path):
     assert result.returncode != 0
 
 
-def test_invalid_opponent_is_rejected_before_judge_credentials(tmp_path, monkeypatch):
+def test_invalid_opponent_is_rejected_before_judge_credentials(tmp_path, monkeypatch, capsys):
     from test_arena import duel_data
 
     from rulesmith.cli import main
@@ -67,8 +67,9 @@ def test_invalid_opponent_is_rejected_before_judge_credentials(tmp_path, monkeyp
             str(tmp_path / "out.json"),
         ],
     )
-    with pytest.raises(ValueError, match="outputs"):
+    with pytest.raises(SystemExit):
         main()
+    assert "outputs" in capsys.readouterr().err
 
 
 def test_cli_evaluation_persists_actual_sdk_results(tmp_path, provider, monkeypatch):
@@ -91,6 +92,8 @@ def test_cli_evaluation_persists_actual_sdk_results(tmp_path, provider, monkeypa
     assert result.returncode == 0, result.stderr
     report = json.loads(output.read_text())
     assert report["split"] == "test" and report["score"] == 1.0
+    # Two evaluations with different judges must be told apart by their reports.
+    assert report["model"] == "fixture-model" and report["resolved_models"] == ["fixture-model"]
     assert report["examples"][0]["id"] == "c"
     assert provider.requests[0][1]["state"] == {"state": "request C"}
     assert len(provider.requests) == 1
@@ -378,3 +381,52 @@ def test_rules_that_will_not_compile_name_the_line(tmp_path):
     rules.write_text("always: review\nwhen nonsense >= 1: accept\n")
     result = invoke("validate", task, rules)
     assert result.returncode != 0 and "line 2" in result.stderr
+
+
+def test_ablate_refuses_to_overwrite_a_report(tmp_path):
+    task = write(tmp_path / "task.json", task_data())
+    plan = write(
+        tmp_path / "plan.json",
+        {"nodes": {}, "outputs": {"label": {"type": "literal", "value": "accept"}}},
+    )
+    kept = tmp_path / "ablation.json"
+    kept.write_text("keep")
+    result = invoke("ablate", task, plan, "--output", kept)
+    assert result.returncode != 0 and kept.read_text() == "keep"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ("--grader-base-url", "http://127.0.0.1:9"),
+        ("--grader-model", "openai/fixture-model"),
+        ("--max-workers", "0"),
+        ("--parallel-examples", "0"),
+    ],
+)
+def test_flags_that_would_be_ignored_or_break_later_are_refused_up_front(tmp_path, provider, extra):
+    # The grader must not be the judge the graph asks, and a base URL with no grader grades
+    # nothing; both, and zero workers, are refused before any model is called.
+    task = write(tmp_path / "task.json", task_data())
+    plan = write(tmp_path / "plan.json", binary_plan())
+    result = invoke(
+        "evaluate",
+        task,
+        plan,
+        "--base-url",
+        provider.url,
+        "--model",
+        "fixture-model",
+        "--output",
+        tmp_path / "out.json",
+        *extra,
+    )
+    assert result.returncode != 0 and "Traceback" not in result.stderr
+    assert not provider.requests
+
+
+def test_a_broken_rules_file_is_reported_without_a_traceback(tmp_path):
+    plan = tmp_path / "plan.rules"
+    plan.write_text("read x in [0, 1]\nwhen nothing >= 1: a\nalways: b")
+    result = invoke("draw", plan)
+    assert result.returncode != 0 and "line 2" in result.stderr and "Traceback" not in result.stderr

@@ -10,7 +10,7 @@ from hypothesis import strategies as st
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
 from rulesmith.graph import Plan, Task
-from rulesmith.rules import RuleError, compile_rules, render_rules
+from rulesmith.rules import RuleError, compile_rules, parts, render_rules
 from rulesmith.runtime import DecisionProgram
 
 GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").glob("*.json"))
@@ -280,3 +280,13 @@ def test_the_proposer_is_told_how_other_outputs_are_written():
     for heading in headings:
         plan = compile_rules(f"always: review\n{heading}\nalways: high")
         assert set(plan.outputs) == {"label", heading.split()[1].rstrip(":")}
+
+
+def test_the_proposer_is_asked_for_the_parts_search_sends():
+    # The prompt once opened by asking for a JSON component named 'policy' that no longer exists.
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    for part in parts(compile_rules("read x in [0, 1]\nwhen x >= 1: review\nalways: accept")):
+        assert f"'{part}'" in prompt or f"{part} part" in prompt
+    assert "for policy" not in prompt and "perception" not in prompt

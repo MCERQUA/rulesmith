@@ -292,11 +292,11 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         }
     )
     return (
-        "Improve this directed acyclic graph using observed execution failures. Return only "
-        "the replacement component JSON object, with nodes and, for policy, outputs. "
-        "Add, remove, or rewrite "
-        "nodes, questions, input wiring, and conditions. Start from the current graph: keep "
-        "the nodes, IDs, and conditions that work, and change only what the feedback shows is "
+        "Improve this decision program using observed execution failures. It is written in "
+        "two parts, 'readings' (what it may look at and ask) and 'rules' (what it decides), "
+        "and you return the one part you are asked for as rule text. Add, remove, or rewrite "
+        "readings, questions, names, and conditions. Start from the current program: keep "
+        "the readings, names, and rules that work, and change only what the feedback shows is "
         "failing, since rewriting a working graph from scratch usually loses what worked. "
         "Each call receives its mapped inputs, "
         "which can reference original state, literal data, or earlier node values/answers. "
@@ -340,7 +340,8 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         # that falls back to whole-graph JSON is rare enough to ask for the schema then.
         "A whole-graph JSON answer, for the rare program rules cannot express, is "
         '{"nodes": {...}, "outputs": {"label": {"type": "node", "node": "..."}}} whose nodes '
-        "are call, switch, threshold, merge, coalesce, value or read, each optionally guarded "
+        "are call, switch, threshold, merge, coalesce, value, read, confidence, vote or sum, "
+        "each optionally guarded "
         'by "when". An example of one: \n'
         f"{syntax_example.model_dump_json(exclude_none=True)}\n"
         "Use the task's full label set when appropriate.\n"
@@ -359,7 +360,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "suits the decision, and for labels when the answers have no order. Any judgment may "
         "end 'when <condition>' to be asked only then, which is how a costly question is kept "
         "behind a cheap reading. A judgment reads the whole input unless it ends 'given' a "
-        "list of names, which is all it is then shown and costs less to read: "
+        "list of declared names, which is all it is then shown and costs less to read: "
         "'ask close = \"The enemy is close enough to fight.\" given [enemy.distance, health]'. "
         "'observation' in that list is the whole input. "
         "A choice or a score also reports how sure it was: test "
@@ -525,5 +526,6 @@ def evaluate_plan(
     outcomes = score_all(score, program, examples, parallel_examples)
     return {
         "score": sum(outcome.score for outcome in outcomes) / len(outcomes),
+        "resolved_models": sorted({name for outcome in outcomes for name in outcome.models}),
         "examples": [outcome.record for outcome in outcomes],
     }

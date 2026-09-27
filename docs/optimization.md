@@ -15,9 +15,9 @@ evaluate and keep.
 2. **Reflect.** When the current graph misses a training example, `GraphProposer`
    (a `dspy.Predict` with plain-text `ChatAdapter` fields, which any chat
    endpoint accepts) gets the graph, the inputs, its outputs, and the expected
-   labels or episode rewards. Search revises one component at a time:
-   **perception** holds reads and judge calls; **policy** holds the other nodes
-   and outputs. The proposer returns the replacement component, preserving
+   labels or episode rewards. Search revises one part at a time:
+   **readings** holds reads and judgments; **rules** holds names, votes and the
+   rules that decide. The proposer returns the replacement component, preserving
    references to nodes owned by the unchanged component.
 3. **Check.** The replacement is assembled with the unchanged component and
    validated as a complete graph; no generated code runs. Validation errors

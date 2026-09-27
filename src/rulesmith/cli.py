@@ -21,7 +21,7 @@ from rulesmith.arena import Duels, Entrant, duel, tournament
 from rulesmith.chess import ChessTask, Games
 from rulesmith.diagram import mermaid
 from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
-from rulesmith.grade import Graded, Grader
+from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Call, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
 from rulesmith.optimize import (
@@ -78,13 +78,14 @@ def parser() -> argparse.ArgumentParser:
             continue
         provider_arguments(command)
         command.add_argument("--output", type=Path, required=True)
-        if name in ("evaluate", "optimize", "record"):
+        if name in ("evaluate", "optimize"):
             command.add_argument(
                 "--parallel-examples",
-                type=int,
+                type=positive,
                 default=SearchConfig().parallel_examples,
                 help="Examples or episodes scored at once; deathmatch episodes can run together",
             )
+        if name in ("evaluate", "optimize", "record"):
             command.add_argument(
                 "--opponent",
                 type=Path,
@@ -170,7 +171,14 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
     command.add_argument(
         "--retries", type=int, default=0, help="Retries for failed or timed-out judge requests"
     )
-    command.add_argument("--max-workers", type=int, default=ExecutionConfig().max_workers)
+    command.add_argument("--max-workers", type=positive, default=ExecutionConfig().max_workers)
+
+
+def positive(text: str) -> int:
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, not {value}")
+    return value
 
 
 def judge(args: argparse.Namespace, needed: bool):
@@ -184,10 +192,12 @@ def judge(args: argparse.Namespace, needed: bool):
 
 def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """What each input is worth, over the states the task itself supplies."""
-    task = load_task(args.task)
+    task = load_task(cli, args.task)
+    if args.output and args.output.exists():
+        cli.error(f"output already exists: {args.output}")
     # A plan is structurally valid once it loads; size limits bound what search may write, and
     # have nothing to say about measuring a graph that already exists.
-    plan = read_plan(args.plan)
+    plan = read_plan(cli, args.plan)
     examples = getattr(task, args.split)
     if not all(hasattr(example, "state") for example in examples):
         cli.error(
@@ -198,7 +208,8 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     calls = any(isinstance(node, Call) for node in plan.nodes.values())
     model, judge_client = judge(args, calls)
     with judge_client as client:
-        found = effects(plan, states, client if calls else None, model)
+        execution = ExecutionConfig(max_workers=args.max_workers)
+        found = effects(plan, states, client if calls else None, model, execution)
     report = {
         "states": len(states),
         "effects": [
@@ -219,7 +230,7 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
 
 
 def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    task = load_task(args.task)
+    task = load_task(cli, args.task)
     if not isinstance(task, DoomTask) or not task.deathmatch:
         cli.error("arena requires a Doom task with deathmatch set")
     if args.output.exists():
@@ -228,7 +239,7 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     for path in args.plans:
         if path.stem in plans:
             cli.error(f"entrants share the name {path.stem}; rename a plan file")
-        plans[path.stem] = read_plan(path)
+        plans[path.stem] = read_plan(cli, path)
         plans[path.stem].check(task.labels, args.max_nodes, args.max_depth)
     if len(plans) < 2:
         cli.error("the arena needs at least two entrants")
@@ -311,16 +322,25 @@ def scored_by(args: argparse.Namespace, task) -> str:
     return "labels" if isinstance(task, Task) else "games"
 
 
-def read_plan(path: Path) -> Plan:
-    """A graph from its JSON, or from the rules it is written as."""
+def read_plan(cli: argparse.ArgumentParser, path: Path) -> Plan:
+    """A graph from its JSON, or from the rules it is written as. A file that does not hold one
+    is a mistake in the command, reported as such rather than as a crash."""
     text = path.read_text()
-    return compile_rules(text) if path.suffix == ".rules" else Plan.model_validate_json(text)
+    try:
+        return compile_rules(text) if path.suffix == ".rules" else Plan.model_validate_json(text)
+    except ValueError as error:
+        cli.error(f"{path}: {error}")
 
 
-def load_task(path: Path) -> Task | DoomTask | ChessTask:
-    data = json.loads(path.read_text())
-    kind = ChessTask if data.get("game") == "chess" else DoomTask if "scenario" in data else Task
-    return kind.model_validate(data)
+def load_task(cli: argparse.ArgumentParser, path: Path) -> Task | DoomTask | ChessTask:
+    try:
+        data = json.loads(path.read_text())
+        kind = (
+            ChessTask if data.get("game") == "chess" else DoomTask if "scenario" in data else Task
+        )
+        return kind.model_validate(data)
+    except ValueError as error:
+        cli.error(f"{path}: {error}")
 
 
 def main() -> None:
@@ -333,7 +353,7 @@ def main() -> None:
         draft_labels(cli, args)
         return
     if args.command == "draw":
-        print(mermaid(read_plan(args.plan)))
+        print(mermaid(read_plan(cli, args.plan)))
         return
     if args.command == "arena":
         arena(cli, args)
@@ -342,8 +362,8 @@ def main() -> None:
         ablation(cli, args)
         return
     if args.command != "run":
-        task = load_task(args.task)
-    plan = read_plan(args.plan) if args.plan else task.baseline_plan()
+        task = load_task(cli, args.task)
+    plan = read_plan(cli, args.plan) if args.plan else task.baseline_plan()
     if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
@@ -357,7 +377,7 @@ def main() -> None:
         cli.error("--opponent is required for, and only for, tasks played against another graph")
     opponent = None
     if played:
-        opponent = read_plan(args.opponent)
+        opponent = read_plan(cli, args.opponent)
         opponent.check(task.labels, args.max_nodes, args.max_depth)
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
         cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")
@@ -366,8 +386,15 @@ def main() -> None:
     if args.command == "record" and args.output.suffix not in (".gif", ".mp4"):
         cli.error("record writes .gif or .mp4")
     grading = getattr(args, "grader_model", None)
+    if getattr(args, "grader_base_url", None) and not grading:
+        cli.error("--grader-base-url needs a --grader-model to send grades to")
     if grading and not isinstance(task, Task):
         cli.error("--grader-model grades a labeled task's examples; games score themselves")
+    if grading and model_name(grading) == model_name(resolve_backend(args.backend, args.model)[0]):
+        # Search would learn to ask the grader's own question and score perfectly for nothing.
+        cli.error("--grader-model is the judge the graph asks; grade with a different model")
+    if getattr(args, "visible", False) and deathmatch:
+        cli.error("--visible shows a single-player Doom game; a deathmatch has no one window")
     if args.command in ("evaluate", "optimize") and isinstance(task, Task) and not grading:
         splits = ("train", "validation") if args.command == "optimize" else (args.split,)
         unlabeled = [e.id for split in splits for e in getattr(task, split) if e.label is None]
@@ -454,6 +481,7 @@ def main() -> None:
             )
             report["split"] = args.split
             report["backend"] = args.backend
+            report["model"] = model
             report["scored_by"] = scored_by(args, task)
             args.output.write_text(dump(report))
             print(dump({"score": report["score"], "output": str(args.output)}), end="")

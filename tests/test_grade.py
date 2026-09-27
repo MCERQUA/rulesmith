@@ -172,3 +172,14 @@ def test_cli_searches_an_unlabeled_task_against_a_grader(tmp_path, provider, mon
     assert report["seed_validation_score"] == 0.0 and report["validation_score"] == 1.0
     assert report["scored_by"] == "grader openai/grader-model"
     assert Plan.model_validate_json((output / "plan.json").read_text()) == Plan.constant("review")
+
+
+def test_the_grader_is_shown_every_accepted_answer(provider):
+    provider.completion = chat_reply(score=1, reason="Either is right.")
+    data = task_data()
+    data["labels"] = ["accept", "review", "decline"]
+    data["validation"][0]["accepted"] = ["decline"]
+    example = Task.model_validate(data).validation[0]
+    Graded(grader(provider))(always("decline"), example)
+    shown = chats(provider)[-1]["messages"][-1]["content"]
+    assert "decline" in shown.split("[[ ## reference ## ]]", 1)[1].split("[[", 1)[0]

@@ -49,3 +49,22 @@ def test_labeler_rejects_a_label_outside_the_task(provider):
     )
     with pytest.raises(AdapterParseError, match="invented"):
         labeler("request A")
+
+
+@pytest.mark.parametrize(
+    "states,validation,test",
+    [
+        (["x", "y", "z"], 0, 1),
+        (["x", "y", "z"], 1, 0),
+        (["x", "y", "z", "w"], -1, 1),
+        (["x", "x", "y", "z"], 1, 1),
+    ],
+)
+def test_a_task_that_cannot_be_built_is_refused_before_anything_is_labeled(
+    states, validation, test
+):
+    # Labels are paid for; a split that fails afterwards throws every one of them away.
+    requested = []
+    with pytest.raises(ValueError):
+        draft_task("Classify.", ["a", "b"], states, requested.append, validation, test, 0)
+    assert requested == []

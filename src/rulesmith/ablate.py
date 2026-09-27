@@ -75,7 +75,13 @@ def decisions(program: DecisionProgram, states: list[State]) -> list[dict | None
     return decided
 
 
-def effects(plan: Plan, states: list[State], client=None, model: str = "none") -> list[Effect]:
+def effects(
+    plan: Plan,
+    states: list[State],
+    client=None,
+    model: str = "none",
+    execution: ExecutionConfig | None = None,
+) -> list[Effect]:
     """Every read, judgment and name, ranked by how much the graph would change without it.
 
     The judge is asked once per state for the baseline and never again: taking away a reading
@@ -88,10 +94,12 @@ def effects(plan: Plan, states: list[State], client=None, model: str = "none") -
         elif isinstance(node, Sum) or named_condition(node):
             inputs[name] = "let"
     judge = Remembered(client) if client is not None else None
-    baseline = decisions(DecisionProgram(plan, judge, model), states)
+    execution = execution or ExecutionConfig()
+    baseline = decisions(DecisionProgram(plan, judge, model, execution), states)
     found = []
     for name, kind in inputs.items():
-        suppressed = DecisionProgram(plan, judge, model, ExecutionConfig(suppress=(name,)))
+        without = execution.model_copy(update={"suppress": (name,)})
+        suppressed = DecisionProgram(plan, judge, model, without)
         changed = sum(
             mine != theirs
             for mine, theirs in zip(baseline, decisions(suppressed, states), strict=True)

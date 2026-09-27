@@ -28,7 +28,7 @@ class Grader(dspy.Module):
                 "outputs": (dict, dspy.InputField()),
                 "reference": (
                     str | None,
-                    dspy.InputField(desc="The label a person judged right, when there is one"),
+                    dspy.InputField(desc="The labels a person judged right, when there are any"),
                 ),
                 "score": (float, dspy.OutputField(desc="0 is wrong, 1 is right")),
                 "reason": (str, dspy.OutputField(desc="What makes the outputs right or wrong")),
@@ -73,8 +73,11 @@ class Graded:
                 f"the grader {self.grader.lm.model} is the model the graph asks; "
                 "grade with a different, stronger model"
             )
+        right = [example.label, *example.accepted] if example.label else []
         score, reason = self.grader(
-            state=example.state, outputs=prediction.outputs, reference=example.label
+            state=example.state,
+            outputs=prediction.outputs,
+            reference=", ".join(right) or None,
         )
         return Outcome(
             score=score,
