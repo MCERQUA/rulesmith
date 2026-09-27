@@ -3,7 +3,7 @@
 import chess
 import pytest
 
-from rulesmith.chess import POLICIES, ChessTask, Games, chosen, material, observe, played
+from rulesmith.chess import POLICIES, ChessTask, Games, chosen, gain, material, observe, played
 from rulesmith.rules import compile_rules
 from rulesmith.runtime import MISSING, DecisionProgram, resolve_node
 
@@ -156,3 +156,41 @@ def test_every_new_reading_is_a_number_a_read_node_can_take(task):
         assert group in shown
         for name, value in shown[group].items():
             assert isinstance(value, (int, float)), f"{group}.{name} is {type(value)}"
+
+
+def test_promote_only_pushes_a_pawn_that_is_passed():
+    # The e6 pawn can capture on d7 but is not passed; the a3 pawn has nothing in its way.
+    board = chess.Board("4k3/3p4/4P3/8/8/P7/8/4K3 w - - 0 1")
+    assert chosen(board, "PROMOTE").uci() == "a3a4"
+
+
+def test_the_opponents_failure_is_not_the_graphs():
+    task = ChessTask.model_validate(task_data())
+    broken = program("always: NOT_A_POLICY")
+    outcome = Games(task, broken)(program(GREEDY), 0)
+    assert outcome.error is None and outcome.record["points"] == 1.0 and outcome.score > 0.5
+
+
+def test_a_graph_playing_black_is_shown_its_own_first_position(task):
+    # The opening leaves white to move, so black's first look is after white's reply to it.
+    opponent = program("always: QUIET")
+    outcome = Games(task, opponent)(program("always: QUIET"), 1)
+    board = task.opening(1)
+    board.push(chosen(board, "QUIET"))
+    assert outcome.trace["Inputs"] == observe(board)
+
+
+def test_a_king_that_walked_is_not_castled():
+    board = chess.Board()
+    for move in ("e4", "e5", "Ke2", "Ke7"):
+        board.push_san(move)
+    assert observe(board)["king"]["castled"] == 0
+    board = chess.Board("r3k2r/8/8/8/8/8/8/R3K2R w KQkq - 0 1")
+    board.push_san("O-O")
+    board.push_san("O-O-O")
+    assert observe(board)["king"]["castled"] == 1
+
+
+def test_a_promotion_gains_what_the_pawn_becomes():
+    board = chess.Board("8/P6k/8/8/8/8/8/4K3 w - - 0 1")
+    assert gain(board, chess.Move.from_uci("a7a8q")) == 8

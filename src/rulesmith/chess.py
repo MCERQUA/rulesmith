@@ -35,6 +35,10 @@ def gain(board: chess.Board, move: chess.Move) -> int:
     if board.is_en_passant(move):
         taken = VALUES[chess.PAWN]
     mover = worth(board.piece_at(move.from_square))
+    if move.promotion:
+        # The pawn becomes the new piece, which is both the gain and what can be taken back.
+        taken += VALUES[move.promotion] - VALUES[chess.PAWN]
+        mover = VALUES[move.promotion]
     board.push(move)
     exposed = board.is_attacked_by(board.turn, move.to_square)
     board.pop()
@@ -180,21 +184,41 @@ def ring(board: chess.Board, color: bool) -> int:
     return sum(1 for square in around if board.is_attacked_by(not color, square))
 
 
-def passers(board: chess.Board, color: bool) -> list[int]:
-    """Own pawns with no enemy pawn ahead of them on their file or the ones beside it, by how
-    far up the board they are."""
+def passed(board: chess.Board, color: bool, square: int) -> bool:
+    """No enemy pawn ahead of this one on its file or the ones beside it."""
     ahead = 1 if color == chess.WHITE else -1
-    ranks = []
-    for square in board.pieces(chess.PAWN, color):
-        file, rank = chess.square_file(square), chess.square_rank(square)
-        blocked = any(
-            chess.square_file(other) in (file - 1, file, file + 1)
-            and (chess.square_rank(other) - rank) * ahead > 0
-            for other in board.pieces(chess.PAWN, not color)
-        )
-        if not blocked:
-            ranks.append(rank if color == chess.WHITE else 7 - rank)
-    return sorted(ranks, reverse=True)
+    file, rank = chess.square_file(square), chess.square_rank(square)
+    return not any(
+        chess.square_file(other) in (file - 1, file, file + 1)
+        and (chess.square_rank(other) - rank) * ahead > 0
+        for other in board.pieces(chess.PAWN, not color)
+    )
+
+
+def passers(board: chess.Board, color: bool) -> list[int]:
+    """Own passed pawns, by how far up the board they are."""
+    return sorted(
+        (
+            chess.square_rank(square) if color == chess.WHITE else 7 - chess.square_rank(square)
+            for square in board.pieces(chess.PAWN, color)
+            if passed(board, color, square)
+        ),
+        reverse=True,
+    )
+
+
+def castled(board: chess.Board, color: bool) -> bool:
+    """Whether this side castled, not merely moved its king. Replaying the game is the only
+    way to tell, so it is done only when the king stands where castling puts it."""
+    home = (chess.G1, chess.C1) if color == chess.WHITE else (chess.G8, chess.C8)
+    if board.king(color) not in home:
+        return False
+    replay = board.root()
+    for move in board.move_stack:
+        if replay.turn == color and replay.is_castling(move):
+            return True
+        replay.push(move)
+    return False
 
 
 def promote(board: chess.Board) -> chess.Move | None:
@@ -203,12 +227,7 @@ def promote(board: chess.Board) -> chess.Move | None:
     free = {
         square
         for square in board.pieces(chess.PAWN, board.turn)
-        if (
-            7 - chess.square_rank(square)
-            if board.turn == chess.WHITE
-            else chess.square_rank(square)
-        )
-        >= 0
+        if passed(board, board.turn, square)
     }
     pushes = [
         move
@@ -270,7 +289,7 @@ def observe(board: chess.Board) -> dict:
             "in_check": int(board.is_check()),
             "attackers": len(board.attackers(not board.turn, board.king(board.turn))),
             "can_castle": int(bool(castle(board))),
-            "castled": int(board.king(board.turn) not in (chess.E1, chess.E8)),
+            "castled": int(castled(board, board.turn)),
         },
         "capture": {
             "best_gain": gain(board, best) if best else 0,
@@ -355,10 +374,13 @@ def played(task: ChessTask, white: DecisionProgram, black: DecisionProgram, seed
     board = task.opening(seed)
     sides = {chess.WHITE: white, chess.BLACK: black}
     moves, models, error, loser = [], set(), None, None
+    first: dict[bool, dict] = {}
     while not board.is_game_over() and board.ply() < task.move_limit:
         program = sides[board.turn]
+        seen = observe(board)
+        first.setdefault(board.turn, seen)
         try:
-            prediction = program(state=observe(board))
+            prediction = program(state=seen)
         except GraphExecutionError as failure:
             models.update(failure.prediction.models)
             error, loser = f"Graph execution failed: {failure}", board.turn
@@ -388,6 +410,9 @@ def played(task: ChessTask, white: DecisionProgram, black: DecisionProgram, seed
         "adjudicated": not board.is_game_over() and loser is None,
         "models": sorted(models),
         "error": error,
+        "failed": loser,
+        # What each side saw on its first move, which is where its choices began.
+        "first": first,
     }
 
 
@@ -405,7 +430,7 @@ class Games:
         self.opponent = opponent
 
     def __call__(self, program: DecisionProgram, seed: int) -> Outcome:
-        # Alternate colors by seed so a graph is scored from both sides of the same openings.
+        # Colors alternate by seed, so across a split a graph plays as many games as each side.
         mine = chess.WHITE if seed % 2 == 0 else chess.BLACK
         white, black = (program, self.opponent) if mine == chess.WHITE else (self.opponent, program)
         game = played(self.task, white, black, seed)
@@ -417,8 +442,12 @@ class Games:
         share = self.task.material_weight
         score = (1 - share) * points + share * (0.5 + max(-15, min(15, edge)) / 30)
         said = "won" if points == 1 else "lost" if points == 0 else "drew"
+        # Only this graph's own failure is its error; an opponent that breaks simply loses.
+        error = game["error"] if game["failed"] == mine else None
+        if error is None and game["error"] is not None:
+            said = f"won because the opponent failed ({game['error']})"
         return Outcome(
-            score=score if game["error"] is None else 0.0,
+            score=score if error is None else 0.0,
             record={
                 "seed": seed,
                 "color": "white" if mine == chess.WHITE else "black",
@@ -431,12 +460,12 @@ class Games:
                     for policy in sorted({m["policy"] for m in game["moves"]})
                 },
                 "score": score,
-                "error": game["error"],
+                "error": error,
             },
             trace={
-                "Inputs": observe(self.task.opening(seed)),
+                "Inputs": game["first"].get(mine, {}),
                 "Generated Outputs": {"moves": game["moves"][-8:]},
-                "Feedback": game["error"]
+                "Feedback": error
                 or (
                     f"Playing {'white' if mine == chess.WHITE else 'black'} from seed {seed} you "
                     f"{said} in {len(game['moves'])} plies, ending {edge:+d} in material "
@@ -444,5 +473,5 @@ class Games:
                 ),
             },
             models=game["models"],
-            error=game["error"],
+            error=error,
         )
