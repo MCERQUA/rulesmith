@@ -84,3 +84,32 @@ def test_a_name_is_measured_like_an_input():
     found = {effect.node: effect for effect in effects(plan, [{"a": 1, "b": 1}, {"a": 9, "b": 0}])}
     assert found["close"].kind == "let" and found["close"].changed == 1
     assert found["ahead"].kind == "let" and found["ahead"].changed == 1
+
+
+def test_switching_off_one_of_two_judgments_asked_together_asks_nothing_new(provider, client):
+    # Judgments with the same inputs share one request, so taking one away changes the request;
+    # the other's answer is still the one the baseline paid for.
+    plan = compile_rules(
+        'ask a = "First?" [yes: "y"] [no: "n"]\n'
+        'ask b = "Second?" [yes: "y"] [no: "n"]\n'
+        'when a == "yes" and b == "yes": both\n'
+        "always: neither"
+    )
+    provider.body["answers"] = {
+        name: {
+            "type": "choice",
+            "choice": "yes",
+            "probabilities": {"yes": 1, "no": 0},
+            "confidence": 1,
+        }
+        for name in ("a", "b")
+    }
+    found = effects(plan, states([0.1, 0.2]), client, "fixture")
+    assert [path for path, _ in provider.requests].count("/v1/systemone") == 2
+    assert all(effect.changed == 2 for effect in found)
+
+
+def test_a_graph_without_a_label_output_is_measured_on_its_outputs():
+    plan = compile_rules("read score in [0, 1]\noutput move:\nwhen score >= 0.5: go\nalways: stay")
+    (effect,) = effects(plan, states([0.1, 0.9]))
+    assert effect.changed == 1

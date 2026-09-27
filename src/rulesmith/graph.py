@@ -394,8 +394,14 @@ class Plan(StrictModel):
                 isinstance(domains[term.node], tuple) for term in node.terms
             ):
                 raise ValueError(f"sum {key!r} adds numbers, so every term needs a numeric value")
-
-        domains = self.domains()
+            # A reading has no confidence and a probability answers with its own, so a
+            # confidence of either is absent on every input and its rules never fire.
+            if isinstance(node, Confidence):
+                source = self.nodes[node.source]
+                if not isinstance(source, Call) or isinstance(source.question, Noul):
+                    raise ValueError(
+                        f"confidence {key!r} needs a choice or score judgment as its source"
+                    )
         for node in self.nodes.values():
             if isinstance(node, Switch):
                 domain = domains[node.source]

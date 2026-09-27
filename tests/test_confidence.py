@@ -40,17 +40,16 @@ def test_confidence_survives_the_round_trip():
     assert render_rules(compile_rules(once)) == once
 
 
-def test_a_probability_question_has_no_separate_confidence(provider, client):
-    # A noul answers with the probability itself, so there is nothing else to report and the
-    # rule that tests its confidence simply never fires.
+def test_a_probability_question_has_no_separate_confidence():
+    # A noul answers with the probability itself, so there is nothing else to report; a rule
+    # testing its confidence could never fire, and is refused rather than kept dead.
     rules = (
         'ask winning = "We are winning."\n'
         "when winning.confidence >= 0.5: ATTACK\n"
         "always: MOVE_FORWARD"
     )
-    provider.body["answers"] = {"winning": {"type": "noul", "noul": 0.95}}
-    program = DecisionProgram(compile_rules(rules), client, "fixture")
-    assert program({"anything": 1}).label == "MOVE_FORWARD"
+    with pytest.raises(ValueError, match="confidence"):
+        compile_rules(rules)
 
 
 def test_a_confidence_on_something_that_was_never_asked_is_an_error():

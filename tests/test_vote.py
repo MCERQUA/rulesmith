@@ -102,3 +102,18 @@ def test_a_vote_counts_labels_so_it_refuses_sources_that_have_none(question):
                 "outputs": {"label": {"type": "node", "node": "both"}},
             }
         )
+
+
+def test_agreement_needs_every_opinion(provider, client):
+    # A second opinion that was never asked has not agreed with the first.
+    rules = (
+        'ask first = "Fraud?" [yes: "y"] [no: "n"]\n'
+        'ask second = "Fraud again?" [yes: "y"] [no: "n"] when first == "no"\n'
+        "vote checked = agree of [first, second]\n"
+        'when checked == "yes": verified\n'
+        "always: unverified"
+    )
+    answers(provider, first="yes")
+    assert DecisionProgram(compile_rules(rules), client, "fixture")({"order": 1}).label == (
+        "unverified"
+    )

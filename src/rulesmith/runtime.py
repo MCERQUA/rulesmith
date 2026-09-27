@@ -195,6 +195,9 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
         if not cast:
             return MISSING
         if node.rule == "agree":
+            # An opinion that was never given has not agreed, so agreement waits for them all.
+            if len(cast) < len(node.sources):
+                return MISSING
             return node.same if len(set(cast)) == 1 else node.different
         # Ties go to whichever value a source named first, so a vote never depends on ordering
         # inside the counter.

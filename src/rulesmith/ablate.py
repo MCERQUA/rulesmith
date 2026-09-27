@@ -8,6 +8,8 @@ beats to the decision, or a threshold real data never trips. All three look iden
 import json
 from dataclasses import dataclass
 
+from typesafe_sdk import SystemOneResponse, Usage
+
 from rulesmith.graph import Call, Plan, Read, State, Sum
 from rulesmith.rules import named_condition
 from rulesmith.runtime import (
@@ -35,32 +37,42 @@ class Effect:
 
 
 class Remembered:
-    """A judge that answers each question about each state once. A replay with a reading taken
-    away asks the same questions of the same states, so it gets the answers the baseline paid
-    for; a call whose inputs did change is a different question and goes to the judge."""
+    """A judge that answers each question about each state once. Judgments with the same inputs
+    share a request, so switching one off changes the request but not the questions left in it;
+    those get the answers the baseline paid for. A call whose inputs did change is a different
+    question and goes to the judge."""
 
     def __init__(self, client):
         self.client = client
-        self.answers: dict[str, object] = {}
+        self.answers: dict[str, tuple[object, str]] = {}
 
     def system_one(self, *, state, questions, model):
-        key = json.dumps([state, questions, model], sort_keys=True)
-        if key not in self.answers:
-            self.answers[key] = self.client.system_one(
-                state=state, questions=questions, model=model
-            )
-        return self.answers[key]
+        def key(name):
+            return json.dumps([state, name, questions[name], model], sort_keys=True)
+
+        unasked = {name: q for name, q in questions.items() if key(name) not in self.answers}
+        if unasked:
+            response = self.client.system_one(state=state, questions=unasked, model=model)
+            for name in unasked:
+                self.answers[key(name)] = response.answers[name], response.model
+        remembered = {name: self.answers[key(name)] for name in questions}
+        answers = {name: answer for name, (answer, _) in remembered.items()}
+        # Answers already paid for cost nothing now; a fresh request reports its own usage.
+        usage = response.usage if unasked else Usage(input_tokens=0, output_tokens=0)
+        _, served = next(iter(remembered.values()))
+        return SystemOneResponse(model=served, usage=usage, answers=answers)
 
 
-def decisions(program: DecisionProgram, states: list[State]) -> list[object | None]:
-    """The label the graph gives each state, or None where it cannot decide at all."""
-    labels = []
+def decisions(program: DecisionProgram, states: list[State]) -> list[dict | None]:
+    """Every output the graph gives each state, or None where it cannot decide at all. A graph
+    may decide more than a label, and a change to any output is a changed decision."""
+    decided = []
     for state in states:
         try:
-            labels.append(program(state=state).label)
+            decided.append(program(state=state).outputs)
         except GraphExecutionError:
-            labels.append(None)
-    return labels
+            decided.append(None)
+    return decided
 
 
 def effects(plan: Plan, states: list[State], client=None, model: str = "none") -> list[Effect]:

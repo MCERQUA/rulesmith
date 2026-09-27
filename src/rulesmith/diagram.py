@@ -67,22 +67,25 @@ def mermaid(plan: Plan) -> str:
     condition on a guarded node written along the arrow that reaches it."""
     lines = ["flowchart TD"]
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
+    # Mermaid joins boxes that share an id, and a node may be named like an output or anything
+    # else, so ids are positions and the names go in the labels.
+    ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
     for name, node in plan.nodes.items():
         open_shape, close_shape = SHAPES[type(node)]
-        lines.append(f'    {name}{open_shape}"{safe(label(name, node))}"{close_shape}')
+        lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')
     for name, node in plan.nodes.items():
         for source in sorted(feeds(node)):
-            lines.append(f"    {source} --> {name}")
+            lines.append(f"    {ids[source]} --> {ids[name]}")
         # A rule is often a bare value with a condition on it, so the guard has no data edge to
         # ride on. Draw it as its own dashed arrow from whatever the condition reads.
         if node.when is not None:
-            guard = safe(render_condition(node.when, reads))
+            guard = safe(render_condition(node.when, reads, plan))
             for source in sorted(tested(node.when)):
-                lines.append(f'    {source} -.->|"{guard}"| {name}')
-    for output, source in plan.outputs.items():
-        lines.append(f'    {output}(("{safe(output)}"))')
+                lines.append(f'    {ids[source]} -.->|"{guard}"| {ids[name]}')
+    for index, (output, source) in enumerate(plan.outputs.items()):
+        lines.append(f'    o{index}(("{safe(output)}"))')
         if isinstance(source, NodeInput):
-            lines.append(f"    {source.node} --> {output}")
+            lines.append(f"    {ids[source.node]} --> o{index}")
     return "\n".join(lines)
 
 

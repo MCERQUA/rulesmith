@@ -1,5 +1,7 @@
 """Named conditions, and conditions that compare one reading with another."""
 
+import re
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -117,8 +119,9 @@ def test_labels_compare_with_labels_and_numbers_with_numbers():
 
 def test_a_comparison_draws_a_gate_from_both_sides():
     plan = compile_rules("read a in [0, 9]\nread b in [0, 9]\nwhen a < b: LOW\nalways: HIGH")
-    drawn = mermaid(plan)
-    assert "read_a -.->" in drawn and "read_b -.->" in drawn
+    arrows = re.findall(r"^\s*(\w+) -\.->\|[^|]*\| (\w+)$", mermaid(plan), re.MULTILINE)
+    # One dashed arrow into the rule from each reading the comparison names.
+    assert len({source for source, _ in arrows}) == 2 and len({target for _, target in arrows}) == 1
 
 
 def test_a_graph_node_rules_cannot_write_is_refused_rather_than_dropped():
@@ -192,3 +195,33 @@ def test_a_named_reading_is_only_known_by_its_name():
 def test_a_reading_name_cannot_look_like_an_unnamed_reading():
     with pytest.raises(RuleError, match="read_"):
         compile_rules("read read_x = a.b in [0, 1]\nwhen read_x >= 1: A\nalways: B")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"type": "read", "path": ["x"], "bounds": [0, 1]},
+        {
+            "type": "call",
+            "question": {"type": "noul", "instructions": "Is it?"},
+            "inputs": {"observation": {"type": "state"}},
+        },
+    ],
+)
+def test_a_confidence_needs_a_judgment_that_reports_one(source):
+    # A reading has no confidence and a probability answers with its own, so either would be
+    # absent on every input and every rule testing it would silently never fire.
+    graph = {
+        "nodes": {
+            "x": source,
+            "sure": {"type": "confidence", "source": "x"},
+            "flag": {
+                "type": "value",
+                "value": "A",
+                "when": {"type": "compare", "node": "sure", "op": "ge", "value": 0.5},
+            },
+        },
+        "outputs": {"label": {"type": "node", "node": "flag"}},
+    }
+    with pytest.raises(ValueError, match="confidence"):
+        Plan.model_validate(graph)
