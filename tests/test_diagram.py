@@ -42,3 +42,11 @@ def test_a_graph_rules_cannot_express_still_draws():
     plan = Plan.model_validate(binary_plan())
     drawn = mermaid(plan)
     assert drawn.count("-->") >= 1
+
+
+def test_a_guard_keeps_its_grouping():
+    # Dropping the parentheses turns 'not (a or b)' into '(not a) or b', a different rule.
+    plan = compile_rules(
+        "read a in [0, 9]\nread b in [0, 9]\nwhen not (a >= 1 or b >= 1): QUIET\nalways: LOUD"
+    )
+    assert "not (a >= 1.0 or b >= 1.0)" in mermaid(plan)

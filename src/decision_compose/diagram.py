@@ -50,8 +50,10 @@ def label(name: str, node) -> str:
 
 
 def safe(text: str) -> str:
-    """Mermaid takes the label between its shape markers, so anything that closes one has to go."""
-    for character in '"[]{}()|;\n':
+    """Mermaid takes the label between its shape markers, so anything that closes one has to go.
+    Labels are quoted, and quoted text may hold parentheses, which a guard needs to keep its
+    meaning."""
+    for character in '"[]{}|;\n':
         text = text.replace(character, " ")
     return " ".join(text.split())
 
