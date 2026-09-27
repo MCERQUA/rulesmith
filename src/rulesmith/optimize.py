@@ -322,7 +322,9 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "Use the task's full label set when appropriate.\n"
         "Write the program as rules, tried in order, the first whose condition holds "
         "deciding. Declare what it may look at: 'read target.x in [-1, 1]' or "
-        "'read route.next one of [path, door, exit]'. A judgment is asked in one of three "
+        "'read route.next one of [path, door, exit]'. A reading may be given a name, which "
+        "the rules then use in place of its path: 'read health = variables.HEALTH in [0, 200]'. "
+        "A judgment is asked in one of three "
         "ways, and its kind decides how a rule tests it: "
         '\'ask threat = "question" [fight: "when it applies"] [clear: "when it applies"]\' '
         "answers one of those labels, tested 'threat == \"fight\"'; "

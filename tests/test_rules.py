@@ -240,3 +240,14 @@ def test_the_proposer_is_told_how_to_name_a_condition_and_compare_two_readings()
     for relation in relations:
         plan = compile_rules(f"{declared(relation)}\nwhen {relation}: review\nalways: accept")
         assert '"relation"' in plan.model_dump_json()
+
+
+def test_the_proposer_is_told_how_to_name_a_reading():
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    named = re.findall(r"'(read (\w+) = [^']+)'", prompt)
+    assert named
+    for line, name in named:
+        plan = compile_rules(f"{line}\nwhen {name}: review\nalways: accept")
+        assert plan.nodes[name].type == "read"

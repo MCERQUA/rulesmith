@@ -33,6 +33,8 @@ OPERATORS = {">=": "ge", "<": "lt", "==": "eq"}
 SYMBOLS = {name: symbol for symbol, name in OPERATORS.items()}
 LABEL = r"[A-Za-z_][\w+.]*"
 NAME = re.compile(r"[A-Za-z_]\w*")
+# The compiler names what the rules leave unnamed, so a written name must not look like one.
+GENERATED = re.compile(r"(read|rule)_\w*|decision")
 SECTIONS = ("readings", "rules")
 JOINERS = ((" or ", "any"), (" and ", "all"))
 
@@ -101,9 +103,9 @@ def group(condition: Condition, reads: dict[str, Read], plan: Plan | None = None
 
 
 def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
-    """A read appears as its path, a confidence as the judgment it belongs to, and anything
-    else by the name the rules gave it."""
-    if node in reads:
+    """An unnamed read appears as its path, a confidence as the judgment it belongs to, and
+    anything else by the name the rules gave it."""
+    if node in reads and GENERATED.fullmatch(node):
         return path_of(reads[node])
     if plan is not None and isinstance(plan.nodes.get(node), Confidence):
         return f"{plan.nodes[node].source}.confidence"
@@ -120,13 +122,14 @@ def render_rules(plan: Plan) -> str:
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
     rules = ordered(plan, output.node)
     lines = []
-    for read in reads.values():
+    for name, read in reads.items():
         domain = (
             f"in [{number(read.bounds[0])}, {number(read.bounds[1])}]"
             if read.bounds
             else "one of [" + ", ".join(read.categories or []) + "]"
         )
-        lines.append(f"read {path_of(read)} {domain}")
+        named = "" if GENERATED.fullmatch(name) else f"{name} = "
+        lines.append(f"read {named}{path_of(read)} {domain}")
     lines += declarations(plan, spine(plan, output.node), reads)
     for name, guard in rules:
         node = plan.nodes[name]
@@ -320,6 +323,8 @@ def claim(name: str, node: dict, nodes: dict, names: dict) -> None:
     rules already written against it expect the first."""
     if not NAME.fullmatch(name):
         raise RuleError(f"{name!r} is not a name; use letters, digits and underscores")
+    if GENERATED.fullmatch(name):
+        raise RuleError(f"{name!r} is reserved: the compiler names read_, rule_ and decision")
     earlier = nodes.get(name) if names.get(name) == name else None
     if (name in names or name in nodes) and (earlier is None or earlier["type"] != node["type"]):
         raise RuleError(f"{name!r} is already declared")
@@ -337,6 +342,9 @@ def split_gate(text: str) -> tuple[str, str | None]:
 
 
 def declare_read(text: str, nodes: dict, names: dict) -> None:
+    alias = re.match(r"(\S+) = ", text)
+    if alias:
+        text = text[alias.end() :]
     path, _, domain = text.partition(" ")
     node: dict = {"type": "read", "path": [int(p) if p.isdigit() else p for p in path.split(".")]}
     if domain.startswith("in "):
@@ -346,6 +354,9 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
         node["categories"] = [c.strip() for c in domain[7:].strip(" []").split(",")]
     else:
         raise RuleError(f"read {path} needs 'in [low, high]' or 'one of [a, b]'")
+    if alias:
+        claim(alias.group(1), node, nodes, names)
+        return
     name = "read_" + re.sub(r"\W", "_", path)
     nodes[name] = node
     names[path] = name

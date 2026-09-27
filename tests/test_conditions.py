@@ -164,3 +164,31 @@ def test_every_cutoff_and_bound_comes_back_exactly(value):
     plan = compile_rules(render_rules(compile_rules(text)))
     assert plan.nodes["read_x"].bounds[0] == value
     assert plan.nodes["rule_1"].cutoff == value
+
+
+def test_a_reading_may_be_named_and_the_rules_use_the_name():
+    text = (
+        "read health = variables.HEALTH in [0, 200]\n"
+        "when health < 25: MOVE_BACKWARD\n"
+        "always: ATTACK"
+    )
+    plan = compile_rules(text)
+    assert label(plan, {"variables": {"HEALTH": 10}}) == "MOVE_BACKWARD"
+    assert label(plan, {"variables": {"HEALTH": 90}}) == "ATTACK"
+    once = render_rules(plan)
+    assert "read health = variables.HEALTH" in once and "when health < 25" in once
+    assert render_rules(compile_rules(once)) == once
+
+
+def test_a_named_reading_is_only_known_by_its_name():
+    # Two names for one reading would let a rewrite change one and not the other.
+    with pytest.raises(RuleError, match="variables.HEALTH"):
+        compile_rules(
+            "read health = variables.HEALTH in [0, 200]\n"
+            "when variables.HEALTH < 25: MOVE_BACKWARD\nalways: ATTACK"
+        )
+
+
+def test_a_reading_name_cannot_look_like_an_unnamed_reading():
+    with pytest.raises(RuleError, match="read_"):
+        compile_rules("read read_x = a.b in [0, 1]\nwhen read_x >= 1: A\nalways: B")

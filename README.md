@@ -255,7 +255,9 @@ when not armed: MOVE_BACKWARD
 always: MOVE_FORWARD
 ```
 
-A name is a node in the graph, so it survives the round trip: search reads and
+A reading can be named the same way, `read health = variables.HEALTH in [0, 200]`,
+and the rules then say `health`. A name is a node in the graph, so it survives the
+round trip: search reads and
 rewrites `armed`, not the condition spelled out in every rule, and `draw` shows it
 as a box of its own. Programs that rules cannot express, such as two judgments
 merged into one input, are proposed as whole-graph JSON instead.
