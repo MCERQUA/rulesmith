@@ -24,7 +24,7 @@ def answers(provider, **said):
     }
 
 
-def test_two_judgements_that_agree_are_acted_on(provider, client):
+def test_two_judgments_that_agree_are_acted_on(provider, client):
     answers(provider, first="yes", second="yes")
     program = DecisionProgram(compile_rules(SECOND_OPINION), client, "fixture")
     assert program({"order": 1}).label == "review"

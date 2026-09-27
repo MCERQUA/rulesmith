@@ -185,7 +185,7 @@ def test_every_example_program_compiles_and_survives_the_round_trip(path):
         assert all(node.when is not None for node in plan.nodes.values() if node.type == "call")
 
 
-def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
+def test_the_proposer_is_told_every_kind_of_judgment_it_may_ask():
     # Search can only use what its instructions describe, and the language has three kinds.
     from rulesmith.graph import Task
     from rulesmith.optimize import SearchConfig, proposer_prompt

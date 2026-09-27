@@ -21,13 +21,13 @@ def answering(provider, choice, confidence):
     }
 
 
-def test_a_sure_judgement_is_acted_on(provider, client):
+def test_a_sure_judgment_is_acted_on(provider, client):
     answering(provider, "ATTACK", 0.9)
     program = DecisionProgram(compile_rules(GATED), client, "fixture")
     assert program({"anything": 1}).label == "ATTACK"
 
 
-def test_an_unsure_judgement_falls_through_to_the_cheap_rule(provider, client):
+def test_an_unsure_judgment_falls_through_to_the_cheap_rule(provider, client):
     # The point of the whole thing: the judge said ATTACK, but not confidently enough to act on.
     answering(provider, "ATTACK", 0.4)
     program = DecisionProgram(compile_rules(GATED), client, "fixture")
