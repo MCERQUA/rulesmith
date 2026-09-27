@@ -13,6 +13,8 @@ from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, TypeSafeClient
 from decision_compose.graph import (
     All,
     Call,
+    Confidence,
+    Vote,
     Choice,
     Coalesce,
     Compare,
@@ -98,8 +100,9 @@ class GraphExecutionError(ValueError):
 
 class ExecutionConfig(StrictModel):
     max_workers: int = Field(default=4, ge=1)
-    suppress: frozenset[str] = Field(
-        default_factory=frozenset,
+    # A tuple, not a set: this config is written into a run's report, and JSON has no set.
+    suppress: tuple[str, ...] = Field(
+        default=(),
         description="Nodes forced absent, for measuring what a graph decides without them",
     )
 
@@ -177,8 +180,21 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
         return resolve_inputs(node.inputs, state, values, answers)
     if isinstance(node, Coalesce):
         return next((values[source] for source in node.sources if source in values), MISSING)
+    if isinstance(node, Vote):
+        cast = [values[source] for source in node.sources if source in values]
+        if not cast:
+            return MISSING
+        if node.rule == "agree":
+            return node.same if len(set(cast)) == 1 else node.different
+        # Ties go to whichever value a source named first, so a vote never depends on ordering
+        # inside the counter.
+        return max(set(cast), key=lambda value: (cast.count(value), -cast.index(value)))
     if isinstance(node, Read):
         return read_path(node, state)
+    if isinstance(node, Confidence):
+        # A probability answer is its own confidence, so there is nothing separate to report.
+        answer = answers.get(node.source)
+        return answer["confidence"] if answer and "confidence" in answer else MISSING
     if node.source not in values:
         return MISSING
     value = values[node.source]

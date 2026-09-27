@@ -117,9 +117,9 @@ def references(value: JsonValue) -> set[str]:
     kind = value.get("type")
     if kind in ("node", "compare", "present") and isinstance(value.get("node"), str):
         named.add(value["node"])
-    if kind in ("switch", "threshold") and isinstance(value.get("source"), str):
+    if kind in ("switch", "threshold", "confidence") and isinstance(value.get("source"), str):
         named.add(value["source"])
-    if kind == "coalesce" and isinstance(value.get("sources"), list):
+    if kind in ("coalesce", "vote") and isinstance(value.get("sources"), list):
         named.update(source for source in value["sources"] if isinstance(source, str))
     for key in ("when", "condition", "conditions"):
         named.update(references(value.get(key)))
@@ -178,6 +178,27 @@ class Value(Guarded):
     value: JsonValue
 
 
+class Vote(Guarded):
+    """Several judgements settled into one value. `majority` takes the value most of them gave,
+    breaking a tie towards the earlier source; `agree` reports whether they all said the same,
+    which is how a second opinion verifies a first."""
+
+    type: Literal["vote"] = "vote"
+    sources: list[Text] = Field(min_length=2)
+    rule: Literal["majority", "agree"] = "majority"
+    same: Text = "yes"
+    different: Text = "no"
+
+
+class Confidence(Guarded):
+    """How sure a judgement was, as a number a rule can test. A choice or a score answer carries
+    its own confidence; a probability answers with the probability itself, so it has none to
+    report and this is absent for one."""
+
+    type: Literal["confidence"] = "confidence"
+    source: Text
+
+
 class Read(Guarded):
     """A value taken from the original input by path, with its declared domain."""
 
@@ -196,7 +217,8 @@ class Read(Guarded):
 
 
 Node = Annotated[
-    Call | Switch | Threshold | Merge | Coalesce | Value | Read, Field(discriminator="type")
+    Call | Switch | Threshold | Merge | Coalesce | Value | Read | Confidence | Vote,
+    Field(discriminator="type"),
 ]
 Domain = frozenset[str] | tuple[float, float] | None
 
@@ -219,9 +241,9 @@ class Plan(StrictModel):
             refs = {condition.node for condition in predicates(node.when)}
             if isinstance(node, (Call, Merge)):
                 refs.update(s.node for s in node.inputs.values() if isinstance(s, NodeInput))
-            elif isinstance(node, (Switch, Threshold)):
+            elif isinstance(node, (Switch, Threshold, Confidence)):
                 refs.add(node.source)
-            elif isinstance(node, Coalesce):
+            elif isinstance(node, (Coalesce, Vote)):
                 refs.update(node.sources)
             result[key] = refs
         return result
@@ -259,6 +281,15 @@ class Plan(StrictModel):
                 domain = literal_domain(node.value)
             elif isinstance(node, Read):
                 domain = frozenset(node.categories) if node.categories else node.bounds
+            elif isinstance(node, Confidence):
+                domain = (0.0, 1.0)
+            elif isinstance(node, Vote):
+                if node.rule == "agree":
+                    domain = frozenset([node.same, node.different])
+                else:
+                    voted = [result[source] for source in node.sources]
+                    if all(isinstance(d, frozenset) for d in voted):
+                        domain = frozenset().union(*voted)
             elif isinstance(node, Coalesce):
                 inputs = [result[source] for source in node.sources]
                 if all(isinstance(d, frozenset) for d in inputs):

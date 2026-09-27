@@ -3,6 +3,7 @@
 from decision_compose.graph import (
     All,
     Any,
+    Confidence,
     Call,
     Coalesce,
     Compare,
@@ -15,6 +16,7 @@ from decision_compose.graph import (
     Switch,
     Threshold,
     Value,
+    Vote,
 )
 from decision_compose.rules import path_of, render_condition
 
@@ -25,6 +27,8 @@ SHAPES = {
     Switch: ("[", "]"),
     Merge: ("[", "]"),
     Coalesce: ("([", "])"),
+    Vote: ("[/", "\\]"),
+    Confidence: ("[", "]"),
     Value: ("((", "))"),
 }
 
@@ -41,6 +45,10 @@ def label(name: str, node) -> str:
         return str(node.value)
     if isinstance(node, Switch):
         return f"{name}: switch on {node.source}"
+    if isinstance(node, Vote):
+        return f"{name}: {node.rule} of {len(node.sources)}"
+    if isinstance(node, Confidence):
+        return f"how sure {node.source} was"
     return name
 
 
@@ -90,8 +98,8 @@ def feeds(node) -> set[str]:
     """The nodes whose values this one consumes, ignoring the ones its guard mentions."""
     if isinstance(node, (Call, Merge)):
         return {source.node for source in node.inputs.values() if isinstance(source, NodeInput)}
-    if isinstance(node, Coalesce):
+    if isinstance(node, (Coalesce, Vote)):
         return set(node.sources)
-    if isinstance(node, (Switch, Threshold)):
+    if isinstance(node, (Switch, Threshold, Confidence)):
         return {node.source}
     return set()

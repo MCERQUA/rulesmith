@@ -51,7 +51,7 @@ def effects(plan: Plan, states: list[State], client=None, model: str = "none") -
     baseline = decisions(DecisionProgram(plan, client, model), states)
     found = []
     for name, kind in inputs.items():
-        suppressed = DecisionProgram(plan, client, model, ExecutionConfig(suppress={name}))
+        suppressed = DecisionProgram(plan, client, model, ExecutionConfig(suppress=(name,)))
         changed = sum(
             mine != theirs for mine, theirs in zip(baseline, decisions(suppressed, states), strict=True)
         )

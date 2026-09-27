@@ -16,7 +16,9 @@ import vizdoom as vzd
 from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
+from decision_compose.ablate import effects
 from decision_compose.arena import Duels, Entrant, duel, tournament
+from decision_compose.diagram import mermaid
 from decision_compose.chess import ChessTask, Games
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
@@ -136,6 +138,16 @@ def parser() -> argparse.ArgumentParser:
     arena.add_argument("--max-depth", type=int, default=SearchConfig().max_depth)
     arena.add_argument("--output", type=Path, required=True)
     provider_arguments(arena)
+    draw = commands.add_parser("draw", help="Write a plan as a Mermaid flowchart")
+    draw.add_argument("plan", type=Path)
+    ablation = commands.add_parser(
+        "ablate", help="Measure what each reading and judgement in a graph is worth"
+    )
+    ablation.add_argument("task", type=Path)
+    ablation.add_argument("plan", type=Path)
+    ablation.add_argument("--split", choices=("train", "validation", "test"), default="validation")
+    ablation.add_argument("--output", type=Path)
+    provider_arguments(ablation)
     run = commands.add_parser("run")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
@@ -161,6 +173,38 @@ def judge(args: argparse.Namespace, needed: bool):
         return model, nullcontext()
     retry = RetryPolicy(max_retries=args.retries)
     return model, TypeSafeClient(**connection, timeout=args.timeout, retry=retry)
+
+
+def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """What each input is worth, over the states the task itself supplies."""
+    task = load_task(args.task)
+    plan = read_plan(args.plan)
+    plan.check(task.labels, args.max_nodes if hasattr(args, "max_nodes") else 999, 999)
+    examples = getattr(task, args.split)
+    if not all(hasattr(example, "state") for example in examples):
+        cli.error("ablate needs a task whose examples carry their own state")
+    states = [example.state for example in examples]
+    calls = any(isinstance(node, Call) for node in plan.nodes.values())
+    model, judge_client = judge(args, calls)
+    with judge_client as client:
+        found = effects(plan, states, client if calls else None, model)
+    report = {
+        "states": len(states),
+        "effects": [
+            {
+                "node": effect.node,
+                "kind": effect.kind,
+                "changed": effect.changed,
+                "share": round(effect.share, 4),
+                "reason": effect.reason,
+            }
+            for effect in found
+        ],
+    }
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(dump(report))
+    print(dump(report), end="")
 
 
 def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
@@ -258,8 +302,14 @@ def main() -> None:
     if args.command == "draft-labels":
         draft_labels(cli, args)
         return
+    if args.command == "draw":
+        print(mermaid(read_plan(args.plan)))
+        return
     if args.command == "arena":
         arena(cli, args)
+        return
+    if args.command == "ablate":
+        ablation(cli, args)
         return
     if args.command != "run":
         task = load_task(args.task)

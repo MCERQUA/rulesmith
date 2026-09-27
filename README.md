@@ -254,6 +254,35 @@ A judge answers three kinds of question, and only the first is classification:
 | `score` | a position on the rubric, ordered | `ask severity = "How bad is this?" [minor] [major] [critical]` | `severity >= 2` |
 | `noul` | the probability its statement is true | `ask grounded = "The reply follows from the context."` | `grounded >= 0.85` |
 
+Two things a rule can say about a judgement besides what it answered.
+
+**How sure it was.** A choice or a score comes back with a confidence, and
+`<name>.confidence` puts it where a condition can test it, so an answer the judge
+hedged on falls through to the cheap rule instead of being acted on:
+
+```
+ask threat = "Fight or fall back?" [ATTACK: "Ammo and health allow it."] [MOVE_BACKWARD: "They do not."]
+when threat.confidence >= 0.7 and threat == "ATTACK": ATTACK
+always: MOVE_FORWARD
+```
+
+**What several of them agree on.** A vote settles two or more judgements into
+one value: `agree` reports whether they all said the same, which is how a second
+opinion verifies the first, and `majority` takes the answer most of them gave.
+
+```
+ask first = "Is this order fraudulent?" [yes: "It is."] [no: "It is not."]
+ask second = "Reading it again, is this order fraudulent?" [yes: "It is."] [no: "It is not."]
+vote checked = agree of [first, second]
+when checked == "yes" and first == "yes": review
+always: accept
+```
+
+Each judgement in a vote is a separate model call, so a second opinion costs a
+second question. Everything measured in this repo says calls are the expensive
+part and rarely the deciding one, so reach for this where being wrong is costly,
+not by default.
+
 A probability is a number, so it composes like any read:
 
 ```
@@ -460,6 +489,66 @@ position apart from one shuffling in a dead equal one. Set `material_weight` to
 
 See [chess](docs/chess.md) for the policies, what a graph sees, and a baseline
 ladder of 900 games.
+
+## Look at what a graph does
+
+Two commands for reading a graph rather than running it.
+
+**`draw`** writes it as a Mermaid flowchart, which is the readable form for the
+graphs rules cannot express: solid arrows carry values, dashed ones gate, and
+each dashed arrow says the condition it carries.
+
+```sh
+uv run decision-compose draw examples/rules/routing.rules
+```
+
+**`ablate`** answers what each reading and judgement is worth. It replays the
+decisions the graph already made with one input switched off and counts how many
+change, so it needs no fresh model calls beyond the first pass:
+
+```sh
+uv run decision-compose ablate task.json plan.json --split validation \
+  --backend ruling --output runs/ablation.json
+```
+
+Run against the best graph the chess league produced, over 116 positions from
+one game:
+
+```
+reading                       changed   share   why not
+capture.best_gain                  99     85%
+hanging.worst                       9      8%
+king.in_check                       3      3%
+check.available                     1      1%
+king.can_castle                     0      0%   present in 116 of 116 states and changes no decision
+```
+
+That last line is a rule the graph carries and never uses: `king.can_castle` is
+there in every position, and the two rules above it fire first every time
+castling is legal. A zero row means one of three things and the report says
+which, because they are different problems: a path the state never has is a
+typo, a rule an earlier one always beats is dead weight, and a threshold real
+data never trips is a number chosen badly.
+
+Search spends its budget rewriting whatever is in the graph, so rules that
+cannot matter are rules the proposer wastes proposals on.
+
+## Commands
+
+| Command | Does |
+| --- | --- |
+| `validate` | Check a graph against a task's labels and size limits, without running it |
+| `run` | Execute a graph once on one input |
+| `evaluate` | Score a graph on a task split |
+| `optimize` | Search for a better graph, writing `plan.json` and `report.json` |
+| `arena` | Rank Doom graphs by Elo from deathmatch duels |
+| `record` | Play a Doom episode to `.mp4` or `.gif` |
+| `draw` | Write a graph as a Mermaid flowchart |
+| `ablate` | Measure what each reading and judgement in a graph is worth |
+| `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
+
+Every command that reaches a model takes `--backend`, `--model`, `--base-url`,
+`--timeout` and `--max-workers`; see [backends](#backends).
 
 ## Results
 

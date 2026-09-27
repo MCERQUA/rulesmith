@@ -261,6 +261,12 @@ def test_calls_sharing_inputs_are_asked_in_one_sdk_request(provider, client, mix
             "legend": {"0": "Routine request", "1": "Immediate assistance needed"},
         },
         "refund": {"type": "noul", "noul": 0.9},
+        "second": {
+            "type": "choice",
+            "choice": "billing",
+            "confidence": 0.7,
+            "probabilities": {"billing": 0.8, "technical": 0.2},
+        },
     }
     prediction = DecisionProgram(mixed_plan, client, "fixture-model")(
         state="Refund this charge now."
@@ -598,6 +604,17 @@ def every_construct_plan():
                 "source": "team",
                 "cases": {"billing": "accept", "technical": "review"},
             },
+            "sure": {"type": "confidence", "source": "team"},
+            "second": {
+                "type": "call",
+                "question": {
+                    "type": "choice",
+                    "instructions": "Reading it again, which team owns this request?",
+                    "criteria": {"billing": "Charges", "technical": "Bugs"},
+                },
+                "inputs": {"ticket": {"type": "state"}},
+            },
+            "agreed": {"type": "vote", "rule": "agree", "sources": ["team", "second"]},
             "gate": {
                 "type": "threshold",
                 "source": "refund",
@@ -644,6 +661,8 @@ def every_construct_plan():
                     "team": {"type": "node", "node": "team", "view": "answer"},
                     "held": {"type": "node", "node": "hold", "optional": True},
                     "policy": {"type": "literal", "value": {"version": 1}},
+                    "sure": ref("sure"),
+                    "agreed": ref("agreed"),
                 },
             },
         },
@@ -674,6 +693,12 @@ def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider
             "legend": {"0": "Routine request", "1": "Immediate assistance needed"},
         },
         "refund": {"type": "noul", "noul": 0.9},
+        "second": {
+            "type": "choice",
+            "choice": "billing",
+            "confidence": 0.7,
+            "probabilities": {"billing": 0.8, "technical": 0.2},
+        },
     }
     proposer = GraphProposer(
         dspy.LM(
@@ -696,7 +721,7 @@ def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider
     assert report["validation_score"] == 1.0
     judged = [body["questions"] for path, body in provider.requests if path == "/v1/systemone"]
     assert sorted(key for questions in judged for key in questions) == sorted(
-        ["team", "urgency", "refund"] * 2
+        ["team", "second", "urgency", "refund"] * 2
     )
 
 

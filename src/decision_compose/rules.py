@@ -11,6 +11,8 @@ import re
 from decision_compose.graph import (
     All,
     Any,
+    Confidence,
+    Vote,
     Call,
     Coalesce,
     Compare,
@@ -62,29 +64,34 @@ def path_of(read: Read) -> str:
     return ".".join(str(part) for part in read.path)
 
 
-def render_condition(condition: Condition, reads: dict[str, Read]) -> str:
+def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
     """One condition as rule text; reads appear as the paths they take."""
     if isinstance(condition, Compare):
         value = condition.value
-        return f"{name_of(condition.node, reads)} {SYMBOLS[condition.op]} {json.dumps(value)}"
+        return f"{name_of(condition.node, reads, plan)} {SYMBOLS[condition.op]} {json.dumps(value)}"
     if isinstance(condition, Present):
-        return name_of(condition.node, reads)
+        return name_of(condition.node, reads, plan)
     if isinstance(condition, Not):
-        return f"not {group(condition.condition, reads)}"
+        return f"not {group(condition.condition, reads, plan)}"
     joiner = " and " if condition.type == "all" else " or "
-    return joiner.join(group(part, reads) for part in condition.conditions)
+    return joiner.join(group(part, reads, plan) for part in condition.conditions)
 
 
-def group(condition: Condition, reads: dict[str, Read]) -> str:
+def group(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
     """One part of a longer condition. A group of its own needs parentheses, or reading it back
     would join it to its neighbours: 'a and (b or c)' is not 'a and b, or c'."""
-    text = render_condition(condition, reads)
+    text = render_condition(condition, reads, plan)
     return f"({text})" if isinstance(condition, (All, Any)) else text
 
 
-def name_of(node: str, reads: dict[str, Read]) -> str:
-    """A read appears as its path; anything else by the name the rules gave it."""
-    return path_of(reads[node]) if node in reads else node
+def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
+    """A read appears as its path, a confidence as the judgement it belongs to, and anything
+    else by the name the rules gave it."""
+    if node in reads:
+        return path_of(reads[node])
+    if plan is not None and isinstance(plan.nodes.get(node), Confidence):
+        return f"{plan.nodes[node].source}.confidence"
+    return node
 
 
 def render_rules(plan: Plan) -> str:
@@ -105,14 +112,19 @@ def render_rules(plan: Plan) -> str:
             else "one of [" + ", ".join(read.categories or []) + "]"
         )
         lines.append(f"read {path_of(read)} {domain}")
+    # A vote is written after the judgements it counts and before the rules that test it.
+    votes = {name: node for name, node in plan.nodes.items() if isinstance(node, Vote)}
     # A judgement a rule asks about, rather than acts on, is declared before the rules.
     for name, node in plan.nodes.items():
         if isinstance(node, Call) and name not in acting:
-            gate = f" when {render_condition(node.when, reads)}" if node.when is not None else ""
+            gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
             lines.append(f"ask {name} = {render_action(node, reads).removeprefix('ask ')}{gate}")
+    for name, node in votes.items():
+        listed = ", ".join(node.sources)
+        lines.append(f"vote {name} = {node.rule} of [{listed}]")
     for name, guard in rules:
         node = plan.nodes[name]
-        condition = render_condition(guard, reads) if guard else None
+        condition = render_condition(guard, reads, plan) if guard else None
         lines.append(
             f"{'when ' + condition if condition else 'always'}: {render_action(node, reads)}"
         )
@@ -215,15 +227,30 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         question, gate = split_gate(question.strip())
         node = parse_action(f"ask {question}", names)
         if gate:
-            node["when"] = parse_condition(gate, names)
+            node["when"] = parse_condition(gate, names, nodes)
         nodes[name.strip()] = node
+        names[name.strip()] = name.strip()
+        return
+    if line.startswith("vote ") and "=" in line:
+        name, _, body = line[5:].partition("=")
+        rule, _, listed = body.strip().partition(" of ")
+        if rule.strip() not in ("majority", "agree"):
+            raise RuleError(f"a vote is 'majority of [...]' or 'agree of [...]', not {rule.strip()!r}")
+        sources = [named(part.strip(), names, nodes) for part in listed.strip(" []").split(",")]
+        if len(sources) < 2:
+            raise RuleError("a vote needs at least two judgements")
+        nodes[name.strip()] = {"type": "vote", "rule": rule.strip(), "sources": sources}
         names[name.strip()] = name.strip()
         return
     head, _, action = line.partition(":")
     if not action:
         raise RuleError("a rule reads 'when <condition>: <action>' or 'always: <action>'")
     head = head.strip()
-    guard = None if head == "always" else parse_condition(head.removeprefix("when").strip(), names)
+    guard = (
+        None
+        if head == "always"
+        else parse_condition(head.removeprefix("when").strip(), names, nodes)
+    )
     name = f"rule_{len(sources) + 1}"
     nodes[name] = parse_action(action.strip(), names) | ({"when": guard} if guard else {})
     sources.append(name)
@@ -253,14 +280,14 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     names[path] = name
 
 
-def parse_condition(text: str, reads: dict) -> dict:
+def parse_condition(text: str, reads: dict, nodes: dict | None = None) -> dict:
     text = ungrouped(text.strip())
     # 'or' binds loosest, so it splits first and each side may still be a run of 'and'.
     for joiner, kind in JOINERS:
         sides = split_outside(text, joiner)
         if len(sides) > 1:
-            return {"type": kind, "conditions": [parse_condition(side, reads) for side in sides]}
-    return parse_test(text, reads)
+            return {"type": kind, "conditions": [parse_condition(side, reads, nodes) for side in sides]}
+    return parse_test(text, reads, nodes)
 
 
 def ungrouped(text: str) -> str:
@@ -289,10 +316,10 @@ def split_outside(text: str, joiner: str) -> list[str]:
     return [side.strip() for side in sides + [text[start:]]]
 
 
-def parse_test(text: str, reads: dict) -> dict:
+def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
     if text.startswith("not "):
         # What follows may be a group of its own, so read it as a whole condition.
-        return {"type": "not", "condition": parse_condition(text[4:], reads)}
+        return {"type": "not", "condition": parse_condition(text[4:], reads, nodes)}
     for symbol in ("<=", ">"):
         if f" {symbol} " in text:
             path, _, value = text.partition(f" {symbol} ")
@@ -300,8 +327,8 @@ def parse_test(text: str, reads: dict) -> dict:
             below = {
                 "type": "any",
                 "conditions": [
-                    parse_test(f"{path.strip()} < {value.strip()}", reads),
-                    parse_test(f"{path.strip()} == {value.strip()}", reads),
+                    parse_test(f"{path.strip()} < {value.strip()}", reads, nodes),
+                    parse_test(f"{path.strip()} == {value.strip()}", reads, nodes),
                 ],
             }
             return below if symbol == "<=" else {"type": "not", "condition": below}
@@ -314,14 +341,23 @@ def parse_test(text: str, reads: dict) -> dict:
                 raise RuleError(f"{value.strip()!r} is not a number or a quoted label") from error
             return {
                 "type": "compare",
-                "node": named(path.strip(), reads),
+                "node": named(path.strip(), reads, nodes),
                 "op": op,
                 "value": compared,
             }
-    return {"type": "present", "node": named(text, reads)}
+    return {"type": "present", "node": named(text, reads, nodes)}
 
 
-def named(path: str, names: dict) -> str:
+def named(path: str, names: dict, nodes: dict | None = None) -> str:
+    """A name a condition tests. '<judgement>.confidence' is how sure that judgement was, and
+    the node that reports it is made on first mention."""
+    if path not in names and path.endswith(".confidence") and nodes is not None:
+        asked = path.removesuffix(".confidence")
+        # Only a judgement has a confidence. A reading is a number the input already carried.
+        if asked in names and nodes.get(names[asked], {}).get("type") == "call":
+            name = f"{names[asked]}_confidence"
+            nodes.setdefault(name, {"type": "confidence", "source": names[asked]})
+            names[path] = name
     if path not in names:
         raise RuleError(
             f"nothing named {path!r}; declare it with 'read {path} ...' or 'ask {path} = ...'"
