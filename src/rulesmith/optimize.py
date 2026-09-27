@@ -336,7 +336,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "end 'when <condition>' to be asked only then, which is how a costly question is kept "
         "behind a cheap reading. A judgment reads the whole input unless it ends 'given' a "
         "list of names, which is all it is then shown and costs less to read: "
-        "'ask close = \"Is the enemy close enough to fight?\" given [enemy.distance, health]'. "
+        "'ask close = \"The enemy is close enough to fight.\" given [enemy.distance, health]'. "
         "'observation' in that list is the whole input. "
         "A choice or a score also reports how sure it was: test "
         "'threat.confidence >= 0.7' to act only on a sure answer and let a hedged one fall "
