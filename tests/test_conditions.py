@@ -146,3 +146,21 @@ def test_a_graph_node_rules_cannot_write_is_refused_rather_than_dropped():
     )
     with pytest.raises(RuleError, match="gate"):
         render_rules(plan)
+
+
+@given(st.floats(min_value=-1e6, max_value=1e6, allow_nan=False))
+def test_every_number_a_condition_compares_with_comes_back_exactly(value):
+    text = f"read x in [-1000000, 1000000]\nwhen x >= {value!r}: HIGH\nalways: LOW"
+    once = render_rules(compile_rules(text))
+    assert compile_rules(once).nodes["rule_1"].when.value == value
+    # Whole numbers read as whole numbers: a proposer copies '>= 1.0' into every rule it writes.
+    if value.is_integer():
+        assert f">= {int(value)}:" in once
+
+
+@given(st.floats(min_value=-1e6, max_value=1e6, allow_nan=False))
+def test_every_cutoff_and_bound_comes_back_exactly(value):
+    text = f"read x in [{value!r}, 1000001]\nalways: x >= {value!r} ? HIGH : LOW"
+    plan = compile_rules(render_rules(compile_rules(text)))
+    assert plan.nodes["read_x"].bounds[0] == value
+    assert plan.nodes["rule_1"].cutoff == value

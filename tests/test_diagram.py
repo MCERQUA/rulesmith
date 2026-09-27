@@ -49,4 +49,4 @@ def test_a_guard_keeps_its_grouping():
     plan = compile_rules(
         "read a in [0, 9]\nread b in [0, 9]\nwhen not (a >= 1 or b >= 1): QUIET\nalways: LOUD"
     )
-    assert "not (a >= 1.0 or b >= 1.0)" in mermaid(plan)
+    assert "not (a >= 1 or b >= 1)" in mermaid(plan)

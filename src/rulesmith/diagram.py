@@ -14,7 +14,7 @@ from rulesmith.graph import (
     Vote,
     tested,
 )
-from rulesmith.rules import path_of, render_condition
+from rulesmith.rules import number, path_of, render_condition
 
 SHAPES = {
     Read: ("[/", "/]"),
@@ -36,7 +36,7 @@ def label(name: str, node) -> str:
     if isinstance(node, Call):
         return f"ask {node.question.type}: {node.question.instructions[:40]}"
     if isinstance(node, Threshold):
-        return f"{name}: >= {node.cutoff:g} ? {node.above} : {node.below}"
+        return f"{name}: >= {number(node.cutoff)} ? {node.above} : {node.below}"
     if isinstance(node, Value):
         # A named condition holds a bare true; its name is what the rules test.
         return name if node.value is True else str(node.value)

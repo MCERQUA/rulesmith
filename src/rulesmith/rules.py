@@ -65,6 +65,13 @@ class RuleError(ValueError):
     """A rule list that cannot be read, or a graph that cannot be written as one."""
 
 
+def number(value: float | str) -> str:
+    """A value as rule text: whole numbers without a trailing '.0', and every other number in
+    full, since a rounded cutoff is a different graph."""
+    whole = isinstance(value, float) and value.is_integer()
+    return json.dumps(int(value) if whole else value)
+
+
 def path_of(read: Read) -> str:
     return ".".join(str(part) for part in read.path)
 
@@ -75,7 +82,7 @@ def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | 
         against = (
             name_of(condition.other, reads, plan)
             if isinstance(condition, Relation)
-            else json.dumps(condition.value)
+            else number(condition.value)
         )
         return f"{name_of(condition.node, reads, plan)} {SYMBOLS[condition.op]} {against}"
     if isinstance(condition, Present):
@@ -115,7 +122,7 @@ def render_rules(plan: Plan) -> str:
     lines = []
     for read in reads.values():
         domain = (
-            f"in [{read.bounds[0]:g}, {read.bounds[1]:g}]"
+            f"in [{number(read.bounds[0])}, {number(read.bounds[1])}]"
             if read.bounds
             else "one of [" + ", ".join(read.categories or []) + "]"
         )
@@ -191,7 +198,9 @@ def render_action(node, reads: dict[str, Read]) -> str:
     if isinstance(node, Value):
         return json.dumps(node.value).strip('"')
     if isinstance(node, Threshold):
-        return f"{name_of(node.source, reads)} >= {node.cutoff:g} ? {node.above} : {node.below}"
+        return (
+            f"{name_of(node.source, reads)} >= {number(node.cutoff)} ? {node.above} : {node.below}"
+        )
     if len(node.inputs) != 1:
         raise RuleError(f"a judgment over {sorted(node.inputs)} has no rule form")
     question = node.question
