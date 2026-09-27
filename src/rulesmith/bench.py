@@ -362,7 +362,7 @@ def chess_reference(
 
 
 def language_model(
-    model: str | None, base_url: str | None, options: str | None, max_tokens: int
+    model: str | None, base_url: str | None, options: str | None, max_tokens: int, timeout: float
 ) -> dspy.LM | None:
     """A generative model, given its DSPy id. `options` is extra request JSON, such as switching
     off a model's thinking so a one-word label does not cost a page of reasoning."""
@@ -370,7 +370,15 @@ def language_model(
         return None
     extra = {"extra_body": json.loads(options)} if options else {}
     endpoint = {"api_base": base_url} if base_url else {}
-    return dspy.LM(model, cache=False, num_retries=0, max_tokens=max_tokens, **endpoint, **extra)
+    return dspy.LM(
+        model,
+        cache=False,
+        num_retries=0,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        **endpoint,
+        **extra,
+    )
 
 
 def main() -> None:
@@ -399,6 +407,13 @@ def main() -> None:
     )
     bench.add_argument(
         "--note", help="How the judge was served, e.g. RULING_ROTATIONS=1, kept with the results"
+    )
+    bench.add_argument(
+        "--timeout",
+        type=float,
+        default=3600,
+        help="Seconds a generative request may take; runs sharing one local model queue behind "
+        "each other",
     )
     bench.add_argument("--output", type=Path, required=True)
     games = commands.add_parser("chess", help="Play chess graphs against a fixed-strength engine")
@@ -432,6 +447,7 @@ def main() -> None:
             getattr(args, f"{role}_base_url"),
             getattr(args, f"{role}_options"),
             args.max_tokens,
+            args.timeout,
         )
         for role in ("proposer", "student", "reflection")
     }
