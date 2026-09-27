@@ -80,7 +80,9 @@ def check(board: chess.Board) -> chess.Move | None:
     """A checking move, and if one of them ends the game, that one: a policy that says 'give
     check' and passes over mate in one is not doing what it says."""
     checks = [move for move in board.legal_moves if board.gives_check(move)]
-    return max(checks, key=lambda move: (mates(board, move), gain(board, move), move.uci()), default=None)
+    return max(
+        checks, key=lambda move: (mates(board, move), gain(board, move), move.uci()), default=None
+    )
 
 
 def castle(board: chess.Board) -> chess.Move | None:
@@ -198,9 +200,16 @@ def passers(board: chess.Board, color: bool) -> list[int]:
 def promote(board: chess.Board) -> chess.Move | None:
     """Push the passed pawn that is furthest up the board, promoting when it can."""
     ahead = 1 if board.turn == chess.WHITE else -1
-    free = {square for square in board.pieces(chess.PAWN, board.turn)
-            if (7 - chess.square_rank(square) if board.turn == chess.WHITE
-                else chess.square_rank(square)) >= 0}
+    free = {
+        square
+        for square in board.pieces(chess.PAWN, board.turn)
+        if (
+            7 - chess.square_rank(square)
+            if board.turn == chess.WHITE
+            else chess.square_rank(square)
+        )
+        >= 0
+    }
     pushes = [
         move
         for move in board.legal_moves
@@ -212,7 +221,11 @@ def promote(board: chess.Board) -> chess.Move | None:
     ]
     if not pushes:
         return None
-    reach = lambda move: chess.square_rank(move.to_square) if board.turn == chess.WHITE else 7 - chess.square_rank(move.to_square)
+
+    def reach(move: chess.Move) -> int:
+        rank = chess.square_rank(move.to_square)
+        return rank if board.turn == chess.WHITE else 7 - rank
+
     return max(pushes, key=lambda move: (move.promotion or 0, reach(move), move.uci()))
 
 
@@ -238,9 +251,7 @@ def chosen(board: chess.Board, label: str) -> chess.Move:
 def observe(board: chess.Board) -> dict:
     """What the side to move can see, as numbers a read node can take by path."""
     mine = sum(worth(piece) for piece in board.piece_map().values() if piece.color == board.turn)
-    theirs = sum(
-        worth(piece) for piece in board.piece_map().values() if piece.color != board.turn
-    )
+    theirs = sum(worth(piece) for piece in board.piece_map().values() if piece.color != board.turn)
     loose = hanging(board)
     theirs_loose = loose_for(board, not board.turn)
     mine_passed = passers(board, board.turn)
@@ -249,7 +260,11 @@ def observe(board: chess.Board) -> dict:
     back = 0 if board.turn == chess.WHITE else 7
     return {
         "ply": board.ply(),
-        "phase": "endgame" if mine + theirs <= ENDGAME else "opening" if board.ply() < 20 else "middlegame",
+        "phase": "endgame"
+        if mine + theirs <= ENDGAME
+        else "opening"
+        if board.ply() < 20
+        else "middlegame",
         "material": {"mine": mine, "theirs": theirs, "balance": mine - theirs},
         "king": {
             "in_check": int(board.is_check()),

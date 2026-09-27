@@ -79,10 +79,18 @@ def effects(plan: Plan, states: list[State], client=None, model: str = "none") -
     for name, kind in inputs.items():
         suppressed = DecisionProgram(plan, judge, model, ExecutionConfig(suppress=(name,)))
         changed = sum(
-            mine != theirs for mine, theirs in zip(baseline, decisions(suppressed, states), strict=True)
+            mine != theirs
+            for mine, theirs in zip(baseline, decisions(suppressed, states), strict=True)
         )
-        found.append(Effect(node=name, kind=kind, changed=changed, decided=len(states),
-                            reason=blank(plan, name, states) if not changed else ""))
+        found.append(
+            Effect(
+                node=name,
+                kind=kind,
+                changed=changed,
+                decided=len(states),
+                reason=blank(plan, name, states) if not changed else "",
+            )
+        )
     return sorted(found, key=lambda effect: (-effect.changed, effect.node))
 
 

@@ -11,12 +11,11 @@ import re
 from decision_compose.graph import (
     All,
     Any,
-    Confidence,
-    Vote,
     Call,
     Coalesce,
     Compare,
     Condition,
+    Confidence,
     NodeInput,
     Not,
     Plan,
@@ -24,6 +23,7 @@ from decision_compose.graph import (
     Read,
     Threshold,
     Value,
+    Vote,
     references,
 )
 
@@ -117,7 +117,9 @@ def render_rules(plan: Plan) -> str:
     # A judgment a rule asks about, rather than acts on, is declared before the rules.
     for name, node in plan.nodes.items():
         if isinstance(node, Call) and name not in acting:
-            gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
+            gate = (
+                f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
+            )
             lines.append(f"ask {name} = {render_action(node, reads).removeprefix('ask ')}{gate}")
     for name, node in votes.items():
         listed = ", ".join(node.sources)
@@ -235,7 +237,9 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         name, _, body = line[5:].partition("=")
         rule, _, listed = body.strip().partition(" of ")
         if rule.strip() not in ("majority", "agree"):
-            raise RuleError(f"a vote is 'majority of [...]' or 'agree of [...]', not {rule.strip()!r}")
+            raise RuleError(
+                f"a vote is 'majority of [...]' or 'agree of [...]', not {rule.strip()!r}"
+            )
         sources = [named(part.strip(), names, nodes) for part in listed.strip(" []").split(",")]
         if len(sources) < 2:
             raise RuleError("a vote needs at least two judgments")
@@ -286,7 +290,10 @@ def parse_condition(text: str, reads: dict, nodes: dict | None = None) -> dict:
     for joiner, kind in JOINERS:
         sides = split_outside(text, joiner)
         if len(sides) > 1:
-            return {"type": kind, "conditions": [parse_condition(side, reads, nodes) for side in sides]}
+            return {
+                "type": kind,
+                "conditions": [parse_condition(side, reads, nodes) for side in sides],
+            }
     return parse_test(text, reads, nodes)
 
 

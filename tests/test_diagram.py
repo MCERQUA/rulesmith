@@ -1,6 +1,5 @@
 """A plan drawn as a Mermaid flowchart."""
 
-import json
 from pathlib import Path
 
 import pytest

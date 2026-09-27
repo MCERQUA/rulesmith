@@ -50,8 +50,10 @@ def test_a_rule_may_ask_the_judge_and_fall_through_when_it_declines():
 def test_a_proposal_that_fences_its_answer_and_restates_the_sections_still_compiles():
     # What the proposer actually writes when asked for one part: the whole program, in a fence,
     # with the section headings repeated. None of that changes the rules it is proposing.
-    plain = "read variables.HEALTH in [0, 200]\nwhen variables.HEALTH < 20: MOVE_BACKWARD\nalways: ATTACK"
-    dressed = "```\nreadings:\nread variables.HEALTH in [0, 200]\n\nrules:\nwhen variables.HEALTH < 20: MOVE_BACKWARD\nalways: ATTACK\n```"
+    reading = "read variables.HEALTH in [0, 200]"
+    rules = "when variables.HEALTH < 20: MOVE_BACKWARD\nalways: ATTACK"
+    plain = f"{reading}\n{rules}"
+    dressed = f"```\nreadings:\n{reading}\n\nrules:\n{rules}\n```"
     assert render_rules(compile_rules(dressed)) == render_rules(compile_rules(plain))
 
 
@@ -59,18 +61,29 @@ def test_a_proposal_that_fences_its_answer_and_restates_the_sections_still_compi
 def test_the_ordering_operators_partition_every_reading(value):
     # '<=' and '>' are exact complements, so one arm fires for any reading, the boundary included.
     plan = compile_rules("read score in [0, 1]\nwhen score > 0.5: high\nwhen score <= 0.5: low")
-    assert DecisionProgram(plan, None, "none")({"score": value}).label == ("high" if value > 0.5 else "low")
+    assert DecisionProgram(plan, None, "none")({"score": value}).label == (
+        "high" if value > 0.5 else "low"
+    )
 
 
 def test_a_rule_that_accepts_either_of_two_readings_round_trips():
     # Rendering a graph produced ' or ' that nothing could read back.
-    text = "read variables.HEALTH in [0, 200]\nread target.distance in [0, 6000]\nwhen variables.HEALTH < 20 or target.distance < 100: MOVE_BACKWARD\nalways: ATTACK"
+    text = (
+        "read variables.HEALTH in [0, 200]\n"
+        "read target.distance in [0, 6000]\n"
+        "when variables.HEALTH < 20 or target.distance < 100: MOVE_BACKWARD\n"
+        "always: ATTACK"
+    )
     plan = compile_rules(text)
     rules = render_rules(plan)
     assert " or " in rules and render_rules(compile_rules(rules)) == rules
     program = DecisionProgram(plan, None, "none")
-    assert program({"variables": {"HEALTH": 10}, "target": {"distance": 900}}).label == "MOVE_BACKWARD"
-    assert program({"variables": {"HEALTH": 90}, "target": {"distance": 10}}).label == "MOVE_BACKWARD"
+    assert (
+        program({"variables": {"HEALTH": 10}, "target": {"distance": 900}}).label == "MOVE_BACKWARD"
+    )
+    assert (
+        program({"variables": {"HEALTH": 90}, "target": {"distance": 10}}).label == "MOVE_BACKWARD"
+    )
     assert program({"variables": {"HEALTH": 90}, "target": {"distance": 900}}).label == "ATTACK"
 
 
@@ -78,12 +91,16 @@ def test_a_group_of_alternatives_is_read_as_one_test():
     # The bearing rules a proposer writes put the wrap-around case in parentheses.
     text = (
         "read compass.2.bearing in [-180, 180]\n"
-        "when compass.2.bearing and (compass.2.bearing >= 135 or compass.2.bearing < -135): MOVE_BACKWARD\n"
+        "when compass.2.bearing and (compass.2.bearing >= 135 or compass.2.bearing < -135): "
+        "MOVE_BACKWARD\n"
         "always: MOVE_FORWARD"
     )
     program = DecisionProgram(compile_rules(text), None, "none")
+
     # compass.2 indexes the third thing on the compass, as the game reports it.
-    seen = lambda bearing: {"compass": [{}, {}, {"bearing": bearing}]}
+    def seen(bearing):
+        return {"compass": [{}, {}, {"bearing": bearing}]}
+
     assert program(seen(170)).label == "MOVE_BACKWARD"
     assert program(seen(-170)).label == "MOVE_BACKWARD"
     assert program(seen(10)).label == "MOVE_FORWARD"
@@ -95,15 +112,20 @@ def test_a_group_inside_a_longer_condition_keeps_its_grouping_through_the_round_
     text = (
         "read variables.HEALTH in [0, 200]\n"
         "read target.distance in [0, 6000]\n"
-        "when variables.HEALTH >= 25 and (target.distance < 100 or target.distance >= 900): ATTACK\n"
+        "when variables.HEALTH >= 25 and (target.distance < 100 or target.distance >= 900): "
+        "ATTACK\n"
         "always: MOVE_FORWARD"
     )
     plan = compile_rules(text)
     assert compile_rules(render_rules(plan)) == plan
     program = DecisionProgram(plan, None, "none")
-    assert program({"variables": {"HEALTH": 10}, "target": {"distance": 50}}).label == "MOVE_FORWARD"
+    assert (
+        program({"variables": {"HEALTH": 10}, "target": {"distance": 50}}).label == "MOVE_FORWARD"
+    )
     assert program({"variables": {"HEALTH": 90}, "target": {"distance": 50}}).label == "ATTACK"
-    assert program({"variables": {"HEALTH": 90}, "target": {"distance": 500}}).label == "MOVE_FORWARD"
+    assert (
+        program({"variables": {"HEALTH": 90}, "target": {"distance": 500}}).label == "MOVE_FORWARD"
+    )
 
 
 def test_a_constant_policy_is_one_line():

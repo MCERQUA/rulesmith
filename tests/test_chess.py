@@ -76,8 +76,9 @@ def test_the_example_the_proposer_sees_is_readable_by_a_read_node(task):
     # has to resolve. The same defect cost a whole night of Doom searching.
     shown = Games(task, program("always: QUIET"))(program(GREEDY), 0).trace["Inputs"]
     for path in (["capture", "best_gain"], ["king", "can_castle"], ["material", "balance"]):
+        name = ".".join(path)
         node = compile_rules(
-            f"read {'.'.join(path)} in [-99, 99]\nwhen {'.'.join(path)} >= 0: CAPTURE\nalways: QUIET"
+            f"read {name} in [-99, 99]\nwhen {name} >= 0: CAPTURE\nalways: QUIET"
         ).nodes
         read = next(n for n in node.values() if n.type == "read")
         assert resolve_node(read, shown, {}, {}) is not MISSING

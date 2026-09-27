@@ -3,13 +3,13 @@
 from decision_compose.graph import (
     All,
     Any,
-    Confidence,
     Call,
     Coalesce,
     Compare,
+    Confidence,
     Merge,
-    Not,
     NodeInput,
+    Not,
     Plan,
     Present,
     Read,
@@ -66,7 +66,7 @@ def mermaid(plan: Plan) -> str:
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
     for name, node in plan.nodes.items():
         open_shape, close_shape = SHAPES[type(node)]
-        lines.append(f"    {name}{open_shape}\"{safe(label(name, node))}\"{close_shape}")
+        lines.append(f'    {name}{open_shape}"{safe(label(name, node))}"{close_shape}')
     for name, node in plan.nodes.items():
         for source in sorted(feeds(node)):
             lines.append(f"    {source} --> {name}")
@@ -75,9 +75,9 @@ def mermaid(plan: Plan) -> str:
         if node.when is not None:
             guard = safe(render_condition(node.when, reads))
             for source in sorted(gates(node.when)):
-                lines.append(f"    {source} -.->|\"{guard}\"| {name}")
+                lines.append(f'    {source} -.->|"{guard}"| {name}')
     for output, source in plan.outputs.items():
-        lines.append(f"    {output}((\"{safe(output)}\"))")
+        lines.append(f'    {output}(("{safe(output)}"))')
         if isinstance(source, NodeInput):
             lines.append(f"    {source.node} --> {output}")
     return "\n".join(lines)

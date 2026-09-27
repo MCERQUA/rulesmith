@@ -18,8 +18,8 @@ from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from decision_compose.ablate import effects
 from decision_compose.arena import Duels, Entrant, duel, tournament
-from decision_compose.diagram import mermaid
 from decision_compose.chess import ChessTask, Games
+from decision_compose.diagram import mermaid
 from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
 from decision_compose.graph import Call, Plan, Task
 from decision_compose.label import Labeler, Unlabeled, draft_task

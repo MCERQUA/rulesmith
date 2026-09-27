@@ -13,12 +13,11 @@ from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, TypeSafeClient
 from decision_compose.graph import (
     All,
     Call,
-    Confidence,
-    Vote,
     Choice,
     Coalesce,
     Compare,
     Condition,
+    Confidence,
     LiteralInput,
     Merge,
     Node,
@@ -36,6 +35,7 @@ from decision_compose.graph import (
     StrictModel,
     Switch,
     Value,
+    Vote,
 )
 
 
