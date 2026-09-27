@@ -219,3 +219,24 @@ def test_the_proposer_is_told_how_to_test_confidence_and_count_votes():
     for test in sure:
         plan = compile_rules(f"{asked}\nwhen {test}: review\nalways: accept")
         assert "confidence" in {node.type for node in plan.nodes.values()}
+
+
+def test_the_proposer_is_told_how_to_name_a_condition_and_compare_two_readings():
+    from decision_compose.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    lets = re.findall(r"'(let [^']+)'", prompt)
+    relations = re.findall(r"'([A-Za-z_][\w.]* (?:>=|>|<=|<|==) [A-Za-z_][\w.]*)'", prompt)
+    assert lets and relations
+
+    def declared(condition):
+        mentioned = set(re.findall(r"[A-Za-z_][\w.]*", condition)) - {"and", "or", "not"}
+        return "\n".join(f"read {path} in [-99, 99]" for path in sorted(mentioned))
+
+    for line in lets:
+        name, condition = line.removeprefix("let ").split(" = ", 1)
+        plan = compile_rules(f"{declared(condition)}\n{line}\nwhen {name}: review\nalways: accept")
+        assert name in plan.nodes
+    for relation in relations:
+        plan = compile_rules(f"{declared(relation)}\nwhen {relation}: review\nalways: accept")
+        assert '"relation"' in plan.model_dump_json()

@@ -79,10 +79,15 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
 ```
 
 - `compare` supports `eq`, and `lt` / `ge` for numbers.
+- `{"type": "relation", "node": "gain", "op": "ge", "other": "loss"}` compares two
+  nodes instead of a node and a constant. Both must be numeric, or both
+  categorical for `eq`, and it is false when either is skipped.
 - Combine with `{"type": "all", "conditions": [...]}`, `{"type": "any", "conditions": [...]}`,
   and `{"type": "not", "condition": ...}`.
 - `{"type": "present", "node": "id"}` tests whether a node ran.
 - A comparison against a skipped node is false, so its negation is true.
+- A named condition (`let armed = ...` in rules) is a `value` node holding `true`,
+  guarded by that condition; rules test it with `present`.
 
 ## Execution
 

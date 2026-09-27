@@ -649,6 +649,7 @@ def every_construct_plan():
                     "conditions": [
                         {"type": "compare", "node": "team", "op": "eq", "value": "billing"},
                         {"type": "compare", "node": "refund", "op": "lt", "value": 0.2},
+                        {"type": "relation", "node": "urgency", "op": "ge", "other": "refund"},
                     ],
                 },
             },

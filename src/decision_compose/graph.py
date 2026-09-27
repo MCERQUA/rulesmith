@@ -69,6 +69,15 @@ class Compare(StrictModel):
     value: str | float
 
 
+class Relation(StrictModel):
+    """One value compared with another, where Compare holds a node against a constant."""
+
+    type: Literal["relation"] = "relation"
+    node: Text
+    op: Literal["eq", "lt", "ge"]
+    other: Text
+
+
 class Present(StrictModel):
     type: Literal["present"] = "present"
     node: Text
@@ -89,7 +98,7 @@ class Not(StrictModel):
     condition: Condition
 
 
-Condition = Annotated[Compare | Present | All | Any | Not, Field(discriminator="type")]
+Condition = Annotated[Compare | Relation | Present | All | Any | Not, Field(discriminator="type")]
 All.model_rebuild()
 Any.model_rebuild()
 Not.model_rebuild()
@@ -115,8 +124,10 @@ def references(value: JsonValue) -> set[str]:
         return set()
     named: set[str] = set()
     kind = value.get("type")
-    if kind in ("node", "compare", "present") and isinstance(value.get("node"), str):
+    if kind in ("node", "compare", "relation", "present") and isinstance(value.get("node"), str):
         named.add(value["node"])
+    if kind == "relation" and isinstance(value.get("other"), str):
+        named.add(value["other"])
     if kind in ("switch", "threshold", "confidence") and isinstance(value.get("source"), str):
         named.add(value["source"])
     if kind in ("coalesce", "vote") and isinstance(value.get("sources"), list):
@@ -129,14 +140,24 @@ def references(value: JsonValue) -> set[str]:
     return named
 
 
-def predicates(condition: Condition | None) -> list[Compare | Present]:
+def predicates(condition: Condition | None) -> list[Compare | Relation | Present]:
     if condition is None:
         return []
-    if isinstance(condition, (Compare, Present)):
+    if isinstance(condition, (Compare, Relation, Present)):
         return [condition]
     if isinstance(condition, Not):
         return predicates(condition.condition)
     return [leaf for child in condition.conditions for leaf in predicates(child)]
+
+
+def tested(condition: Condition | None) -> set[str]:
+    """The nodes a condition reads."""
+    named = set()
+    for leaf in predicates(condition):
+        named.add(leaf.node)
+        if isinstance(leaf, Relation):
+            named.add(leaf.other)
+    return named
 
 
 class Guarded(StrictModel):
@@ -238,7 +259,7 @@ class Plan(StrictModel):
     def dependencies(self) -> dict[str, set[str]]:
         result = {}
         for key, node in self.nodes.items():
-            refs = {condition.node for condition in predicates(node.when)}
+            refs = tested(node.when)
             if isinstance(node, (Call, Merge)):
                 refs.update(s.node for s in node.inputs.values() if isinstance(s, NodeInput))
             elif isinstance(node, (Switch, Threshold, Confidence)):
@@ -350,6 +371,14 @@ class Plan(StrictModel):
                     raise ValueError(f"cutoff must be within source bounds {domain}")
             for condition in predicates(node.when):
                 if isinstance(condition, Present):
+                    continue
+                if isinstance(condition, Relation):
+                    pair = domains[condition.node], domains[condition.other]
+                    kinds = {type(domain) for domain in pair}
+                    if len(kinds) != 1 or None in pair:
+                        raise ValueError("a relation compares two values of the same kind")
+                    if condition.op != "eq" and kinds != {tuple}:
+                        raise ValueError("an ordering relation requires numeric sources")
                     continue
                 domain = domains[condition.node]
                 if isinstance(condition.value, str) and condition.op == "eq":

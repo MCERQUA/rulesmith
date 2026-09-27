@@ -1,22 +1,18 @@
 """A plan as a Mermaid flowchart, for looking at a graph rules cannot express."""
 
 from decision_compose.graph import (
-    All,
-    Any,
     Call,
     Coalesce,
-    Compare,
     Confidence,
     Merge,
     NodeInput,
-    Not,
     Plan,
-    Present,
     Read,
     Switch,
     Threshold,
     Value,
     Vote,
+    tested,
 )
 from decision_compose.rules import path_of, render_condition
 
@@ -42,7 +38,8 @@ def label(name: str, node) -> str:
     if isinstance(node, Threshold):
         return f"{name}: >= {node.cutoff:g} ? {node.above} : {node.below}"
     if isinstance(node, Value):
-        return str(node.value)
+        # A named condition holds a bare true; its name is what the rules test.
+        return name if node.value is True else str(node.value)
     if isinstance(node, Switch):
         return f"{name}: switch on {node.source}"
     if isinstance(node, Vote):
@@ -74,24 +71,13 @@ def mermaid(plan: Plan) -> str:
         # ride on. Draw it as its own dashed arrow from whatever the condition reads.
         if node.when is not None:
             guard = safe(render_condition(node.when, reads))
-            for source in sorted(gates(node.when)):
+            for source in sorted(tested(node.when)):
                 lines.append(f'    {source} -.->|"{guard}"| {name}')
     for output, source in plan.outputs.items():
         lines.append(f'    {output}(("{safe(output)}"))')
         if isinstance(source, NodeInput):
             lines.append(f"    {source.node} --> {output}")
     return "\n".join(lines)
-
-
-def gates(condition) -> set[str]:
-    """The nodes a condition tests."""
-    if isinstance(condition, (Compare, Present)):
-        return {condition.node}
-    if isinstance(condition, Not):
-        return gates(condition.condition)
-    if isinstance(condition, (All, Any)):
-        return {node for part in condition.conditions for node in gates(part)}
-    return set()
 
 
 def feeds(node) -> set[str]:

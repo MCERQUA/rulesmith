@@ -7,6 +7,7 @@ merges, switches, several outputs -- have no rule form and stay JSON.
 
 import json
 import re
+from itertools import takewhile
 
 from decision_compose.graph import (
     All,
@@ -21,6 +22,7 @@ from decision_compose.graph import (
     Plan,
     Present,
     Read,
+    Relation,
     Threshold,
     Value,
     Vote,
@@ -30,6 +32,7 @@ from decision_compose.graph import (
 OPERATORS = {">=": "ge", "<": "lt", "==": "eq"}
 SYMBOLS = {name: symbol for symbol, name in OPERATORS.items()}
 LABEL = r"[A-Za-z_][\w+.]*"
+NAME = re.compile(r"[A-Za-z_]\w*")
 SECTIONS = ("readings", "rules")
 JOINERS = ((" or ", "any"), (" and ", "all"))
 
@@ -41,7 +44,9 @@ def parts(plan: Plan) -> dict[str, str]:
         lines = render_rules(plan).splitlines()
     except RuleError:
         return {"readings": "", "rules": plan.model_dump_json(indent=2)}
-    declared = [line for line in lines if line.startswith(("read ", "ask "))]
+    # A judgment asked under a named condition follows that name, so it and everything after it
+    # belong to the rules part, which may declare what its rules need.
+    declared = list(takewhile(lambda line: line.startswith(("read ", "ask ")), lines))
     readings, rules = SECTIONS
     return {readings: "\n".join(declared), rules: "\n".join(lines[len(declared) :])}
 
@@ -66,9 +71,13 @@ def path_of(read: Read) -> str:
 
 def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
     """One condition as rule text; reads appear as the paths they take."""
-    if isinstance(condition, Compare):
-        value = condition.value
-        return f"{name_of(condition.node, reads, plan)} {SYMBOLS[condition.op]} {json.dumps(value)}"
+    if isinstance(condition, (Compare, Relation)):
+        against = (
+            name_of(condition.other, reads, plan)
+            if isinstance(condition, Relation)
+            else json.dumps(condition.value)
+        )
+        return f"{name_of(condition.node, reads, plan)} {SYMBOLS[condition.op]} {against}"
     if isinstance(condition, Present):
         return name_of(condition.node, reads, plan)
     if isinstance(condition, Not):
@@ -103,7 +112,6 @@ def render_rules(plan: Plan) -> str:
         return "always: " + json.dumps(output.value).strip('"')
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
     rules = ordered(plan, output.node)
-    acting = {name for name, _ in rules}
     lines = []
     for read in reads.values():
         domain = (
@@ -112,18 +120,7 @@ def render_rules(plan: Plan) -> str:
             else "one of [" + ", ".join(read.categories or []) + "]"
         )
         lines.append(f"read {path_of(read)} {domain}")
-    # A vote is written after the judgments it counts and before the rules that test it.
-    votes = {name: node for name, node in plan.nodes.items() if isinstance(node, Vote)}
-    # A judgment a rule asks about, rather than acts on, is declared before the rules.
-    for name, node in plan.nodes.items():
-        if isinstance(node, Call) and name not in acting:
-            gate = (
-                f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
-            )
-            lines.append(f"ask {name} = {render_action(node, reads).removeprefix('ask ')}{gate}")
-    for name, node in votes.items():
-        listed = ", ".join(node.sources)
-        lines.append(f"vote {name} = {node.rule} of [{listed}]")
+    lines += declarations(plan, spine(plan, output.node), reads)
     for name, guard in rules:
         node = plan.nodes[name]
         condition = render_condition(guard, reads, plan) if guard else None
@@ -131,6 +128,47 @@ def render_rules(plan: Plan) -> str:
             f"{'when ' + condition if condition else 'always'}: {render_action(node, reads)}"
         )
     return "\n".join(lines)
+
+
+def spine(plan: Plan, top: str) -> set[str]:
+    """The rules the graph tries and the chain of fallbacks that joins them."""
+    node = plan.nodes[top]
+    if isinstance(node, Coalesce):
+        return {top}.union(*(spine(plan, source) for source in node.sources))
+    return {top}
+
+
+def declarations(plan: Plan, acting: set[str], reads: dict[str, Read]) -> list[str]:
+    """A line for every name the rules test, each after the names it is built from. Judgments
+    come first and votes after them, as the reader expects, unless a name has to go earlier."""
+    dependencies, written, lines = plan.dependencies(), set(), []
+
+    def declare(name: str) -> None:
+        if name in written or name in reads or name in acting:
+            return
+        written.add(name)
+        for needed in sorted(dependencies[name]):
+            declare(needed)
+        node = plan.nodes[name]
+        # A confidence is written where it is tested, as the judgment's name and '.confidence'.
+        if not isinstance(node, Confidence):
+            lines.append(declaration(name, node, reads, plan))
+
+    rank = {Call: 0, Vote: 1}
+    for name in sorted(plan.nodes, key=lambda name: rank.get(type(plan.nodes[name]), 2)):
+        declare(name)
+    return lines
+
+
+def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
+    if isinstance(node, Call):
+        gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
+        return f"ask {name} = {render_action(node, reads).removeprefix('ask ')}{gate}"
+    if isinstance(node, Vote):
+        return f"vote {name} = {node.rule} of [{', '.join(node.sources)}]"
+    if isinstance(node, Value) and node.value is True and node.when is not None:
+        return f"let {name} = {render_condition(node.when, reads, plan)}"
+    raise RuleError(f"{node.type} node {name!r} has no rule form")
 
 
 def ordered(plan: Plan, top: str, guard: Condition | None = None) -> list[tuple[str, Condition]]:
@@ -230,8 +268,14 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         node = parse_action(f"ask {question}", names)
         if gate:
             node["when"] = parse_condition(gate, names, nodes)
-        nodes[name.strip()] = node
-        names[name.strip()] = name.strip()
+        claim(name.strip(), node, nodes, names)
+        return
+    if line.startswith("let ") and "=" in line:
+        name, _, condition = line[4:].partition("=")
+        # A name holds when its condition does: a value that exists only then, which a rule
+        # tests by naming it.
+        node = {"type": "value", "value": True, "when": parse_condition(condition, names, nodes)}
+        claim(name.strip(), node, nodes, names)
         return
     if line.startswith("vote ") and "=" in line:
         name, _, body = line[5:].partition("=")
@@ -243,8 +287,9 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         sources = [named(part.strip(), names, nodes) for part in listed.strip(" []").split(",")]
         if len(sources) < 2:
             raise RuleError("a vote needs at least two judgments")
-        nodes[name.strip()] = {"type": "vote", "rule": rule.strip(), "sources": sources}
-        names[name.strip()] = name.strip()
+        claim(
+            name.strip(), {"type": "vote", "rule": rule.strip(), "sources": sources}, nodes, names
+        )
         return
     head, _, action = line.partition(":")
     if not action:
@@ -258,6 +303,19 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
     name = f"rule_{len(sources) + 1}"
     nodes[name] = parse_action(action.strip(), names) | ({"when": guard} if guard else {})
     sources.append(name)
+
+
+def claim(name: str, node: dict, nodes: dict, names: dict) -> None:
+    """Declare a name. A rules part may restate a judgment the readings part declared, and the
+    later one stands; a name that would mean a different kind of thing is refused, since the
+    rules already written against it expect the first."""
+    if not NAME.fullmatch(name):
+        raise RuleError(f"{name!r} is not a name; use letters, digits and underscores")
+    earlier = nodes.get(name) if names.get(name) == name else None
+    if (name in names or name in nodes) and (earlier is None or earlier["type"] != node["type"]):
+        raise RuleError(f"{name!r} is already declared")
+    nodes[name] = node
+    names[name] = name
 
 
 def split_gate(text: str) -> tuple[str, str | None]:
@@ -342,16 +400,18 @@ def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
     for symbol, op in OPERATORS.items():
         if f" {symbol} " in text:
             path, _, value = text.partition(f" {symbol} ")
+            node = named(path.strip(), reads, nodes)
             try:
                 compared = json.loads(value.strip())
-            except json.JSONDecodeError as error:
-                raise RuleError(f"{value.strip()!r} is not a number or a quoted label") from error
-            return {
-                "type": "compare",
-                "node": named(path.strip(), reads, nodes),
-                "op": op,
-                "value": compared,
-            }
+            except json.JSONDecodeError:
+                try:
+                    other = named(value.strip(), reads, nodes)
+                except RuleError as error:
+                    raise RuleError(
+                        f"{value.strip()!r} is not a number, a quoted label or a declared name"
+                    ) from error
+                return {"type": "relation", "node": node, "op": op, "other": other}
+            return {"type": "compare", "node": node, "op": op, "value": compared}
     return {"type": "present", "node": named(text, reads, nodes)}
 
 
@@ -367,7 +427,8 @@ def named(path: str, names: dict, nodes: dict | None = None) -> str:
             names[path] = name
     if path not in names:
         raise RuleError(
-            f"nothing named {path!r}; declare it with 'read {path} ...' or 'ask {path} = ...'"
+            f"nothing named {path!r}; declare it with 'read {path} ...', 'ask {path} = ...' "
+            f"or 'let {path} = ...'"
         )
     return names[path]
 

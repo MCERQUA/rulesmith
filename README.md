@@ -241,7 +241,23 @@ Rules are tried in order and the first whose condition holds decides. A judgment
 can sit behind a cheap read, so the judge is asked only where a number cannot
 settle it. Conditions join with `and` and `or`, group with parentheses, invert
 with `not`, name a reading to test that it has a value, or compare one with `>=`,
-`>`, `<=`, `<` or `==`. Programs that rules cannot express, such as two judgments
+`>`, `<=`, `<` or `==` against a number, a label, or another reading.
+
+`let` names a condition so the rules can test it by name:
+
+```
+read ammo in [0, 50]
+read health in [0, 200]
+read enemy.health in [0, 200]
+let armed = ammo >= 1 and health >= 25
+when armed and health > enemy.health: ATTACK
+when not armed: MOVE_BACKWARD
+always: MOVE_FORWARD
+```
+
+A name is a node in the graph, so it survives the round trip: search reads and
+rewrites `armed`, not the condition spelled out in every rule, and `draw` shows it
+as a box of its own. Programs that rules cannot express, such as two judgments
 merged into one input, are proposed as whole-graph JSON instead.
 
 ### What a judgment can be

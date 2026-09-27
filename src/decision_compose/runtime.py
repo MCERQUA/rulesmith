@@ -28,6 +28,7 @@ from decision_compose.graph import (
     Present,
     Question,
     Read,
+    Relation,
     Score,
     Source,
     State,
@@ -116,13 +117,19 @@ def matches(condition: Condition | None, values: dict) -> bool:
         return True
     if isinstance(condition, Present):
         return condition.node in values
-    if isinstance(condition, Compare):
+    if isinstance(condition, (Compare, Relation)):
         if condition.node not in values:
             return False
+        if isinstance(condition, Relation):
+            if condition.other not in values:
+                return False
+            against = values[condition.other]
+        else:
+            against = condition.value
         value = values[condition.node]
         if condition.op == "eq":
-            return value == condition.value
-        return value < condition.value if condition.op == "lt" else value >= condition.value
+            return value == against
+        return value < against if condition.op == "lt" else value >= against
     if isinstance(condition, Not):
         return not matches(condition.condition, values)
     if isinstance(condition, All):

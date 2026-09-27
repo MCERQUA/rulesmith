@@ -166,8 +166,15 @@ always: MOVE_FORWARD
   `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`.
 - **Conditions** join with `and` and `or`, group with parentheses, invert with `not`,
   name a reading to test that it has a value, or compare one with `>=`, `>`, `<=`, `<`
-  or `==`. The graph compares with three of those; `<=` and `>` compile to the same
-  thing said longhand. `threat.confidence` is how sure the judgment `threat` was.
+  or `==`, against a number, a quoted label, or another reading
+  (`capture.best_gain > hanging.worst`). The graph compares with three of those;
+  `<=` and `>` compile to the same thing said longhand. `threat.confidence` is how
+  sure the judgment `threat` was.
+- **Names** stand for a condition the rules test more than once:
+  `let armed = ammo >= 1 and health >= 25`, then `when armed: ATTACK`. A name is
+  declared before the rules that use it and cannot reuse a reading's or judgment's
+  name. It compiles to a node, so it comes back as `armed` when the graph is
+  rendered, not as the condition written out again.
 - **Votes** settle several choice judgments into one value:
   `vote verdict = agree of [first, second]` or `vote verdict = majority of [a, b, c]`.
 - The two parts, readings and rules, are revised separately and may be merged
