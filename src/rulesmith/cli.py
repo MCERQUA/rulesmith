@@ -141,7 +141,7 @@ def parser() -> argparse.ArgumentParser:
     draw = commands.add_parser("draw", help="Write a plan as a Mermaid flowchart")
     draw.add_argument("plan", type=Path)
     ablation = commands.add_parser(
-        "ablate", help="Measure what each reading and judgment in a graph is worth"
+        "ablate", help="Measure what each reading, judgment and name in a graph is worth"
     )
     ablation.add_argument("task", type=Path)
     ablation.add_argument("plan", type=Path)

@@ -8,7 +8,8 @@ beats to the decision, or a threshold real data never trips. All three look iden
 import json
 from dataclasses import dataclass
 
-from rulesmith.graph import Call, Plan, Read, State
+from rulesmith.graph import Call, Plan, Read, State, Sum
+from rulesmith.rules import named_condition
 from rulesmith.runtime import (
     MISSING,
     DecisionProgram,
@@ -63,16 +64,17 @@ def decisions(program: DecisionProgram, states: list[State]) -> list[object | No
 
 
 def effects(plan: Plan, states: list[State], client=None, model: str = "none") -> list[Effect]:
-    """Every read and every judgment, ranked by how much the graph would change without it.
+    """Every read, judgment and name, ranked by how much the graph would change without it.
 
     The judge is asked once per state for the baseline and never again: taking away a reading
     cannot change what a judge said about the same state, so the replays reuse those answers and
     a graph full of questions ablates for free."""
-    inputs = {
-        name: "read" if isinstance(node, Read) else "ask"
-        for name, node in plan.nodes.items()
-        if isinstance(node, (Read, Call))
-    }
+    inputs = {}
+    for name, node in plan.nodes.items():
+        if isinstance(node, (Read, Call)):
+            inputs[name] = "read" if isinstance(node, Read) else "ask"
+        elif isinstance(node, Sum) or named_condition(node):
+            inputs[name] = "let"
     judge = Remembered(client) if client is not None else None
     baseline = decisions(DecisionProgram(plan, judge, model), states)
     found = []

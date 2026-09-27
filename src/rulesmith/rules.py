@@ -192,13 +192,18 @@ def declarations(plan: Plan, acting: set[str], reads: dict[str, Read]) -> list[s
     return lines
 
 
+def named_condition(node) -> bool:
+    """A 'let' condition: a bare true that exists only when its guard holds."""
+    return isinstance(node, Value) and node.value is True and node.when is not None
+
+
 def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
     if isinstance(node, Call):
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
         return f"ask {name} = {render_action(node, reads, plan).removeprefix('ask ')}{gate}"
     if isinstance(node, Vote):
         return f"vote {name} = {node.rule} of [{', '.join(node.sources)}]"
-    if isinstance(node, Value) and node.value is True and node.when is not None:
+    if named_condition(node):
         return f"let {name} = {render_condition(node.when, reads, plan)}"
     if isinstance(node, Sum) and node.when is None:
         return f"let {name} = {render_sum(node, reads, plan)}"

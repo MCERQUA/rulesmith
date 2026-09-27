@@ -436,7 +436,7 @@ each dashed arrow says the condition it carries.
 uv run rulesmith draw examples/rules/routing.rules
 ```
 
-**`ablate`** answers what each reading and judgment is worth. It replays the
+**`ablate`** answers what each reading, judgment and name is worth. It replays the
 decisions the graph already made with one input switched off and counts how many
 change, so it needs no fresh model calls beyond the first pass:
 
@@ -480,7 +480,7 @@ cannot matter are rules the proposer wastes proposals on.
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
 | `draw` | Write a graph as a Mermaid flowchart |
-| `ablate` | Measure what each reading and judgment in a graph is worth |
+| `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 
 Every command that reaches a model takes `--backend`, `--model`, `--base-url`,

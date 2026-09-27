@@ -69,3 +69,18 @@ def test_the_judge_is_asked_once_per_state_however_many_inputs_are_ablated(provi
     effects(plan, states([0.2, 0.7, 0.9]), client, "fixture")
     asked = [path for path, _ in provider.requests if path == "/v1/systemone"]
     assert len(asked) == 3
+
+
+def test_a_name_is_measured_like_an_input():
+    # A named condition or a computed value is where a rewrite concentrates a decision, so it is
+    # worth knowing whether the rules that test it ever fire.
+    plan = compile_rules(
+        "read a in [0, 9]\nread b in [0, 9]\n"
+        "let ahead = a - b\n"
+        "let close = ahead < 1 and ahead >= -1\n"
+        "when close: tied\n"
+        "always: apart"
+    )
+    found = {effect.node: effect for effect in effects(plan, [{"a": 1, "b": 1}, {"a": 9, "b": 0}])}
+    assert found["close"].kind == "let" and found["close"].changed == 1
+    assert found["ahead"].kind == "let" and found["ahead"].changed == 1
