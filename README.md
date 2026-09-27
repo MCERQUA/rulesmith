@@ -412,10 +412,32 @@ hunter 1500   gen2 1498   always-check 1484   gen5 1475   greedy 1450   develope
 
 Read the top five together: they are all graphs search wrote, they sit inside
 fourteen points of each other, and a few hundred games carry about ten points of
-standard error. So the honest statement is that search beat every hand-written
-graph and then stopped, and that it converged by generation 7. The thirty-three
-generations after it produced one new graph, at generation 27, which landed in
-the same cluster.
+standard error. So search beat every hand-written graph and then converged by
+generation 7, producing one more graph at generation 27 that landed in the same
+cluster.
+
+Do not read the ladder as a measure of progress, though. Elo is fitted over the
+pool, so it is anchored to that pool's average: adding graphs of similar strength
+pulls every rating toward the middle. `hunter` is a text file that never changed
+and its rating fell from 1518 to 1500 over the run. A plot of the best rating per
+generation is flat whatever search does.
+
+Against a reference that never moves, the picture is different. Every graph the
+league produced, played 400 games against the five hand-written ones:
+
+| Graph | Entered | Score vs the hand-written set |
+| --- | --- | --- |
+| searched | before the league | 0.581 |
+| gen1 | 1 | 0.573 |
+| gen2 | 2 | 0.543 |
+| gen3 | 3 | **0.606** |
+| gen5 | 5 | 0.521 |
+| gen7 | 7 | 0.603 |
+| gen27 | 27 | 0.605 |
+
+That is the improvement, and it is small and real: 0.581 to 0.606, found at
+generation 3 and matched but never beaten in the thirty-seven generations after
+it.
 
 The plateau is not the search failing. The budget is proposer calls, not games:
 a generation affords about twelve proposals, two or three of which earn a full
