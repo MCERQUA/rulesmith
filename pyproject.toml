@@ -1,11 +1,22 @@
 [project]
 name = "rulesmith"
 version = "0.1.0"
-description = "Evolve typed decision DAGs with DSPy and GEPA."
+description = "Search for rule programs that ask a small judge for typed decisions, with DSPy and GEPA."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.15"
+keywords = ["dspy", "gepa", "llm", "decision graphs", "rules", "program search"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "chess>=1.11,<2",
     "dspy==3.3.1",
@@ -40,3 +51,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.hatch.build.targets.sdist]
+# The docs' game videos run to tens of megabytes and are for reading on GitHub, not installing.
+exclude = ["docs/assets"]
