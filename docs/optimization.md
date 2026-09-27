@@ -167,7 +167,9 @@ always: MOVE_FORWARD
 - **Conditions** join with `and` and `or`, group with parentheses, invert with `not`,
   name a reading to test that it has a value, or compare one with `>=`, `>`, `<=`, `<`
   or `==`. The graph compares with three of those; `<=` and `>` compile to the same
-  thing said longhand.
+  thing said longhand. `threat.confidence` is how sure the judgement `threat` was.
+- **Votes** settle several choice judgements into one value:
+  `vote verdict = agree of [first, second]` or `vote verdict = majority of [a, b, c]`.
 - The two parts, readings and rules, are revised separately and may be merged
   between candidates. A rules part may declare any reading its rules need.
 - A program beyond rules is proposed as whole-graph JSON, which is accepted as the

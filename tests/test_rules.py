@@ -177,3 +177,23 @@ def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
         plan = compile_rules(f"{form}\nwhen {name}: review\nalways: accept")
         kinds |= {node.question.type for node in plan.nodes.values() if node.type == "call"}
     assert kinds == {"choice", "score", "noul"}
+
+
+def test_the_proposer_is_told_how_to_test_confidence_and_count_votes():
+    # A construct the instructions never describe is one search will never write.
+    from decision_compose.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    votes = re.findall(r"'(vote [^']+)'", prompt)
+    sure = re.findall(r"'(\w+\.confidence [^']+)'", prompt)
+    assert votes and sure
+    asked = "\n".join(
+        f'ask {name} = "Is it?" [review: "Yes."] [accept: "No."]'
+        for name in ("threat", "first", "second", "third")
+    )
+    for line in votes:
+        plan = compile_rules(f"{asked}\n{line}\nwhen {line.split()[1]}: review\nalways: accept")
+        assert "vote" in {node.type for node in plan.nodes.values()}
+    for test in sure:
+        plan = compile_rules(f"{asked}\nwhen {test}: review\nalways: accept")
+        assert "confidence" in {node.type for node in plan.nodes.values()}

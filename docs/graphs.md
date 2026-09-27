@@ -39,6 +39,8 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 | `coalesce` | After all `sources` settle, return the first available one in listed order. |
 | `value` | Return a literal JSON `value`. |
 | `read` | Take one value from the original input by `path`, declaring `bounds` (numbers) or `categories` (strings). A missing path, or a value outside the declared domain, skips the node. |
+| `confidence` | How sure the `choice` or `score` call named in `source` was, from 0 to 1. A `noul` answers with the probability itself, so it has no separate confidence and this node is skipped. |
+| `vote` | Settle two or more categorical `sources` into one value. `rule: majority` returns the value most of them gave, a tie going to the one named first; `rule: agree` returns `same` (default `"yes"`) when every available source gave the same value and `different` (default `"no"`) otherwise. |
 
 ## Questions
 
@@ -94,6 +96,9 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
 - `coalesce` skips only when every source skipped.
 - A skipped optional output is omitted; a skipped required output raises
   `GraphExecutionError`.
+- `ExecutionConfig(suppress=("node",))` forces the named nodes to skip. It exists
+  to measure what a graph decides without them: `decision-compose ablate` and
+  `decision_compose.ablate.effects` use it, and an ordinary run leaves it empty.
 
 `DecisionProgram` returns a `dspy.Prediction` with `outputs`, `node_values`,
 `answers`, `skipped`, per-call `calls` metadata, `models`, token totals, and
@@ -107,8 +112,21 @@ uv run decision-compose validate task.json plan.json
 
 Validation rejects cycles, unknown references, nodes that feed no output,
 incompatible types, switches that miss a category, cutoffs outside the source
-range, and unknown fields. For classification, the `label` output must be a
+range, votes over sources with no categorical value, and unknown fields. For
+classification, the `label` output must be a
 required categorical value whose possible values are all task labels.
+
+## Looking at a graph
+
+```sh
+uv run decision-compose draw plan.json
+uv run decision-compose ablate task.json plan.json --split validation --backend ruling
+```
+
+`draw` writes the graph as a Mermaid flowchart: solid arrows carry values, dashed
+arrows gate, and each dashed arrow carries its condition. `ablate` suppresses each
+`read` and `call` in turn over a split's states and reports how many decisions
+change. The judge answers each state once; the replays reuse those answers.
 
 ## Writing a graph by hand
 
