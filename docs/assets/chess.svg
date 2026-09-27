@@ -13,7 +13,7 @@ text{font-size:12px}.surface{fill:#fcfcfb}.ink{fill:#0b0b0b}.ink2{fill:#52514e}.
 </style>
 <rect class="surface" width="1120" height="560" rx="8"/>
 <text class="ink" x="20" y="26" font-size="15" font-weight="600">Chess: what search found, and where it ranks</text>
-<text class="muted" x="20" y="44">Validation is eight games the search never trains on. The ladder plays every pair on every seed from both colours, so an opening never favours one graph.</text>
+<text class="muted" x="20" y="44">Validation is eight games the search never trains on. The ladder plays every pair on every seed from both colors, so an opening never favors one graph.</text>
 <text class="ink" x="62.0" y="78.0" text-anchor="start" font-weight="600">One search run: best score after each round</text>
 <line class="axis" x1="62" x2="442" y1="266.0" y2="266.0"/>
 <text class="muted" x="54.0" y="270.0" text-anchor="end">0.45</text>
@@ -37,7 +37,7 @@ text{font-size:12px}.surface{fill:#fcfcfb}.ink{fill:#0b0b0b}.ink2{fill:#52514e}.
 <path class="line" d="M62.0,245.9H104.2V245.9H146.4V245.9H188.7V245.9H230.9V245.9H273.1V245.9H315.3V116.1H357.6V116.1H399.8V116.1H442.0V116.1" fill="none" stroke-width="2"/>
 <circle class="dot" cx="315.3" cy="116.1" r="4.5" stroke-width="2"/>
 <text class="ink" x="324.3" y="120.1" text-anchor="start">0.602</text>
-<text class="ink" x="620.0" y="78.0" text-anchor="start" font-weight="600">Where it lands: 1680 games, every pair, both colours</text>
+<text class="ink" x="620.0" y="78.0" text-anchor="start" font-weight="600">Where it lands: 1680 games, every pair, both colors</text>
 <line class="grid" x1="629.0" x2="629.0" y1="96" y2="260.0"/>
 <text class="muted" x="629.0" y="276.0" text-anchor="middle">1460</text>
 <line class="grid" x1="749.0" x2="749.0" y1="96" y2="260.0"/>

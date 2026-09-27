@@ -108,7 +108,7 @@ judge is fit to its judgment.
 
 An input may be a string, a JSON object, or an array. Structure is worth giving
 it: a rule can only `read` what has a path, so on a bare string every read is
-missing and the graph has nothing to go on but judgements.
+missing and the graph has nothing to go on but judgments.
 
 ```json
 {
@@ -237,14 +237,14 @@ when target.x and threat == "fight": ATTACK
 always: MOVE_FORWARD
 ```
 
-Rules are tried in order and the first whose condition holds decides. A judgement
+Rules are tried in order and the first whose condition holds decides. A judgment
 can sit behind a cheap read, so the judge is asked only where a number cannot
 settle it. Conditions join with `and` and `or`, group with parentheses, invert
 with `not`, name a reading to test that it has a value, or compare one with `>=`,
-`>`, `<=`, `<` or `==`. Programs that rules cannot express, such as two judgements
+`>`, `<=`, `<` or `==`. Programs that rules cannot express, such as two judgments
 merged into one input, are proposed as whole-graph JSON instead.
 
-### What a judgement can be
+### What a judgment can be
 
 A judge answers three kinds of question, and only the first is classification:
 
@@ -254,7 +254,7 @@ A judge answers three kinds of question, and only the first is classification:
 | `score` | a position on the rubric, ordered | `ask severity = "How bad is this?" [minor] [major] [critical]` | `severity >= 2` |
 | `noul` | the probability its statement is true | `ask grounded = "The reply follows from the context."` | `grounded >= 0.85` |
 
-Two things a rule can say about a judgement besides what it answered.
+Two things a rule can say about a judgment besides what it answered.
 
 **How sure it was.** A choice or a score comes back with a confidence, and
 `<name>.confidence` puts it where a condition can test it, so an answer the judge
@@ -266,7 +266,7 @@ when threat.confidence >= 0.7 and threat == "ATTACK": ATTACK
 always: MOVE_FORWARD
 ```
 
-**What several of them agree on.** A vote settles two or more judgements into
+**What several of them agree on.** A vote settles two or more judgments into
 one value: `agree` reports whether they all said the same, which is how a second
 opinion verifies the first, and `majority` takes the answer most of them gave.
 
@@ -278,7 +278,7 @@ when checked == "yes" and first == "yes": review
 always: accept
 ```
 
-Each judgement in a vote is a separate model call, so a second opinion costs a
+Each judgment in a vote is a separate model call, so a second opinion costs a
 second question. Everything measured in this repo says calls are the expensive
 part and rarely the deciding one, so reach for this where being wrong is costly,
 not by default.
@@ -294,7 +294,7 @@ always: ask_for_review
 
 That covers uses a classifier has no form for: gating an action on confidence,
 verifying a generated answer before it goes out, ranking candidates by asking
-which is better, or serving as the metric a search optimises against rather than
+which is better, or serving as the metric a search optimizes against rather than
 the policy it searches. What a judge will not do is extract or compute: if the
 answer is already a value in the input, read it.
 
@@ -314,7 +314,7 @@ always: sales
 
 **Triage by how blocked the customer is**
 ([triage.rules](examples/rules/triage.rules)) — a score is ordered, so one
-judgement feeds several thresholds, and a read decides who jumps the queue:
+judgment feeds several thresholds, and a read decides who jumps the queue:
 
 ```
 # score: a position on a rubric, so it can be compared and thresholded.
@@ -345,7 +345,7 @@ always: ship
 
 **Check a draft reply before sending it**
 ([grounding.rules](examples/rules/grounding.rules)) — probabilities compose, so
-two judgements set a floor and a ceiling with a human in between:
+two judgments set a floor and a ceiling with a human in between:
 
 ```
 # noul: a probability, so the decision is a threshold on confidence.
@@ -502,7 +502,7 @@ each dashed arrow says the condition it carries.
 uv run decision-compose draw examples/rules/routing.rules
 ```
 
-**`ablate`** answers what each reading and judgement is worth. It replays the
+**`ablate`** answers what each reading and judgment is worth. It replays the
 decisions the graph already made with one input switched off and counts how many
 change, so it needs no fresh model calls beyond the first pass:
 
@@ -546,7 +546,7 @@ cannot matter are rules the proposer wastes proposals on.
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
 | `draw` | Write a graph as a Mermaid flowchart |
-| `ablate` | Measure what each reading and judgement in a graph is worth |
+| `ablate` | Measure what each reading and judgment in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 
 Every command that reaches a model takes `--backend`, `--model`, `--base-url`,
@@ -657,7 +657,7 @@ with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") a
     print(result.label, result.answers)
 ```
 
-`result.answers` holds what each judgement said, so a decision can be logged or
+`result.answers` holds what each judgment said, so a decision can be logged or
 audited, not just acted on. Rules load the same way, and a graph of reads alone
 needs no judge at all:
 

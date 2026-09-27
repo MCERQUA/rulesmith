@@ -118,7 +118,7 @@ def test_a_rule_naming_an_unknown_reading_says_which_line():
 
 
 def test_graphs_beyond_rules_stay_in_json():
-    # Merges join several judgements into one value; rules have no way to say that.
+    # Merges join several judgments into one value; rules have no way to say that.
     merged = {
         "nodes": {
             "left": call(),
@@ -155,8 +155,8 @@ def test_every_example_program_compiles_and_survives_the_round_trip(path):
     plan = compile_rules(path.read_text())
     assert render_rules(compile_rules(render_rules(plan))) == render_rules(plan)
     kinds = {node.question.type for node in plan.nodes.values() if node.type == "call"}
-    # Each example shows one kind of judgement doing the work that kind is for, and the last
-    # keeps its judgement behind readings, asked only when they cannot settle the case.
+    # Each example shows one kind of judgment doing the work that kind is for, and the last
+    # keeps its judgment behind readings, asked only when they cannot settle the case.
     shown = {"routing": "choice", "triage": "score", "grounding": "noul", "gating": "noul"}
     assert kinds == {shown[path.stem]}
     if path.stem == "gating":
@@ -173,7 +173,7 @@ def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
     kinds = set()
     for form in asked:
         name = form.split()[1]
-        # A judgement nothing asks about is pruned, so give each one a rule that uses it.
+        # A judgment nothing asks about is pruned, so give each one a rule that uses it.
         plan = compile_rules(f"{form}\nwhen {name}: review\nalways: accept")
         kinds |= {node.question.type for node in plan.nodes.values() if node.type == "call"}
     assert kinds == {"choice", "score", "noul"}

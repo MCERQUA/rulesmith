@@ -63,7 +63,7 @@ def decisions(program: DecisionProgram, states: list[State]) -> list[object | No
 
 
 def effects(plan: Plan, states: list[State], client=None, model: str = "none") -> list[Effect]:
-    """Every read and every judgement, ranked by how much the graph would change without it.
+    """Every read and every judgment, ranked by how much the graph would change without it.
 
     The judge is asked once per state for the baseline and never again: taking away a reading
     cannot change what a judge said about the same state, so the replays reuse those answers and

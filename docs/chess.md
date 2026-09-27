@@ -111,5 +111,5 @@ opponent.
 - Draws dominate. Two rule lists that both avoid blunders will shuffle to the
   move limit, which is why the score carries a material term.
 - The opening is four random plies, so a seed can hand one side a better start.
-  Playing every seed from both colours cancels it across a ladder, not within a
+  Playing every seed from both colors cancels it across a ladder, not within a
   single game.

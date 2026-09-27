@@ -93,11 +93,11 @@ def test_one_game_has_one_result_and_both_chairs_read_it_the_same(task):
 
 
 def test_a_graph_is_scored_from_both_chairs_across_seeds(task):
-    # One seed is one opening; alternating colour by seed keeps a graph from only ever
+    # One seed is one opening; alternating color by seed keeps a graph from only ever
     # being measured as white.
     scorer = Games(task, program("always: QUIET"))
-    assert scorer(program(GREEDY), 0).record["colour"] == "white"
-    assert scorer(program(GREEDY), 1).record["colour"] == "black"
+    assert scorer(program(GREEDY), 0).record["color"] == "white"
+    assert scorer(program(GREEDY), 1).record["color"] == "black"
 
 
 def test_taking_material_beats_never_taking_it(task):

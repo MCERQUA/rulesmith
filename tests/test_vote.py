@@ -1,4 +1,4 @@
-"""Several judgements settled into one value."""
+"""Several judgments settled into one value."""
 
 import pytest
 

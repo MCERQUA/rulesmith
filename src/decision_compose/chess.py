@@ -17,7 +17,7 @@ from decision_compose.optimize import Outcome
 from decision_compose.runtime import DecisionProgram, GraphExecutionError
 
 VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
-CENTRE = [chess.D4, chess.E4, chess.D5, chess.E5]
+CENTER = [chess.D4, chess.E4, chess.D5, chess.E5]
 # Material left on both sides, below which the game is played as an endgame.
 ENDGAME = 24
 # The edge that decides a game stopped at the move limit: a minor piece, not a pawn.
@@ -115,7 +115,7 @@ def advance(board: chess.Board) -> chess.Move | None:
     return max(
         pawns,
         key=lambda move: (
-            move.to_square in CENTRE,
+            move.to_square in CENTER,
             ahead * (chess.square_rank(move.to_square) - chess.square_rank(move.from_square)),
             centrality(move.to_square),
             move.uci(),
@@ -158,40 +158,40 @@ def settle(board: chess.Board) -> chess.Move:
     return max(moves, key=lambda move: (gain(board, move), move.uci()))
 
 
-def loose_for(board: chess.Board, colour: bool) -> list[tuple[int, int]]:
-    """Pieces of one colour the other side attacks and that colour does not defend, worst first."""
+def loose_for(board: chess.Board, color: bool) -> list[tuple[int, int]]:
+    """Pieces of one color the other side attacks and that color does not defend, worst first."""
     found = []
     for square, piece in board.piece_map().items():
-        if piece.color != colour or piece.piece_type == chess.KING:
+        if piece.color != color or piece.piece_type == chess.KING:
             continue
-        if board.is_attacked_by(not colour, square) and not board.is_attacked_by(colour, square):
+        if board.is_attacked_by(not color, square) and not board.is_attacked_by(color, square):
             found.append((worth(piece), square))
     return sorted(found, reverse=True)
 
 
-def ring(board: chess.Board, colour: bool) -> int:
+def ring(board: chess.Board, color: bool) -> int:
     """How many squares around a king the other side attacks: pressure before it becomes check."""
-    king = board.king(colour)
+    king = board.king(color)
     if king is None:
         return 0
     around = chess.SquareSet(chess.BB_KING_ATTACKS[king])
-    return sum(1 for square in around if board.is_attacked_by(not colour, square))
+    return sum(1 for square in around if board.is_attacked_by(not color, square))
 
 
-def passers(board: chess.Board, colour: bool) -> list[int]:
+def passers(board: chess.Board, color: bool) -> list[int]:
     """Own pawns with no enemy pawn ahead of them on their file or the ones beside it, by how
     far up the board they are."""
-    ahead = 1 if colour == chess.WHITE else -1
+    ahead = 1 if color == chess.WHITE else -1
     ranks = []
-    for square in board.pieces(chess.PAWN, colour):
+    for square in board.pieces(chess.PAWN, color):
         file, rank = chess.square_file(square), chess.square_rank(square)
         blocked = any(
             chess.square_file(other) in (file - 1, file, file + 1)
             and (chess.square_rank(other) - rank) * ahead > 0
-            for other in board.pieces(chess.PAWN, not colour)
+            for other in board.pieces(chess.PAWN, not color)
         )
         if not blocked:
-            ranks.append(rank if colour == chess.WHITE else 7 - rank)
+            ranks.append(rank if color == chess.WHITE else 7 - rank)
     return sorted(ranks, reverse=True)
 
 
@@ -376,9 +376,9 @@ def played(task: ChessTask, white: DecisionProgram, black: DecisionProgram, seed
     }
 
 
-def material(board: chess.Board, colour: bool) -> int:
-    ours = sum(worth(p) for p in board.piece_map().values() if p.color == colour)
-    theirs = sum(worth(p) for p in board.piece_map().values() if p.color != colour)
+def material(board: chess.Board, color: bool) -> int:
+    ours = sum(worth(p) for p in board.piece_map().values() if p.color == color)
+    theirs = sum(worth(p) for p in board.piece_map().values() if p.color != color)
     return ours - theirs
 
 
@@ -390,7 +390,7 @@ class Games:
         self.opponent = opponent
 
     def __call__(self, program: DecisionProgram, seed: int) -> Outcome:
-        # Alternate colours by seed so a graph is scored from both sides of the same openings.
+        # Alternate colors by seed so a graph is scored from both sides of the same openings.
         mine = chess.WHITE if seed % 2 == 0 else chess.BLACK
         white, black = (program, self.opponent) if mine == chess.WHITE else (self.opponent, program)
         game = played(self.task, white, black, seed)
@@ -406,7 +406,7 @@ class Games:
             score=score if game["error"] is None else 0.0,
             record={
                 "seed": seed,
-                "colour": "white" if mine == chess.WHITE else "black",
+                "color": "white" if mine == chess.WHITE else "black",
                 "result": game["result"],
                 "points": points,
                 "material": edge,

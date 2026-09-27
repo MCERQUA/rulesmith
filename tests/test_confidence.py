@@ -1,4 +1,4 @@
-"""How sure a judgement was, as something a rule can test."""
+"""How sure a judgment was, as something a rule can test."""
 
 import pytest
 

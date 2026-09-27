@@ -34,7 +34,7 @@ SHAPES = {
 
 
 def label(name: str, node) -> str:
-    """What a box says: enough to recognise the node, not its whole definition."""
+    """What a box says: enough to recognize the node, not its whole definition."""
     if isinstance(node, Read):
         return f"read {path_of(node)}"
     if isinstance(node, Call):

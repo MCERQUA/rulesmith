@@ -79,13 +79,13 @@ def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | 
 
 def group(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
     """One part of a longer condition. A group of its own needs parentheses, or reading it back
-    would join it to its neighbours: 'a and (b or c)' is not 'a and b, or c'."""
+    would join it to its neighbors: 'a and (b or c)' is not 'a and b, or c'."""
     text = render_condition(condition, reads, plan)
     return f"({text})" if isinstance(condition, (All, Any)) else text
 
 
 def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
-    """A read appears as its path, a confidence as the judgement it belongs to, and anything
+    """A read appears as its path, a confidence as the judgment it belongs to, and anything
     else by the name the rules gave it."""
     if node in reads:
         return path_of(reads[node])
@@ -112,9 +112,9 @@ def render_rules(plan: Plan) -> str:
             else "one of [" + ", ".join(read.categories or []) + "]"
         )
         lines.append(f"read {path_of(read)} {domain}")
-    # A vote is written after the judgements it counts and before the rules that test it.
+    # A vote is written after the judgments it counts and before the rules that test it.
     votes = {name: node for name, node in plan.nodes.items() if isinstance(node, Vote)}
-    # A judgement a rule asks about, rather than acts on, is declared before the rules.
+    # A judgment a rule asks about, rather than acts on, is declared before the rules.
     for name, node in plan.nodes.items():
         if isinstance(node, Call) and name not in acting:
             gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
@@ -153,7 +153,7 @@ def render_action(node, reads: dict[str, Read]) -> str:
     if isinstance(node, Threshold):
         return f"{name_of(node.source, reads)} >= {node.cutoff:g} ? {node.above} : {node.below}"
     if len(node.inputs) != 1:
-        raise RuleError(f"a judgement over {sorted(node.inputs)} has no rule form")
+        raise RuleError(f"a judgment over {sorted(node.inputs)} has no rule form")
     question = node.question
     if question.type == "noul":
         return f"ask {json.dumps(question.instructions)}"
@@ -238,7 +238,7 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
             raise RuleError(f"a vote is 'majority of [...]' or 'agree of [...]', not {rule.strip()!r}")
         sources = [named(part.strip(), names, nodes) for part in listed.strip(" []").split(",")]
         if len(sources) < 2:
-            raise RuleError("a vote needs at least two judgements")
+            raise RuleError("a vote needs at least two judgments")
         nodes[name.strip()] = {"type": "vote", "rule": rule.strip(), "sources": sources}
         names[name.strip()] = name.strip()
         return
@@ -257,7 +257,7 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
 
 
 def split_gate(text: str) -> tuple[str, str | None]:
-    """A judgement from the condition it is asked under, past any criteria that quote 'when'."""
+    """A judgment from the condition it is asked under, past any criteria that quote 'when'."""
     criteria = text.rfind("]")
     instructions = re.match(r'\s*"(?:[^"\\]|\\.)*"', text)
     tail = max(criteria + 1, instructions.end() if instructions else 0)
@@ -349,11 +349,11 @@ def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
 
 
 def named(path: str, names: dict, nodes: dict | None = None) -> str:
-    """A name a condition tests. '<judgement>.confidence' is how sure that judgement was, and
+    """A name a condition tests. '<judgment>.confidence' is how sure that judgment was, and
     the node that reports it is made on first mention."""
     if path not in names and path.endswith(".confidence") and nodes is not None:
         asked = path.removesuffix(".confidence")
-        # Only a judgement has a confidence. A reading is a number the input already carried.
+        # Only a judgment has a confidence. A reading is a number the input already carried.
         if asked in names and nodes.get(names[asked], {}).get("type") == "call":
             name = f"{names[asked]}_confidence"
             nodes.setdefault(name, {"type": "confidence", "source": names[asked]})

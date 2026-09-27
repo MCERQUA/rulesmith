@@ -179,7 +179,7 @@ class Value(Guarded):
 
 
 class Vote(Guarded):
-    """Several judgements settled into one value. `majority` takes the value most of them gave,
+    """Several judgments settled into one value. `majority` takes the value most of them gave,
     breaking a tie towards the earlier source; `agree` reports whether they all said the same,
     which is how a second opinion verifies a first."""
 
@@ -191,7 +191,7 @@ class Vote(Guarded):
 
 
 class Confidence(Guarded):
-    """How sure a judgement was, as a number a rule can test. A choice or a score answer carries
+    """How sure a judgment was, as a number a rule can test. A choice or a score answer carries
     its own confidence; a probability answers with the probability itself, so it has none to
     report and this is absent for one."""
 
