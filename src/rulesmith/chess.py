@@ -339,6 +339,13 @@ class ChessTask(StrictModel):
         description="Share of the score decided by material rather than by the result, so that "
         "a game nobody wins still says which graph stood better",
     )
+    survival_weight: float = Field(
+        default=0,
+        ge=0,
+        le=0.5,
+        description="Share of the score decided by how long a lost or drawn game lasted, so "
+        "that against an opponent no graph can beat, holding out longer still scores higher",
+    )
     train: list[int] = Field(min_length=1)
     validation: list[int] = Field(min_length=1)
     test: list[int] = Field(min_length=1)
@@ -353,6 +360,10 @@ class ChessTask(StrictModel):
         seeds = self.train + self.validation + self.test
         if len(set(seeds)) != len(seeds):
             raise ValueError("seeds must be distinct across splits")
+        # A win has to outrank any other result whatever the material, which holds while the
+        # result's share of the score is more than twice material's.
+        if 1 - 3 * self.material_weight - self.survival_weight <= 0:
+            raise ValueError("material and survival weights leave the result too little weight")
         return self
 
     def baseline_plan(self) -> Plan:
@@ -451,6 +462,18 @@ def material(board: chess.Board, color: bool) -> int:
     return ours - theirs
 
 
+def graded(task: ChessTask, points: float, edge: int, plies: int) -> float:
+    """A game's score: mostly its result, partly the material left, and partly how long it
+    lasted. A win counts as lasting the whole game, since ending it sooner is no worse."""
+    material, survival = task.material_weight, task.survival_weight
+    held = 1.0 if points == 1 else min(1.0, plies / (task.move_limit - task.opening_plies))
+    return (
+        (1 - material - survival) * points
+        + material * (0.5 + max(-15, min(15, edge)) / 30)
+        + survival * held
+    )
+
+
 class Games:
     """Scores a graph by how it fares against a fixed opponent, one game per seed."""
 
@@ -467,9 +490,7 @@ class Games:
         if mine == chess.BLACK:
             points = 1 - points
         edge = game["material"] if mine == chess.WHITE else -game["material"]
-        # Material only moves the score within the result, so winning always outranks holding on.
-        share = self.task.material_weight
-        score = (1 - share) * points + share * (0.5 + max(-15, min(15, edge)) / 30)
+        score = graded(self.task, points, edge, len(game["moves"]))
         said = "won" if points == 1 else "lost" if points == 0 else "drew"
         # Only this graph's own failure is its error; an opponent that breaks simply loses.
         error = game["error"] if game["failed"] == mine else None

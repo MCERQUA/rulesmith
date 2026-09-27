@@ -397,6 +397,9 @@ def main() -> None:
         default=16384,
         help="Per reply; a proposal restating 77 labels with its reasoning needs room",
     )
+    bench.add_argument(
+        "--note", help="How the judge was served, e.g. RULING_ROTATIONS=1, kept with the results"
+    )
     bench.add_argument("--output", type=Path, required=True)
     games = commands.add_parser("chess", help="Play chess graphs against a fixed-strength engine")
     games.add_argument("task", type=Path, help="A chess task; its move limit and openings apply")
@@ -437,7 +440,7 @@ def main() -> None:
         if method in args.methods and lms[role] is None:
             root.error(f"{method} needs --{role}-model")
     sizes = {split: getattr(args, split) for split in ("train", "validation", "test")}
-    models = {"judge": args.judge_model} | {
+    models = {"judge": args.judge_model, "note": args.note or ""} | {
         role: getattr(args, f"{role}_model") for role in lms if getattr(args, f"{role}_model")
     }
     with TypeSafeClient(base_url=args.judge_base_url, api_key="local-no-auth") as client:

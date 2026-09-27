@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -430,3 +432,55 @@ def test_a_broken_rules_file_is_reported_without_a_traceback(tmp_path):
     plan.write_text("read x in [0, 1]\nwhen nothing >= 1: a\nalways: b")
     result = invoke("draw", plan)
     assert result.returncode != 0 and "line 2" in result.stderr and "Traceback" not in result.stderr
+
+
+STOCKFISH = shutil.which("stockfish") or os.environ.get("RULESMITH_STOCKFISH")
+CHESS = Path(__file__).resolve().parents[1] / "examples/chess"
+
+
+@pytest.mark.skipif(not STOCKFISH, reason="needs a stockfish binary on PATH or RULESMITH_STOCKFISH")
+def test_a_chess_graph_is_evaluated_against_an_engine(tmp_path):
+    output = tmp_path / "vs-engine.json"
+    result = invoke(
+        "evaluate",
+        CHESS / "duel.json",
+        CHESS / "graphs/greedy.rules",
+        "--engine",
+        STOCKFISH,
+        "--engine-skill",
+        "0",
+        "--engine-seconds",
+        "0.01",
+        "--output",
+        output,
+    )
+    assert result.returncode == 0, result.stderr
+    report = json.loads(output.read_text())
+    assert report["opponent"] == f"engine {STOCKFISH} at skill 0"
+    assert all("engine" in game["policies"] for game in report["examples"])
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ("--engine", "stockfish", "--opponent", str(CHESS / "graphs/greedy.rules")),
+        ("--engine-skill", "3"),
+    ],
+)
+def test_an_engine_is_the_opponent_or_nothing(tmp_path, extra):
+    result = invoke(
+        "evaluate",
+        CHESS / "duel.json",
+        CHESS / "graphs/greedy.rules",
+        "--output",
+        tmp_path / "out.json",
+        *extra,
+    )
+    assert result.returncode != 0 and "Traceback" not in result.stderr
+
+
+def test_an_engine_only_plays_chess(tmp_path):
+    task = write(tmp_path / "task.json", task_data())
+    plan = write(tmp_path / "plan.json", binary_plan())
+    result = invoke("evaluate", task, plan, "--engine", "stockfish", "--output", tmp_path / "o")
+    assert result.returncode != 0 and "chess" in result.stderr

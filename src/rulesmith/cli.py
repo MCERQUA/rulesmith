@@ -18,7 +18,7 @@ from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from rulesmith.ablate import effects
 from rulesmith.arena import Duels, Entrant, duel, tournament
-from rulesmith.chess import ChessTask, Games
+from rulesmith.chess import ChessTask, Engine, Games
 from rulesmith.diagram import mermaid
 from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
 from rulesmith.grade import Graded, Grader, model_name
@@ -98,6 +98,17 @@ def parser() -> argparse.ArgumentParser:
                 help="Graph a deathmatch task's episodes are played against",
             )
         if name in ("evaluate", "optimize"):
+            command.add_argument(
+                "--engine",
+                help="A UCI engine, such as stockfish, to play a chess task against instead of "
+                "a graph",
+            )
+            command.add_argument(
+                "--engine-skill", type=int, help="The engine's Skill Level (default 0, weakest)"
+            )
+            command.add_argument(
+                "--engine-seconds", type=float, help="The engine's time per move (default 0.05)"
+            )
             command.add_argument(
                 "--grader-model",
                 help="DSPy model identifier that grades answers instead of the task's labels",
@@ -328,6 +339,13 @@ def scored_by(args: argparse.Namespace, task) -> str:
     return "labels" if isinstance(task, Task) else "games"
 
 
+def opponent_of(args: argparse.Namespace) -> str | None:
+    """Who a played task's scores were earned against, since a score means nothing without it."""
+    if getattr(args, "engine", None):
+        return f"engine {args.engine} at skill {args.engine_skill or 0}"
+    return str(args.opponent) if getattr(args, "opponent", None) else None
+
+
 def read_plan(cli: argparse.ArgumentParser, path: Path) -> Plan:
     """A graph from its JSON, or from the rules it is written as. A file that does not hold one
     is a mistake in the command, reported as such rather than as a crash."""
@@ -379,10 +397,19 @@ def main() -> None:
         cli.error("--visible requires a Doom task")
     deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
     played = deathmatch or (args.command != "run" and isinstance(task, ChessTask))
-    if args.command in ("evaluate", "optimize", "record") and played != bool(args.opponent):
+    engine = getattr(args, "engine", None)
+    tuned = [flag for flag in ("engine_skill", "engine_seconds") if getattr(args, flag, None)]
+    if tuned and not engine:
+        cli.error("--engine-skill and --engine-seconds set the strength of an --engine")
+    if engine and not isinstance(task, ChessTask):
+        cli.error("--engine plays a chess task; other games are played against a graph")
+    if engine and args.opponent:
+        cli.error("a chess task is played against --opponent or --engine, not both")
+    against = bool(args.opponent or engine) if hasattr(args, "opponent") else False
+    if args.command in ("evaluate", "optimize", "record") and played != against:
         cli.error("--opponent is required for, and only for, tasks played against another graph")
     opponent = None
-    if played:
+    if played and not engine:
         opponent = read_plan(cli, args.opponent)
         opponent.check(task.labels, args.max_nodes, args.max_depth)
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
@@ -451,6 +478,10 @@ def main() -> None:
         score = scorer(args, task) if args.command in ("evaluate", "optimize") else None
         if deathmatch:
             score = Duels(task, DecisionProgram(opponent, client, model, execution))
+        elif engine:
+            skill = args.engine_skill or 0
+            rival = Engine(engine, skill, args.engine_seconds or 0.05)
+            score = Games(task, stack.enter_context(rival))
         elif args.command != "run" and isinstance(task, ChessTask):
             score = Games(task, DecisionProgram(opponent, client, model, execution))
         elif args.command != "run" and isinstance(task, DoomTask):
@@ -489,6 +520,7 @@ def main() -> None:
             report["backend"] = args.backend
             report["model"] = model
             report["scored_by"] = scored_by(args, task)
+            report["opponent"] = opponent_of(args)
             args.output.write_text(dump(report))
             print(dump({"score": report["score"], "output": str(args.output)}), end="")
         else:
@@ -499,6 +531,7 @@ def main() -> None:
             report["backend"] = args.backend
             report["reflection_model"] = args.reflection_model
             report["scored_by"] = scored_by(args, task)
+            report["opponent"] = opponent_of(args)
             args.output.mkdir()
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")
             (args.output / "report.json").write_text(dump(report))

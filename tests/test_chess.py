@@ -5,6 +5,8 @@ import shutil
 
 import chess
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from rulesmith.chess import (
     POLICIES,
@@ -13,6 +15,7 @@ from rulesmith.chess import (
     Games,
     chosen,
     gain,
+    graded,
     material,
     observe,
     played,
@@ -221,3 +224,31 @@ def test_a_graph_can_be_measured_against_a_fixed_engine(task):
     board = chess.Board(outcome.record["fen"])
     assert board.is_valid()
     assert "engine" in outcome.record["policies"]
+
+
+weights = st.tuples(st.floats(0, 0.3), st.floats(0, 0.5)).filter(
+    lambda pair: 1 - 3 * pair[0] - pair[1] > 0
+)
+
+
+@given(
+    weights, st.integers(-40, 40), st.integers(-40, 40), st.integers(0, 116), st.integers(0, 116)
+)
+def test_a_win_outranks_every_other_result_and_a_longer_loss_a_shorter_one(
+    pair, edge, other_edge, plies, other_plies
+):
+    material_weight, survival_weight = pair
+    task = ChessTask.model_validate(
+        task_data(material_weight=material_weight, survival_weight=survival_weight)
+    )
+    assert graded(task, 1.0, edge, plies) > graded(task, 0.5, other_edge, other_plies)
+    if survival_weight and plies > other_plies:
+        # Against an engine every game is lost; holding out longer is what search can climb.
+        assert graded(task, 0.0, edge, plies) > graded(task, 0.0, edge, other_plies)
+
+
+def test_weights_that_let_material_outrank_the_result_are_refused():
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="result"):
+        ChessTask.model_validate(task_data(material_weight=0.3, survival_weight=0.2))
