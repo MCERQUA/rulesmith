@@ -325,6 +325,16 @@ class Plan(StrictModel):
 
         if self.contributing() != self.nodes.keys():
             raise ValueError("every node must contribute to a graph output")
+        # A vote counts labels. A probability or a rubric position is a float, and two floats
+        # agreeing exactly is a coincidence; a merged object cannot be counted at all.
+        domains = self.domains()
+        for key, node in self.nodes.items():
+            if isinstance(node, Vote) and not all(
+                isinstance(domains[source], frozenset) for source in node.sources
+            ):
+                raise ValueError(
+                    f"vote {key!r} counts labels, so every source needs a categorical value"
+                )
 
         domains = self.domains()
         for node in self.nodes.values():

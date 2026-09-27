@@ -73,3 +73,32 @@ def test_a_vote_that_makes_no_sense_says_so(line, message):
     )
     with pytest.raises(RuleError, match=message):
         compile_rules(rules)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # A probability is a float; two of them agreeing exactly is a coincidence, not a verdict.
+        {"type": "noul", "instructions": "Is this fraud?"},
+        # A score is a position on a rubric, also a float.
+        {"type": "score", "instructions": "How bad?", "criteria": ["minor", "major"]},
+    ],
+    ids=["probability", "score"],
+)
+def test_a_vote_counts_labels_so_it_refuses_sources_that_have_none(question):
+    from pydantic import ValidationError
+
+    from decision_compose.graph import Plan
+
+    ask = {"type": "call", "question": question, "inputs": {"s": {"type": "state"}}}
+    with pytest.raises(ValidationError, match="categorical"):
+        Plan.model_validate(
+            {
+                "nodes": {
+                    "a": ask,
+                    "b": ask,
+                    "both": {"type": "vote", "rule": "agree", "sources": ["a", "b"]},
+                },
+                "outputs": {"label": {"type": "node", "node": "both"}},
+            }
+        )
