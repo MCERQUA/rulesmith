@@ -226,7 +226,9 @@ def test_a_graph_can_be_measured_against_a_fixed_engine(task):
     assert "engine" in outcome.record["policies"]
 
 
-weights = st.tuples(st.floats(0, 0.3), st.floats(0, 0.5)).filter(
+# Weights are written in a task file as decimals; 5e-324 is below what a float can add to 0.5.
+decimals = st.integers(0, 500).map(lambda thousandths: thousandths / 1000)
+weights = st.tuples(decimals.filter(lambda w: w <= 0.3), decimals).filter(
     lambda pair: 1 - 3 * pair[0] - pair[1] > 0
 )
 
