@@ -5,10 +5,10 @@ from hypothesis import given
 from hypothesis import strategies as st
 from test_graph import call, ref
 
-from decision_compose.diagram import mermaid
-from decision_compose.graph import Plan
-from decision_compose.rules import RuleError, compile_rules, parts, render_rules, whole
-from decision_compose.runtime import DecisionProgram
+from rulesmith.diagram import mermaid
+from rulesmith.graph import Plan
+from rulesmith.rules import RuleError, compile_rules, parts, render_rules, whole
+from rulesmith.runtime import DecisionProgram
 
 READINGS = "read ammo in [0, 50]\nread health in [0, 200]\n"
 NAMED = (

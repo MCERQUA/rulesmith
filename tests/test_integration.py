@@ -8,8 +8,8 @@ import pytest
 from conftest import chat_reply
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
-from decision_compose.graph import Condition, Node, Plan, Question, Source, Task
-from decision_compose.optimize import (
+from rulesmith.graph import Condition, Node, Plan, Question, Source, Task
+from rulesmith.optimize import (
     GraphAdapter,
     GraphProposer,
     SearchConfig,
@@ -19,8 +19,8 @@ from decision_compose.optimize import (
     evaluate_plan,
     optimize_plan,
 )
-from decision_compose.rules import parts
-from decision_compose.runtime import DecisionProgram, ResponseError
+from rulesmith.rules import parts
+from rulesmith.runtime import DecisionProgram, ResponseError
 
 
 def scripted(plan):
@@ -297,7 +297,7 @@ def test_calls_with_different_inputs_stay_separate_requests(provider, client):
 def test_diamond_routes_values_and_answer_records_and_runs_shared_nodes_once(provider, client):
     from threading import Barrier
 
-    from decision_compose.runtime import ExecutionConfig
+    from rulesmith.runtime import ExecutionConfig
 
     plan = Plan.model_validate(
         {
@@ -396,7 +396,7 @@ def test_conditional_calls_skip_unused_branches_and_join_available_outputs(
 def test_scheduler_releases_dependents_without_waiting_for_unrelated_roots(provider, client):
     from threading import Event
 
-    from decision_compose.runtime import ExecutionConfig
+    from rulesmith.runtime import ExecutionConfig
 
     plan = Plan.model_validate(
         {

@@ -10,9 +10,9 @@ import dspy
 import pytest
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from decision_compose.graph import Plan, Task
-from decision_compose.optimize import GraphProposer, SearchConfig, optimize_plan
-from decision_compose.runtime import DecisionProgram
+from rulesmith.graph import Plan, Task
+from rulesmith.optimize import GraphProposer, SearchConfig, optimize_plan
+from rulesmith.runtime import DecisionProgram
 
 pytestmark = pytest.mark.ruling
 ROOT = Path(__file__).resolve().parents[1]
@@ -89,7 +89,7 @@ def test_ruling_cli_runs_without_a_hosted_provider_credential(
         [
             sys.executable,
             "-m",
-            "decision_compose.cli",
+            "rulesmith.cli",
             "run",
             str(ROOT / "examples/dag.json"),
             str(state),

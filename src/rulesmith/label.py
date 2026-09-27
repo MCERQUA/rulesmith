@@ -7,8 +7,8 @@ from typing import Literal
 import dspy
 from pydantic import Field
 
-from decision_compose.graph import State, StrictModel, Task, Text
-from decision_compose.optimize import text_adapter
+from rulesmith.graph import State, StrictModel, Task, Text
+from rulesmith.optimize import text_adapter
 
 
 class Unlabeled(StrictModel):

@@ -1,7 +1,7 @@
 """What each input is worth, measured by taking it away."""
 
-from decision_compose.ablate import effects
-from decision_compose.rules import compile_rules
+from rulesmith.ablate import effects
+from rulesmith.rules import compile_rules
 
 DECIDER = """read score in [0, 1]
 when score >= 0.5: high

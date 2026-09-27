@@ -8,10 +8,10 @@ import pytest
 import vizdoom as vzd
 from pydantic import ValidationError
 
-from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
-from decision_compose.graph import Plan
-from decision_compose.level import Level
-from decision_compose.runtime import DecisionProgram
+from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
+from rulesmith.graph import Plan
+from rulesmith.level import Level
+from rulesmith.runtime import DecisionProgram
 
 TARGETS = ["DoomImp", "ShotgunGuy", "Zombieman", "Demon", "Medikit", "BlueCard"]
 

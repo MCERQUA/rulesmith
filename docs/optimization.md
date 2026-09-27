@@ -1,6 +1,6 @@
 # Optimization
 
-`decision-compose optimize` searches for the graph with the best validation
+`rulesmith optimize` searches for the graph with the best validation
 score: exact-match accuracy for classification, normalized reward for
 [Doom](doom.md). DSPy writes candidate graphs, and
 [GEPA](https://gepa-ai.github.io/gepa/guides/adapters/) decides which to
@@ -30,7 +30,7 @@ evaluate and keep.
 The test split never reaches the optimizer. Score it once, after selection:
 
 ```sh
-uv run decision-compose evaluate task.json runs/my-task/plan.json --split test \
+uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
   --backend ruling --max-workers 1 --output runs/my-task/test.json
 ```
 
@@ -82,8 +82,8 @@ task/seed hashes.
 import dspy
 from typesafe_sdk import TypeSafeClient
 
-from decision_compose.graph import Task
-from decision_compose.optimize import GraphProposer, SearchConfig, optimize_plan
+from rulesmith.graph import Task
+from rulesmith.optimize import GraphProposer, SearchConfig, optimize_plan
 
 task = Task.model_validate_json(open("task.json").read())
 proposer = GraphProposer(dspy.LM("openai/<served-model-id>", api_base="http://127.0.0.1:8080/v1"))
@@ -120,7 +120,7 @@ uv run pytest tests/test_ruling.py --ruling-url http://127.0.0.1:8010 \
 Hosted providers (paid):
 
 ```sh
-export DECISION_COMPOSE_REFLECTION_MODEL="$REFLECTION_MODEL"
+export RULESMITH_REFLECTION_MODEL="$REFLECTION_MODEL"
 uv run pytest --live tests/test_live.py -q
 ```
 

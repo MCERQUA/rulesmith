@@ -15,9 +15,9 @@ from gepa.core.adapter import EvaluationBatch, GEPAAdapter
 from pydantic import Field, ValidationError
 from typesafe_sdk import TypeSafeClient
 
-from decision_compose.graph import Example, Plan, StrictModel
-from decision_compose.rules import RuleError, parts, whole
-from decision_compose.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
+from rulesmith.graph import Example, Plan, StrictModel
+from rulesmith.rules import RuleError, parts, whole
+from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
 
 
 def text_adapter() -> dspy.ChatAdapter:

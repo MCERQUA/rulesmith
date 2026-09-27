@@ -1,5 +1,5 @@
 [project]
-name = "decision-compose"
+name = "rulesmith"
 version = "0.1.0"
 description = "Evolve typed decision DAGs with DSPy and GEPA."
 readme = "README.md"
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-decision-compose = "decision_compose.cli:main"
+rulesmith = "rulesmith.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8,<10", "hypothesis>=6,<7", "ruff>=0.12,<1"]

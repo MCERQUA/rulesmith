@@ -16,22 +16,22 @@ import vizdoom as vzd
 from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
-from decision_compose.ablate import effects
-from decision_compose.arena import Duels, Entrant, duel, tournament
-from decision_compose.chess import ChessTask, Games
-from decision_compose.diagram import mermaid
-from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
-from decision_compose.graph import Call, Plan, Task
-from decision_compose.label import Labeler, Unlabeled, draft_task
-from decision_compose.optimize import (
+from rulesmith.ablate import effects
+from rulesmith.arena import Duels, Entrant, duel, tournament
+from rulesmith.chess import ChessTask, Games
+from rulesmith.diagram import mermaid
+from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
+from rulesmith.graph import Call, Plan, Task
+from rulesmith.label import Labeler, Unlabeled, draft_task
+from rulesmith.optimize import (
     GraphProposer,
     SearchConfig,
     classify,
     evaluate_plan,
     optimize_plan,
 )
-from decision_compose.rules import compile_rules
-from decision_compose.runtime import DecisionProgram, ExecutionConfig
+from rulesmith.rules import compile_rules
+from rulesmith.runtime import DecisionProgram, ExecutionConfig
 
 
 @dataclass(frozen=True)
@@ -185,7 +185,7 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if not all(hasattr(example, "state") for example in examples):
         cli.error(
             "ablate reads states from a task's examples; a Doom or chess task keeps seeds, "
-            "so measure those graphs with decision_compose.ablate.effects over recorded states"
+            "so measure those graphs with rulesmith.ablate.effects over recorded states"
         )
     states = [example.state for example in examples]
     calls = any(isinstance(node, Call) for node in plan.nodes.values())

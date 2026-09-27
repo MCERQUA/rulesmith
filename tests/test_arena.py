@@ -12,10 +12,10 @@ from PIL import Image
 from test_cli import invoke, write
 from test_graph import binary_plan, constant_plan
 
-from decision_compose.arena import Duels, Entrant, free_port, match, ratings
-from decision_compose.doom import DEATHMATCH, DoomEnvironment, DoomTask
-from decision_compose.graph import Plan
-from decision_compose.runtime import DecisionProgram
+from rulesmith.arena import Duels, Entrant, free_port, match, ratings
+from rulesmith.doom import DEATHMATCH, DoomEnvironment, DoomTask
+from rulesmith.graph import Plan
+from rulesmith.runtime import DecisionProgram
 
 LABELS = ["ATTACK", "TURN_LEFT", "TURN_RIGHT", "MOVE_FORWARD"]
 # On this seed the two spawn points face across open floor, so spinning players meet.

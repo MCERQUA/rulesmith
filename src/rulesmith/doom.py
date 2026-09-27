@@ -12,10 +12,10 @@ import numpy as np
 import vizdoom as vzd
 from pydantic import ConfigDict, Field, model_validator
 
-from decision_compose.graph import Plan, StrictModel, Text
-from decision_compose.level import Level
-from decision_compose.optimize import Outcome
-from decision_compose.runtime import DecisionProgram, GraphExecutionError
+from rulesmith.graph import Plan, StrictModel, Text
+from rulesmith.level import Level
+from rulesmith.optimize import Outcome
+from rulesmith.runtime import DecisionProgram, GraphExecutionError
 
 
 class Episode(StrictModel):

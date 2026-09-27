@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 from test_graph import binary_plan
 
-from decision_compose.diagram import mermaid
-from decision_compose.graph import Plan
-from decision_compose.rules import compile_rules
+from rulesmith.diagram import mermaid
+from rulesmith.graph import Plan
+from rulesmith.rules import compile_rules
 
 GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").glob("*.json"))
 

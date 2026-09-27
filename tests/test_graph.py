@@ -5,8 +5,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pydantic import ValidationError
 
-from decision_compose.graph import Plan, Task, references
-from decision_compose.optimize import assemble
+from rulesmith.graph import Plan, Task, references
+from rulesmith.optimize import assemble
 
 
 def ref(node, **kwargs):

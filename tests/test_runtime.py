@@ -5,8 +5,8 @@ from pydantic import ValidationError
 from test_graph import binary_plan
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer
 
-from decision_compose.graph import Choice, Noul, Plan, Score
-from decision_compose.runtime import (
+from rulesmith.graph import Choice, Noul, Plan, Score
+from rulesmith.runtime import (
     DecisionProgram,
     GraphExecutionError,
     ResponseError,
@@ -74,8 +74,8 @@ def test_score_rejects_drifted_rubric():
     st.floats(min_value=0, max_value=1, allow_nan=False),
 )
 def test_threshold_partition_after_serialization(value, cutoff):
-    from decision_compose.graph import Plan
-    from decision_compose.runtime import resolve_node
+    from rulesmith.graph import Plan
+    from rulesmith.runtime import resolve_node
 
     plan = Plan.model_validate(binary_plan(cutoff))
     restored = Plan.model_validate_json(plan.model_dump_json())
@@ -86,8 +86,8 @@ def test_threshold_partition_after_serialization(value, cutoff):
 def test_pure_graph_preserves_null_and_omits_only_skipped_optional_inputs():
     from test_graph import ref
 
-    from decision_compose.graph import Plan
-    from decision_compose.runtime import DecisionProgram
+    from rulesmith.graph import Plan
+    from rulesmith.runtime import DecisionProgram
 
     plan = Plan.model_validate(
         {
@@ -130,8 +130,8 @@ def test_pure_graph_preserves_null_and_omits_only_skipped_optional_inputs():
 def test_missing_required_output_is_an_execution_error():
     from test_graph import ref
 
-    from decision_compose.graph import Plan
-    from decision_compose.runtime import DecisionProgram, GraphExecutionError
+    from rulesmith.graph import Plan
+    from rulesmith.runtime import DecisionProgram, GraphExecutionError
 
     plan = Plan.model_validate(
         {
@@ -153,7 +153,7 @@ def test_missing_required_output_is_an_execution_error():
 def test_execution_limits_reject_nonpositive_concurrency():
     from pydantic import ValidationError
 
-    from decision_compose.runtime import ExecutionConfig
+    from rulesmith.runtime import ExecutionConfig
 
     with pytest.raises(ValidationError):
         ExecutionConfig(max_workers=0)
@@ -163,8 +163,8 @@ def test_execution_limits_reject_nonpositive_concurrency():
 def test_runtime_rejects_nonfinite_input_states(value):
     from pydantic import ValidationError
 
-    from decision_compose.graph import Plan
-    from decision_compose.runtime import DecisionProgram
+    from rulesmith.graph import Plan
+    from rulesmith.runtime import DecisionProgram
 
     plan = Plan.model_validate({"nodes": {}, "outputs": {"original": {"type": "state"}}})
     with pytest.raises(ValidationError):
@@ -174,8 +174,8 @@ def test_runtime_rejects_nonfinite_input_states(value):
 def test_mutating_results_cannot_change_graph_literals_or_later_runs():
     from test_graph import ref
 
-    from decision_compose.graph import Plan
-    from decision_compose.runtime import DecisionProgram
+    from rulesmith.graph import Plan
+    from rulesmith.runtime import DecisionProgram
 
     plan = Plan.model_validate(
         {

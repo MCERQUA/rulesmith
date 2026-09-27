@@ -14,10 +14,10 @@ from pydantic import ValidationError
 from test_cli import invoke, write
 from test_graph import constant_plan
 
-from decision_compose.doom import DoomEnvironment, DoomTask, Episodes
-from decision_compose.graph import Plan
-from decision_compose.optimize import SearchConfig, optimize_plan
-from decision_compose.runtime import MISSING, DecisionProgram, resolve_node
+from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
+from rulesmith.graph import Plan
+from rulesmith.optimize import SearchConfig, optimize_plan
+from rulesmith.runtime import MISSING, DecisionProgram, resolve_node
 
 ACTIONS = ["MOVE_LEFT", "MOVE_RIGHT", "ATTACK"]
 # Half-width of the aiming window, as a fraction of the half-screen.
@@ -383,7 +383,7 @@ def test_terminating_the_cli_shuts_down_its_game_engine(tmp_path):
         [
             sys.executable,
             "-m",
-            "decision_compose.cli",
+            "rulesmith.cli",
             "evaluate",
             str(task),
             str(plan),

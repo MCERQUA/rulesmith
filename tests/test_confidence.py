@@ -2,8 +2,8 @@
 
 import pytest
 
-from decision_compose.rules import compile_rules, render_rules
-from decision_compose.runtime import DecisionProgram
+from rulesmith.rules import compile_rules, render_rules
+from rulesmith.runtime import DecisionProgram
 
 GATED = """ask threat = "Fight or run?" [ATTACK: "Lined up."] [MOVE_BACKWARD: "Not lined up."]
 when threat.confidence >= 0.7 and threat == "ATTACK": ATTACK

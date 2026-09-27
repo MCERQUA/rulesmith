@@ -7,12 +7,12 @@ import pytest
 from conftest import chat_reply
 from test_graph import binary_plan, task_data
 
-from decision_compose.graph import Plan, Task
+from rulesmith.graph import Plan, Task
 
 
 def invoke(*args):
     return subprocess.run(
-        [sys.executable, "-m", "decision_compose.cli", *map(str, args)],
+        [sys.executable, "-m", "rulesmith.cli", *map(str, args)],
         capture_output=True,
         text=True,
         check=False,
@@ -45,7 +45,7 @@ def test_invalid_plan_exits_before_attempting_network(tmp_path):
 def test_invalid_opponent_is_rejected_before_judge_credentials(tmp_path, monkeypatch):
     from test_arena import duel_data
 
-    from decision_compose.cli import main
+    from rulesmith.cli import main
 
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     task = write(tmp_path / "task.json", duel_data())
@@ -57,7 +57,7 @@ def test_invalid_opponent_is_rejected_before_judge_credentials(tmp_path, monkeyp
         sys,
         "argv",
         [
-            "decision-compose",
+            "rulesmith",
             "evaluate",
             str(task),
             str(plan),
@@ -258,7 +258,7 @@ def test_ruling_backend_uses_local_endpoint_without_typesafe_credentials(
 
 @pytest.mark.parametrize("backend", ["ruling", "typesafe"])
 def test_backend_configuration_keeps_endpoints_and_credentials_separate(backend, monkeypatch):
-    from decision_compose.cli import resolve_backend
+    from rulesmith.cli import resolve_backend
 
     monkeypatch.setenv("RULING_BASE_URL", "http://127.0.0.1:8010")
     monkeypatch.setenv("RULING_API_KEY", "local-test-key")
@@ -279,7 +279,7 @@ def test_backend_configuration_keeps_endpoints_and_credentials_separate(backend,
 
 
 def test_empty_ruling_configuration_never_falls_back_to_hosted_endpoint(monkeypatch):
-    from decision_compose.cli import BACKENDS, resolve_backend
+    from rulesmith.cli import BACKENDS, resolve_backend
 
     monkeypatch.setenv("RULING_BASE_URL", "  ")
     monkeypatch.setenv("RULING_API_KEY", "  ")

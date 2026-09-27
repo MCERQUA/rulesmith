@@ -102,8 +102,8 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
 - A skipped optional output is omitted; a skipped required output raises
   `GraphExecutionError`.
 - `ExecutionConfig(suppress=("node",))` forces the named nodes to skip. It exists
-  to measure what a graph decides without them: `decision-compose ablate` and
-  `decision_compose.ablate.effects` use it, and an ordinary run leaves it empty.
+  to measure what a graph decides without them: `rulesmith ablate` and
+  `rulesmith.ablate.effects` use it, and an ordinary run leaves it empty.
 
 `DecisionProgram` returns a `dspy.Prediction` with `outputs`, `node_values`,
 `answers`, `skipped`, per-call `calls` metadata, `models`, token totals, and
@@ -112,7 +112,7 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
 ## Validation
 
 ```sh
-uv run decision-compose validate task.json plan.json
+uv run rulesmith validate task.json plan.json
 ```
 
 Validation rejects cycles, unknown references, nodes that feed no output,
@@ -124,8 +124,8 @@ required categorical value whose possible values are all task labels.
 ## Looking at a graph
 
 ```sh
-uv run decision-compose draw plan.json
-uv run decision-compose ablate task.json plan.json --split validation --backend ruling
+uv run rulesmith draw plan.json
+uv run rulesmith ablate task.json plan.json --split validation --backend ruling
 ```
 
 `draw` writes the graph as a Mermaid flowchart: solid arrows carry values, dashed
@@ -139,4 +139,4 @@ change. The judge answers each state once; the replays reuse those answers.
 2. Give each node an ID and connect nodes through `inputs`, `source`, `sources`, or `when`.
 3. Point a `label` output at the final decision.
 4. Run `validate`, then use the graph directly or as a seed:
-   `decision-compose optimize task.json plan.json ...`.
+   `rulesmith optimize task.json plan.json ...`.

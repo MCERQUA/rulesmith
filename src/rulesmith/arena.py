@@ -7,9 +7,9 @@ from dataclasses import dataclass, replace
 from itertools import combinations
 from statistics import fmean
 
-from decision_compose.doom import DEATHMATCH, DoomEnvironment, DoomTask, Episode, Episodes
-from decision_compose.optimize import Outcome
-from decision_compose.runtime import DecisionProgram
+from rulesmith.doom import DEATHMATCH, DoomEnvironment, DoomTask, Episode, Episodes
+from rulesmith.optimize import Outcome
+from rulesmith.runtime import DecisionProgram
 
 # Elo's conventions: 400 points is tenfold odds, and the field averages 1500.
 ELO_SCALE = 400

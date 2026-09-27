@@ -1,6 +1,6 @@
 # Doom
 
-decision-compose can optimize graphs that play [ViZDoom](https://github.com/Farama-Foundation/ViZDoom)
+rulesmith can optimize graphs that play [ViZDoom](https://github.com/Farama-Foundation/ViZDoom)
 scenarios. The graph runs once per action, and search scores it by episode
 reward instead of label accuracy.
 
@@ -44,7 +44,7 @@ calls, and it finishes the level.
 **Arena** — graphs play each other, ranked by Elo from round-robin deathmatches.
 
 ```sh
-uv run decision-compose arena examples/doom/duel.json \
+uv run rulesmith arena examples/doom/duel.json \
   examples/doom/graphs/duel-hunter.json examples/doom/graphs/e1m1-exit.json \
   examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
 ```
@@ -153,7 +153,7 @@ and its last few steps.
 ## Watching
 
 ```sh
-uv run decision-compose evaluate examples/doom/basic.json runs/doom/plan.json \
+uv run rulesmith evaluate examples/doom/basic.json runs/doom/plan.json \
   --backend ruling --max-workers 1 --split test --visible --output runs/doom/test.json
 ```
 
@@ -164,7 +164,7 @@ The game waits for each decision, so play runs at the judge's speed.
 `arena` ranks graphs by playing them against each other:
 
 ```sh
-uv run decision-compose arena examples/doom/duel.json a.json b.json c.json --output runs/arena.json
+uv run rulesmith arena examples/doom/duel.json a.json b.json c.json --output runs/arena.json
 ```
 
 - Every pair plays one deathmatch per episode in the task's `--split` (default
@@ -196,7 +196,7 @@ against the graph given by `--opponent`, alternating hosts by seed. Searching
 against the arena's current leader breeds a challenger:
 
 ```sh
-uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
+uv run rulesmith optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
   --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
   --backend ruling --max-workers 1 \
   --reflection-model "$REFLECTION_MODEL" \
@@ -238,7 +238,7 @@ league. Search a challenger against the champion, play it against everyone in th
 pool, and hand over the title only when it wins the head-to-head.
 
 ```sh
-uv run decision-compose optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
+uv run rulesmith optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
   --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
   --backend ruling --max-workers 1 \
   --reflection-model "$REFLECTION_MODEL" \

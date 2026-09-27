@@ -1,6 +1,6 @@
 """A plan as a Mermaid flowchart, for looking at a graph rules cannot express."""
 
-from decision_compose.graph import (
+from rulesmith.graph import (
     Call,
     Coalesce,
     Confidence,
@@ -14,7 +14,7 @@ from decision_compose.graph import (
     Vote,
     tested,
 )
-from decision_compose.rules import path_of, render_condition
+from rulesmith.rules import path_of, render_condition
 
 SHAPES = {
     Read: ("[/", "/]"),

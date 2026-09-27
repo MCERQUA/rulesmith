@@ -3,9 +3,9 @@
 import chess
 import pytest
 
-from decision_compose.chess import POLICIES, ChessTask, Games, chosen, material, observe, played
-from decision_compose.rules import compile_rules
-from decision_compose.runtime import MISSING, DecisionProgram, resolve_node
+from rulesmith.chess import POLICIES, ChessTask, Games, chosen, material, observe, played
+from rulesmith.rules import compile_rules
+from rulesmith.runtime import MISSING, DecisionProgram, resolve_node
 
 POLICY_NAMES = sorted(POLICIES)
 GREEDY = """read capture.best_gain in [-9, 9]

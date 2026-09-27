@@ -1,8 +1,8 @@
-# decision-compose
+# rulesmith
 
-![decision-compose — Design and optimize decision graphs](image.png)
+![rulesmith: rules that ask a local model for typed decisions](image.png)
 
-**decision-compose lets DSPy build decision graphs for you.** Give it a
+**rulesmith lets DSPy build decision graphs for you.** Give it a
 classification task and labeled examples. A generative model proposes graphs of
 small typed judgments (Choice, Score, Noul), [GEPA](https://github.com/gepa-ai/gepa)
 scores them against a local Ruling or hosted Jev judge, and the best graph
@@ -35,7 +35,7 @@ flowchart LR
 
 **1. Start a judge.** [Ruling](https://github.com/bradAGI/ruling) runs locally
 on an Apple Silicon Mac and needs no account. In a separate terminal, starting
-from your `decision-compose` checkout:
+from your `rulesmith` checkout:
 
 ```sh
 git clone https://github.com/bradAGI/ruling.git ../ruling
@@ -43,7 +43,7 @@ uv sync --directory ../ruling
 uv run --directory ../ruling ruling serve
 ```
 
-Leave that server running. Run the remaining commands from `decision-compose`
+Leave that server running. Run the remaining commands from `rulesmith`
 in your original terminal. Ruling downloads its model on first use. On other
 hardware, use a remote Ruling server or the [hosted Jev backend](#backends).
 
@@ -85,7 +85,7 @@ Then have the proposer model label them. `--validation` and `--test` set how
 many inputs are held out for selection and final scoring:
 
 ```sh
-uv run decision-compose draft-labels inputs.json --output task.json \
+uv run rulesmith draft-labels inputs.json --output task.json \
   --labeler-model "$REFLECTION_MODEL" --labeler-base-url "$REFLECTION_BASE_URL" \
   --validation 1 --test 1
 ```
@@ -166,7 +166,7 @@ Or write `task.json` directly. This minimal example shows the required shape:
 **4. Build the graph.**
 
 ```sh
-uv run decision-compose optimize task.json \
+uv run rulesmith optimize task.json \
   --backend ruling --max-workers 1 \
   --reflection-model "$REFLECTION_MODEL" \
   --reflection-base-url "$REFLECTION_BASE_URL" \
@@ -179,10 +179,10 @@ Compare `validation_score` with `seed_validation_score`.
 **5. Evaluate and run it.** The proposer is not needed from here on.
 
 ```sh
-uv run decision-compose evaluate task.json runs/my-task/plan.json \
+uv run rulesmith evaluate task.json runs/my-task/plan.json \
   --backend ruling --max-workers 1 --split test --output runs/my-task/test.json
 
-uv run decision-compose run runs/my-task/plan.json examples/state.json \
+uv run rulesmith run runs/my-task/plan.json examples/state.json \
   --backend ruling --max-workers 1
 ```
 
@@ -403,7 +403,7 @@ graphs rules cannot express: solid arrows carry values, dashed ones gate, and
 each dashed arrow says the condition it carries.
 
 ```sh
-uv run decision-compose draw examples/rules/routing.rules
+uv run rulesmith draw examples/rules/routing.rules
 ```
 
 **`ablate`** answers what each reading and judgment is worth. It replays the
@@ -411,13 +411,13 @@ decisions the graph already made with one input switched off and counts how many
 change, so it needs no fresh model calls beyond the first pass:
 
 ```sh
-uv run decision-compose ablate task.json plan.json --split validation \
+uv run rulesmith ablate task.json plan.json --split validation \
   --backend ruling --output runs/ablation.json
 ```
 
 The command reads its states from a task's examples. A Doom or chess task keeps
 seeds instead, so for those, record the observations a graph saw and pass them to
-`effects(plan, states)` in `decision_compose.ablate`. Run that way against the
+`effects(plan, states)` in `rulesmith.ablate`. Run that way against the
 best graph the chess league produced, over 116 positions from one game:
 
 ```
@@ -460,8 +460,8 @@ A `.rules` file is a graph wherever the CLI takes one, so the examples run as
 they stand:
 
 ```sh
-uv run decision-compose validate examples/task.json examples/rules/routing.rules
-uv run decision-compose run examples/rules/routing.rules examples/state.json \
+uv run rulesmith validate examples/task.json examples/rules/routing.rules
+uv run rulesmith run examples/rules/routing.rules examples/state.json \
   --backend ruling --max-workers 1
 ```
 
@@ -474,8 +474,8 @@ from pathlib import Path
 
 from typesafe_sdk import TypeSafeClient
 
-from decision_compose.graph import Plan
-from decision_compose.runtime import DecisionProgram
+from rulesmith.graph import Plan
+from rulesmith.runtime import DecisionProgram
 
 plan = Plan.model_validate_json(Path("runs/my-task/plan.json").read_text())
 with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") as client:
@@ -489,7 +489,7 @@ audited, not just acted on. Rules load the same way, and a graph of reads alone
 needs no judge at all:
 
 ```python
-from decision_compose.rules import compile_rules, render_rules
+from rulesmith.rules import compile_rules, render_rules
 
 plan = compile_rules(Path("examples/rules/gating.rules").read_text())
 print(render_rules(plan))  # and back again: the graph reads as the rules it came from

@@ -175,12 +175,12 @@ position apart from one shuffling in a dead equal one. Set `material_weight` to
 ## Running it
 
 ```sh
-uv run decision-compose evaluate examples/chess/duel.json \
+uv run rulesmith evaluate examples/chess/duel.json \
   examples/chess/graphs/hunter.rules \
   --opponent examples/chess/graphs/greedy.rules \
   --split test --backend ruling --output runs/chess.json
 
-uv run decision-compose optimize examples/chess/duel.json \
+uv run rulesmith optimize examples/chess/duel.json \
   examples/chess/graphs/hunter.rules \
   --opponent examples/chess/graphs/greedy.rules \
   --backend ruling --max-workers 1 \

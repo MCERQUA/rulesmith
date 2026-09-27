@@ -10,7 +10,7 @@ import dspy
 from pydantic import ConfigDict, Field, TypeAdapter
 from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, TypeSafeClient
 
-from decision_compose.graph import (
+from rulesmith.graph import (
     All,
     Call,
     Choice,

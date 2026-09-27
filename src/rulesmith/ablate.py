@@ -8,8 +8,8 @@ beats to the decision, or a threshold real data never trips. All three look iden
 import json
 from dataclasses import dataclass
 
-from decision_compose.graph import Call, Plan, Read, State
-from decision_compose.runtime import (
+from rulesmith.graph import Call, Plan, Read, State
+from rulesmith.runtime import (
     MISSING,
     DecisionProgram,
     ExecutionConfig,

@@ -2,8 +2,8 @@
 
 import pytest
 
-from decision_compose.rules import RuleError, compile_rules, render_rules
-from decision_compose.runtime import DecisionProgram
+from rulesmith.rules import RuleError, compile_rules, render_rules
+from rulesmith.runtime import DecisionProgram
 
 SECOND_OPINION = """ask first = "Is this fraud?" [yes: "It is."] [no: "It is not."]
 ask second = "Reading it again, is this fraud?" [yes: "It is."] [no: "It is not."]
@@ -88,7 +88,7 @@ def test_a_vote_that_makes_no_sense_says_so(line, message):
 def test_a_vote_counts_labels_so_it_refuses_sources_that_have_none(question):
     from pydantic import ValidationError
 
-    from decision_compose.graph import Plan
+    from rulesmith.graph import Plan
 
     ask = {"type": "call", "question": question, "inputs": {"s": {"type": "state"}}}
     with pytest.raises(ValidationError, match="categorical"):

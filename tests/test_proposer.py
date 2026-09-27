@@ -4,8 +4,8 @@ import dspy
 from conftest import chat_reply
 from test_graph import binary_plan
 
-from decision_compose.label import Labeler
-from decision_compose.optimize import GraphProposal, GraphProposer, text_adapter
+from rulesmith.label import Labeler
+from rulesmith.optimize import GraphProposal, GraphProposer, text_adapter
 
 
 def proposer(provider):

@@ -9,7 +9,7 @@ import json
 import re
 from itertools import takewhile
 
-from decision_compose.graph import (
+from rulesmith.graph import (
     All,
     Any,
     Call,

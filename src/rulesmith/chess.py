@@ -12,9 +12,9 @@ from typing import Literal, Self
 import chess
 from pydantic import Field, model_validator
 
-from decision_compose.graph import Plan, StrictModel, Text
-from decision_compose.optimize import Outcome
-from decision_compose.runtime import DecisionProgram, GraphExecutionError
+from rulesmith.graph import Plan, StrictModel, Text
+from rulesmith.optimize import Outcome
+from rulesmith.runtime import DecisionProgram, GraphExecutionError
 
 VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 CENTER = [chess.D4, chess.E4, chess.D5, chess.E5]

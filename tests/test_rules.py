@@ -9,9 +9,9 @@ from hypothesis import given
 from hypothesis import strategies as st
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
-from decision_compose.graph import Plan, Task
-from decision_compose.rules import RuleError, compile_rules, render_rules
-from decision_compose.runtime import DecisionProgram
+from rulesmith.graph import Plan, Task
+from rulesmith.rules import RuleError, compile_rules, render_rules
+from rulesmith.runtime import DecisionProgram
 
 GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").glob("*.json"))
 
@@ -187,8 +187,8 @@ def test_every_example_program_compiles_and_survives_the_round_trip(path):
 
 def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
     # Search can only use what its instructions describe, and the language has three kinds.
-    from decision_compose.graph import Task
-    from decision_compose.optimize import SearchConfig, proposer_prompt
+    from rulesmith.graph import Task
+    from rulesmith.optimize import SearchConfig, proposer_prompt
 
     prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
     asked = re.findall(r"'(ask [^']+)'", prompt)
@@ -203,7 +203,7 @@ def test_the_proposer_is_told_every_kind_of_judgement_it_may_ask():
 
 def test_the_proposer_is_told_how_to_test_confidence_and_count_votes():
     # A construct the instructions never describe is one search will never write.
-    from decision_compose.optimize import SearchConfig, proposer_prompt
+    from rulesmith.optimize import SearchConfig, proposer_prompt
 
     prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
     votes = re.findall(r"'(vote [^']+)'", prompt)
@@ -222,7 +222,7 @@ def test_the_proposer_is_told_how_to_test_confidence_and_count_votes():
 
 
 def test_the_proposer_is_told_how_to_name_a_condition_and_compare_two_readings():
-    from decision_compose.optimize import SearchConfig, proposer_prompt
+    from rulesmith.optimize import SearchConfig, proposer_prompt
 
     prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
     lets = re.findall(r"'(let [^']+)'", prompt)

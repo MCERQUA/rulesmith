@@ -5,7 +5,7 @@ from dspy.utils.exceptions import AdapterParseError
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from decision_compose.label import Labeler, draft_task
+from rulesmith.label import Labeler, draft_task
 
 
 @given(
