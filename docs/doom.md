@@ -11,6 +11,44 @@ flowchart LR
   G -->|"episode reward"| S["score for GEPA"]
 ```
 
+## Results
+
+![Search fitness: best validation score after each search round](assets/fitness.svg)
+
+Each line stops where its run was stopped, and the panels are not comparable:
+each is a different task, and the duel panel is drawn on its own scale, where
+0.5 is a drawn match. Generation 2 is the jump that produced `duel-hunter`.
+Details and caveats are in the sections below.
+
+**`basic`** — kill one monster. From a graph that only strafes left, three
+rounds found one that strafes toward the monster and fires when it is centered.
+12 of 12 kills on held-out seeds.
+[gif](assets/doom/basic-seed12.gif) · [all 12](assets/doom/basic-reel.mp4)
+
+| Judge | Validation | Test |
+| --- | --- | --- |
+| Qwen3.6-35B-A3B via Ruling (local) | 0.33 → 0.97 | 0.94 |
+| Jev (`jev-1.13.0`, hosted) | 0.33 → 0.97 | 0.94 |
+
+**E1M1** — play a full level. Claude Sonnet 5 proposing, local 4B judge, a route
+to the exit computed from the map. The winner is 27 nodes of reads, no judge
+calls, and it finishes the level.
+[exit in 75 s](assets/doom/e1m1-exit.mp4) · [all five clears](assets/doom/e1m1-reel.mp4)
+· [rule by rule](#the-e1m1-exit-graph)
+
+| Seeds | Exited | Died | Best time |
+| --- | --- | --- | --- |
+| 1–6 (used by search) | 3 | 3 | 75 s |
+| 7–12 (held out) | 2 | 4 | 89 s |
+
+**Arena** — graphs play each other, ranked by Elo from round-robin deathmatches.
+
+```sh
+uv run decision-compose arena examples/doom/duel.json \
+  examples/doom/graphs/duel-hunter.json examples/doom/graphs/e1m1-exit.json \
+  examples/doom/graphs/duel-attack.json --max-nodes 40 --max-depth 16 --output runs/arena.json
+```
+
 ## Task file
 
 A Doom task replaces labeled examples with episode seeds. See
@@ -243,6 +281,22 @@ Its full rule list is [below](#the-duel-hunter), and the whole duel is
 [here](../docs/assets/doom/duel-hunter.mp4). Note what it is not: no judge calls.
 Every graph that won anything reads numbers out of the observation, because
 `target.x < -0.12` is exact and free while a call costs a round trip each step.
+
+### Across maps
+
+That result does not travel. Played across all 32 maps the scenario will load, the
+same graph finishes behind the hand-written `duel-attack` it shut out 9-0 at home:
+its compass rules hunt across geometry it has never seen, and the level kills it
+before an opponent does. A task whose three splits are seeds of one map measures
+how well a graph knows that map, so
+[duel-maps.json](../examples/doom/duel-maps.json) trains on four maps, validates on
+three others and tests on four more. Twelve generations on it crowned nobody —
+two thirds of matches between evenly matched graphs end 0-0, and a metric that
+cannot separate them cannot select between them either.
+
+[duel-jev.json](../examples/doom/graphs/duel-jev.json) is also included for
+comparison. It uses a judge call to choose combat actions, so running it requires
+a configured [backend](../README.md#backends).
 
 ## Graphs
 

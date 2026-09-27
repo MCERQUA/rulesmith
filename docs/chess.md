@@ -82,6 +82,96 @@ mate. `greedy` gains 1,948 and wins twice, because nothing in it converts a won
 position. `hunter` takes material and switches to checks once it is ahead, and
 tops both columns.
 
+## Results
+
+Twelve games take about a second, which is the point of having it. A generation
+of search costs minutes; a Doom league generation takes half an hour, and two
+thirds of its matches end with the graphs never having found each other.
+
+![Chess: the search curve, and the ladder the graph it found lands on](assets/chess.svg)
+
+Search beat the best graph I wrote by hand. Breeding `hunter` against `greedy`
+for ten rounds, round 7 proposed a graph scoring 0.602 on validation against the
+seed's 0.473, and it holds up where it counts: over 1,680 ladder games it takes
+113 wins to `hunter`'s 99 and loses 18 where `hunter` loses 31.
+
+What it changed is a real idea. `hunter` only looked for checks when already
+three points ahead. The searched graph checks when the position is level or
+close (`material.balance <= 2`), takes material through the middlegame, and goes
+back to checking once clearly winning (`>= 6`). That is the split the ladder
+shows: a graph that only ever checks wins 75 games while shedding 4,103 points
+of material, and a graph that only ever takes material wins 5.
+
+A league runs that loop: breed a challenger from the champion, play it eighty
+times against every graph in the pool, refit Elo over every game ever played, and
+hand over the title when someone clears the champion by twenty points. Forty
+generations and 4,400 games later, six graphs had entered the pool and the title
+had not moved:
+
+| Generation | Validation | Challenger's Elo |
+| --- | --- | --- |
+| 1 | 0.479 → 0.525 | 1533 |
+| 2 | 0.463 → 0.472 | 1503 |
+| 3 | 0.479 → 0.576 | 1545 |
+| 5 | 0.479 → 0.497 | 1482 |
+| 7 | 0.479 → 0.508 | 1542 |
+| 27 | 0.555 → 0.556 | 1537 |
+
+The other 34 generations returned a graph already in the pool. The final ladder:
+
+```
+gen3 1540   gen7 1538   gen27 1537   searched 1526   gen1 1524
+hunter 1500   gen2 1498   always-check 1484   gen5 1475   greedy 1450   developer 1429
+```
+
+Read the top five together: they are all graphs search wrote, they sit inside
+fourteen points of each other, and a few hundred games carry about ten points of
+standard error. So search beat every hand-written graph and then converged by
+generation 7, producing one more graph at generation 27 that landed in the same
+cluster.
+
+Do not read the ladder as a measure of progress, though. Elo is fitted over the
+pool, so it is anchored to that pool's average: adding graphs of similar strength
+pulls every rating toward the middle. `hunter` is a text file that never changed
+and its rating fell from 1518 to 1500 over the run. A plot of the best rating per
+generation is flat whatever search does.
+
+Against a reference that never moves, the picture is different. Every graph the
+league produced, played 400 games against the five hand-written ones:
+
+| Graph | Entered | Score vs the hand-written set |
+| --- | --- | --- |
+| searched | before the league | 0.581 |
+| gen1 | 1 | 0.573 |
+| gen2 | 2 | 0.543 |
+| gen3 | 3 | **0.606** |
+| gen5 | 5 | 0.521 |
+| gen7 | 7 | 0.603 |
+| gen27 | 27 | 0.605 |
+
+That is the improvement, and it is small and real: 0.581 to 0.606, found at
+generation 3 and matched but never beaten in the thirty-seven generations after
+it.
+
+The plateau is not the search failing. The budget is proposer calls, not games:
+a generation affords about twelve proposals, two or three of which earn a full
+evaluation, and a dozen readings over eight policies run out of good arrangements
+quickly. Adding readings at generation 11 (loose enemy pieces, pressure around each
+king, passed pawns, a policy that pushes the pawn nearest queening) changed what
+the proposer wrote (`pawns.furthest` appeared in seven proposals of one
+generation) without changing where it landed.
+
+Be careful reading a single split, though. On the twelve test games the searched
+graph scores 0.533 and `hunter` scores 0.531. Twelve games cannot resolve a
+17-Elo gap, and the validation jump oversold it. Only the ladder, which is cheap
+enough to play hundreds of games, settles it.
+
+Most games are drawn, because a rule list cannot force mate from a winning
+position. So the score is not the result alone: a fifth of it comes from the
+material on the board at the end, which is what tells a graph holding a won
+position apart from one shuffling in a dead equal one. Set `material_weight` to
+0 in the task if you want results only.
+
 ## Running it
 
 ```sh
