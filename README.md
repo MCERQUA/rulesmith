@@ -186,6 +186,50 @@ uv run rulesmith run runs/my-task/plan.json examples/state.json \
   --backend ruling --max-workers 1
 ```
 
+### How answers are scored
+
+By default an answer scores 1 when it matches the example's label and 0
+otherwise. Two additions in `task.json` refine that, and neither calls a model.
+
+**Some mistakes cost more.** `costs[expected][answered]` prices a wrong answer;
+anything unlisted costs 1. The dearest mistake scores 0 and a cheaper one scores
+in between, so search avoids the expensive ones first:
+
+```json
+"costs": {"fraud": {"approve": 10, "review": 1}}
+```
+
+Approving fraud is ten times worse than sending it to review. The feedback search
+sees names what each mistake cost.
+
+**Some examples have more than one right answer.** `accepted` lists labels that
+count as fully right besides `label`:
+
+```json
+{"id": "t7", "state": "Refund my duplicate charge and fix the export bug.", "label": "billing", "accepted": ["technical"]}
+```
+
+**No labels at all.** A stronger model can grade the answers instead. Examples
+may then leave out `label`; where one is present, the grader is shown it as a
+reference:
+
+```sh
+uv run rulesmith optimize task.json \
+  --backend ruling --max-workers 1 \
+  --reflection-model "$REFLECTION_MODEL" --reflection-base-url "$REFLECTION_BASE_URL" \
+  --grader-model "$GRADER_MODEL" --grader-base-url "$GRADER_BASE_URL" \
+  --output runs/my-task
+```
+
+The grader scores each answer from 0 to 1 and says why, and search reads the
+reason. Each answer to each input is graded once, so a search pays for at most
+one grade per distinct answer per example. Use a different, stronger model from
+the one your graph asks. Otherwise search finds the graph that asks the grader's
+own question and scores perfectly for nothing. rulesmith stops when the grader
+and the judge report the same model name, but it cannot tell that two services
+serve the same weights under different names, so that part is on you. Reports record `scored_by`, because a graded score is a
+model's opinion, not accuracy against labels.
+
 ## How it works
 
 ```mermaid

@@ -455,7 +455,19 @@ class Plan(StrictModel):
 class Example(StrictModel):
     id: Text
     state: State
-    label: Text
+    # Absent only when a grader, not a label, says whether an answer is right.
+    label: Text | None = None
+    accepted: list[Text] = Field(
+        default_factory=list, description="Other labels that are also right for this example"
+    )
+
+    @model_validator(mode="after")
+    def accepted_beside_a_label(self) -> Self:
+        if self.accepted and self.label is None:
+            raise ValueError(f"example {self.id} accepts other labels but has none of its own")
+        if self.label in self.accepted:
+            raise ValueError(f"example {self.id} lists its own label as another accepted one")
+        return self
 
 
 class Task(StrictModel):
@@ -464,6 +476,10 @@ class Task(StrictModel):
     train: list[Example] = Field(min_length=1)
     validation: list[Example] = Field(min_length=1)
     test: list[Example] = Field(min_length=1)
+    costs: dict[Text, dict[Text, Annotated[float, Field(ge=0)]]] = Field(
+        default_factory=dict,
+        description="costs[expected][answered]: what a wrong answer costs; 1 where unlisted",
+    )
 
     @model_validator(mode="after")
     def disjoint_splits(self) -> Self:
@@ -471,8 +487,9 @@ class Task(StrictModel):
             raise ValueError("task labels must be distinct")
         ids, states = set(), set()
         for example in self.train + self.validation + self.test:
-            if example.label not in self.labels:
-                raise ValueError(f"unknown label in example {example.id}: {example.label}")
+            for label in [example.label, *example.accepted]:
+                if label is not None and label not in self.labels:
+                    raise ValueError(f"unknown label in example {example.id}: {label}")
             state = json.dumps(example.state, sort_keys=True, ensure_ascii=False)
             if example.id in ids:
                 raise ValueError(f"duplicate example id: {example.id}")
@@ -480,8 +497,28 @@ class Task(StrictModel):
                 raise ValueError(f"duplicate state in example {example.id}")
             ids.add(example.id)
             states.add(state)
+        for expected, row in self.costs.items():
+            for answered in [expected, *row]:
+                if answered not in self.labels:
+                    raise ValueError(f"costs name a label the task does not have: {answered}")
+            if expected in row:
+                raise ValueError(f"costs give {expected!r} a cost for answering itself")
+        if self.worst == 0:
+            raise ValueError("costs make every mistake free, so no answer is worse than another")
         return self
 
+    def cost(self, expected: str, answered: str) -> float:
+        if expected == answered:
+            return 0.0
+        return self.costs.get(expected, {}).get(answered, 1.0)
+
+    @property
+    def worst(self) -> float:
+        """The dearest mistake the task can make, which scores zero."""
+        return max(self.cost(e, a) for e in self.labels for a in self.labels if e != a)
+
     def baseline_plan(self) -> Plan:
-        """A call-free majority-label seed, so search can start from the task alone."""
-        return Plan.constant(Counter(e.label for e in self.train).most_common(1)[0][0])
+        """A call-free majority-label seed, so search can start from the task alone. Graded
+        tasks may label nothing, and then the seed is the first label allowed."""
+        counts = Counter(e.label for e in self.train if e.label is not None)
+        return Plan.constant(counts.most_common(1)[0][0] if counts else self.labels[0])

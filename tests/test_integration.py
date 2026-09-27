@@ -12,9 +12,9 @@ from rulesmith.graph import Condition, Node, Plan, Question, Source, Task
 from rulesmith.optimize import (
     GraphAdapter,
     GraphProposer,
+    Labels,
     SearchConfig,
     assemble,
-    classify,
     components,
     evaluate_plan,
     optimize_plan,
@@ -916,7 +916,7 @@ def test_parallel_examples_are_scored_together_and_keep_their_order(client, entr
 
     def score(program, example):
         meeting.wait()
-        return classify(program, example)
+        return Labels(task)(program, example)
 
     plan = constant_plan()
     if entry == "search":
@@ -948,7 +948,7 @@ def test_scoring_the_same_graph_twice_costs_one_evaluation(client):
 
     def counted(program, example):
         calls.append(example.id)
-        return classify(program, example)
+        return Labels(task)(program, example)
 
     adapter = GraphAdapter(task, client, "fixture", SearchConfig(), score=counted)
     parts = components(Plan.model_validate(constant_plan()))

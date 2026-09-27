@@ -21,12 +21,13 @@ from rulesmith.arena import Duels, Entrant, duel, tournament
 from rulesmith.chess import ChessTask, Games
 from rulesmith.diagram import mermaid
 from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
+from rulesmith.grade import Graded, Grader
 from rulesmith.graph import Call, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
 from rulesmith.optimize import (
     GraphProposer,
+    Labels,
     SearchConfig,
-    classify,
     evaluate_plan,
     optimize_plan,
 )
@@ -89,6 +90,12 @@ def parser() -> argparse.ArgumentParser:
                 type=Path,
                 help="Graph a deathmatch task's episodes are played against",
             )
+        if name in ("evaluate", "optimize"):
+            command.add_argument(
+                "--grader-model",
+                help="DSPy model identifier that grades answers instead of the task's labels",
+            )
+            command.add_argument("--grader-base-url")
         if name == "record":
             command.add_argument(
                 "--seed", type=int, nargs="+", required=True, help="Episode seeds, played in order"
@@ -285,6 +292,25 @@ def save_video(frames: list, fps: int, path: Path) -> None:
     first.save(path, save_all=True, append_images=rest, duration=delay, loop=0)
 
 
+def scorer(args: argparse.Namespace, task):
+    """What scores a labeled task's answers: its labels, or a grader when one is named. A game
+    task's scorer is its games, chosen where the games are set up."""
+    if not isinstance(task, Task):
+        return None
+    if not args.grader_model:
+        return Labels(task)
+    lm_options = {"api_base": args.grader_base_url} if args.grader_base_url else {}
+    lm = dspy.LM(args.grader_model, cache=False, num_retries=0, **lm_options)
+    return Graded(Grader(lm, task.description))
+
+
+def scored_by(args: argparse.Namespace, task) -> str:
+    """How a report's scores were made, since a grader's score is not accuracy."""
+    if getattr(args, "grader_model", None):
+        return f"grader {args.grader_model}"
+    return "labels" if isinstance(task, Task) else "games"
+
+
 def read_plan(path: Path) -> Plan:
     """A graph from its JSON, or from the rules it is written as."""
     text = path.read_text()
@@ -339,6 +365,14 @@ def main() -> None:
         cli.error("record requires a Doom task")
     if args.command == "record" and args.output.suffix not in (".gif", ".mp4"):
         cli.error("record writes .gif or .mp4")
+    grading = getattr(args, "grader_model", None)
+    if grading and not isinstance(task, Task):
+        cli.error("--grader-model grades a labeled task's examples; games score themselves")
+    if args.command in ("evaluate", "optimize") and isinstance(task, Task) and not grading:
+        splits = ("train", "validation") if args.command == "optimize" else (args.split,)
+        unlabeled = [e.id for split in splits for e in getattr(task, split) if e.label is None]
+        if unlabeled:
+            cli.error(f"examples {unlabeled} have no label; label them or pass a --grader-model")
     if args.command in ("evaluate", "optimize", "record"):
         if args.output.exists():
             cli.error(f"output already exists: {args.output}")
@@ -381,7 +415,7 @@ def main() -> None:
     )
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
-        score = classify
+        score = scorer(args, task) if args.command in ("evaluate", "optimize") else None
         if deathmatch:
             score = Duels(task, DecisionProgram(opponent, client, model, execution))
         elif args.command != "run" and isinstance(task, ChessTask):
@@ -414,12 +448,13 @@ def main() -> None:
                 getattr(task, args.split),
                 client,
                 model,
-                execution,
                 score,
+                execution,
                 args.parallel_examples,
             )
             report["split"] = args.split
             report["backend"] = args.backend
+            report["scored_by"] = scored_by(args, task)
             args.output.write_text(dump(report))
             print(dump({"score": report["score"], "output": str(args.output)}), end="")
         else:
@@ -429,6 +464,7 @@ def main() -> None:
                 )
             report["backend"] = args.backend
             report["reflection_model"] = args.reflection_model
+            report["scored_by"] = scored_by(args, task)
             args.output.mkdir()
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")
             (args.output / "report.json").write_text(dump(report))

@@ -15,7 +15,7 @@ from gepa.core.adapter import EvaluationBatch, GEPAAdapter
 from pydantic import Field, ValidationError
 from typesafe_sdk import TypeSafeClient
 
-from rulesmith.graph import Example, Plan, StrictModel
+from rulesmith.graph import Example, Plan, StrictModel, Task
 from rulesmith.rules import RuleError, parts, whole
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
 
@@ -90,28 +90,52 @@ class Outcome:
     error: str | None = None
 
 
-def classify(program: DecisionProgram, example: Example) -> Outcome:
-    try:
-        prediction, error = program(state=example.state), None
-    except GraphExecutionError as failure:
-        prediction, error = failure.prediction, f"Graph execution failed: {failure}"
-    score = float(error is None and prediction.label == example.label)
-    return Outcome(
-        score=score,
-        record={
-            "id": example.id,
-            "expected": example.label,
-            "correct": bool(score),
-            **dict(prediction),
-        },
-        trace={
-            "Inputs": example.state,
-            "Generated Outputs": dict(prediction),
-            "Feedback": error or f"Expected label: {example.label}. Exact-match score: {score}.",
-        },
-        models=prediction.models,
-        error=error,
-    )
+class Labels:
+    """Scores an answer against an example's labels. A right or accepted answer scores 1, the
+    task's dearest mistake 0, and a cheaper mistake in between; with no costs set, every mistake
+    costs the same and this is exact match."""
+
+    def __init__(self, task: Task):
+        self.task = task
+
+    def __call__(self, program: DecisionProgram, example: Example) -> Outcome:
+        if example.label is None:
+            raise ValueError(f"example {example.id} has no label to score against; grade it")
+        try:
+            prediction, error = program(state=example.state), None
+        except GraphExecutionError as failure:
+            prediction, error = failure.prediction, f"Graph execution failed: {failure}"
+        answered = None if error else prediction.label
+        right = [example.label, *example.accepted]
+        cost = (
+            self.task.worst
+            if answered is None
+            else min(self.task.cost(label, answered) for label in right)
+        )
+        score = 1 - cost / self.task.worst
+        also = f" (also right: {', '.join(example.accepted)})" if example.accepted else ""
+        return Outcome(
+            score=score,
+            record={
+                "id": example.id,
+                "expected": example.label,
+                "correct": cost == 0,
+                "cost": cost,
+                **dict(prediction),
+            },
+            trace={
+                "Inputs": example.state,
+                "Generated Outputs": dict(prediction),
+                "Feedback": error
+                or (
+                    f"Expected label: {example.label}{also}. Answered: {answered}, which costs "
+                    f"{cost:g} where the worst mistake costs {self.task.worst:g}. "
+                    f"Score: {score:g}."
+                ),
+            },
+            models=prediction.models,
+            error=error,
+        )
 
 
 Scorer = Callable[[DecisionProgram, object], Outcome]
@@ -172,10 +196,10 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         model: str,
         config: SearchConfig,
         execution: ExecutionConfig | None = None,
-        score: Scorer = classify,
+        score: Scorer | None = None,
     ):
         self.task = task
-        self.score = score
+        self.score = score or Labels(task)
         self.client = client
         self.model = model
         self.config = config
@@ -378,7 +402,7 @@ def optimize_plan(
     reflection_lm: Callable,
     config: SearchConfig,
     execution: ExecutionConfig | None = None,
-    score: Scorer = classify,
+    score: Scorer | None = None,
 ) -> tuple[Plan, dict]:
     initial.check(task.labels, config.max_nodes, config.max_depth)
     batch_size = min(config.reflection_batch, len(task.train))
@@ -493,8 +517,8 @@ def evaluate_plan(
     examples: Sequence,
     client: TypeSafeClient | None,
     model: str,
+    score: Scorer,
     execution: ExecutionConfig | None = None,
-    score: Scorer = classify,
     parallel_examples: int = 1,
 ) -> dict:
     program = DecisionProgram(plan, client, model, execution)

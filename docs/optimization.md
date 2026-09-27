@@ -1,8 +1,9 @@
 # Optimization
 
 `rulesmith optimize` searches for the graph with the best validation
-score: exact-match accuracy for classification, normalized reward for
-[Doom](doom.md). DSPy writes candidate graphs, and
+score: agreement with the labels for classification (exact match, or weighted
+by the task's `costs` and `accepted` labels), a grader model's score with
+`--grader-model`, and normalized reward for [Doom](doom.md). DSPy writes candidate graphs, and
 [GEPA](https://gepa-ai.github.io/gepa/guides/adapters/) decides which to
 evaluate and keep.
 
@@ -49,6 +50,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--merges` | 5 | Times search may combine two candidates, taking each part from whichever graph scored better |
 | `--max-nodes` / `--max-depth` | 16 / 8 | Limits on generated graphs |
 | `--seed` | 0 | Search seed |
+| `--grader-model` / `--grader-base-url` | — | DSPy model that grades answers instead of the labels; examples may then omit `label`. Must differ from the judge the graph asks. Also on `evaluate`. |
 
 All network commands also take `--backend`, `--model`, `--base-url`, `--timeout`,
 and `--max-workers`. Retries are disabled. With `--backend typesafe`, the model
@@ -72,6 +74,7 @@ that already exist are refused before any request is sent.
 | `reflection_calls` | Proposer calls |
 | `invalid_candidate_evaluations` | Evaluations rejected by schema or graph checks |
 | `metric_calls` | Example evaluations used |
+| `scored_by` | `labels`, `grader <model>`, or `games`: a graded score is not accuracy |
 
 Reports also record resolved model IDs, dependency versions, settings, and
 task/seed hashes.
