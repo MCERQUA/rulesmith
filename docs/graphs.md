@@ -40,6 +40,7 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 | `value` | Return a literal JSON `value`. |
 | `read` | Take one value from the original input by `path`, declaring `bounds` (numbers) or `categories` (strings). A missing path, or a value outside the declared domain, skips the node. |
 | `confidence` | How sure the `choice` or `score` call named in `source` was, from 0 to 1. A `noul` answers with the probability itself, so it has no separate confidence and this node is skipped. |
+| `sum` | A weighted sum of numeric `terms` (each `{"node", "weight"}`, weight 1 by default) plus a `constant`. Skipped when any term is skipped. Its range follows from its terms, so thresholds on it are checked like any other. |
 | `vote` | Settle two or more categorical `sources` into one value. `rule: majority` returns the value most of them gave, a tie going to the one named first; `rule: agree` returns `same` (default `"yes"`) when every available source gave the same value and `different` (default `"no"`) otherwise. |
 
 ## Questions

@@ -233,10 +233,13 @@ def test_the_proposer_is_told_how_to_name_a_condition_and_compare_two_readings()
         mentioned = set(re.findall(r"[A-Za-z_][\w.]*", condition)) - {"and", "or", "not"}
         return "\n".join(f"read {path} in [-99, 99]" for path in sorted(mentioned))
 
+    kinds = set()
     for line in lets:
         name, condition = line.removeprefix("let ").split(" = ", 1)
         plan = compile_rules(f"{declared(condition)}\n{line}\nwhen {name}: review\nalways: accept")
-        assert name in plan.nodes
+        kinds.add(plan.nodes[name].type)
+    # A named condition and a computed value both have to be described to be written.
+    assert kinds == {"value", "sum"}
     for relation in relations:
         plan = compile_rules(f"{declared(relation)}\nwhen {relation}: review\nalways: accept")
         assert '"relation"' in plan.model_dump_json()

@@ -132,6 +132,12 @@ def references(value: JsonValue) -> set[str]:
         named.add(value["source"])
     if kind in ("coalesce", "vote") and isinstance(value.get("sources"), list):
         named.update(source for source in value["sources"] if isinstance(source, str))
+    if kind == "sum" and isinstance(value.get("terms"), list):
+        named.update(
+            term["node"]
+            for term in value["terms"]
+            if isinstance(term, dict) and isinstance(term.get("node"), str)
+        )
     for key in ("when", "condition", "conditions"):
         named.update(references(value.get(key)))
     if kind in ("call", "merge") and isinstance(value.get("inputs"), dict):
@@ -220,6 +226,20 @@ class Confidence(Guarded):
     source: Text
 
 
+class Term(StrictModel):
+    node: Text
+    weight: float = 1
+
+
+class Sum(Guarded):
+    """A weighted sum of numeric values plus a constant: a margin, a total, a scaled
+    difference. It is skipped when any term is, since a missing term is not a zero."""
+
+    type: Literal["sum"] = "sum"
+    terms: list[Term] = Field(min_length=1)
+    constant: float = 0
+
+
 class Read(Guarded):
     """A value taken from the original input by path, with its declared domain."""
 
@@ -238,7 +258,7 @@ class Read(Guarded):
 
 
 Node = Annotated[
-    Call | Switch | Threshold | Merge | Coalesce | Value | Read | Confidence | Vote,
+    Call | Switch | Threshold | Merge | Coalesce | Value | Read | Confidence | Vote | Sum,
     Field(discriminator="type"),
 ]
 Domain = frozenset[str] | tuple[float, float] | None
@@ -266,6 +286,8 @@ class Plan(StrictModel):
                 refs.add(node.source)
             elif isinstance(node, (Coalesce, Vote)):
                 refs.update(node.sources)
+            elif isinstance(node, Sum):
+                refs.update(term.node for term in node.terms)
             result[key] = refs
         return result
 
@@ -304,6 +326,18 @@ class Plan(StrictModel):
                 domain = frozenset(node.categories) if node.categories else node.bounds
             elif isinstance(node, Confidence):
                 domain = (0.0, 1.0)
+            elif isinstance(node, Sum):
+                ranges = [result[term.node] for term in node.terms]
+                if all(isinstance(r, tuple) for r in ranges):
+                    # Each term spans weight * low to weight * high, whichever way the sign runs.
+                    ends = [
+                        sorted((term.weight * low, term.weight * high))
+                        for term, (low, high) in zip(node.terms, ranges, strict=True)
+                    ]
+                    domain = (
+                        node.constant + sum(low for low, _ in ends),
+                        node.constant + sum(high for _, high in ends),
+                    )
             elif isinstance(node, Vote):
                 if node.rule == "agree":
                     domain = frozenset([node.same, node.different])
@@ -356,6 +390,10 @@ class Plan(StrictModel):
                 raise ValueError(
                     f"vote {key!r} counts labels, so every source needs a categorical value"
                 )
+            if isinstance(node, Sum) and not all(
+                isinstance(domains[term.node], tuple) for term in node.terms
+            ):
+                raise ValueError(f"sum {key!r} adds numbers, so every term needs a numeric value")
 
         domains = self.domains()
         for node in self.nodes.values():

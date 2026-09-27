@@ -175,7 +175,8 @@ always: MOVE_FORWARD
   `let armed = ammo >= 1 and health >= 25`, then `when armed: ATTACK`. A name is
   declared before the rules that use it and cannot reuse a reading's or judgment's
   name. It compiles to a node, so it comes back as `armed` when the graph is
-  rendered, not as the condition written out again.
+  rendered, not as the condition written out again. `let` also computes a number:
+  `let margin = 2 * gain - worst + 1` adds, subtracts and scales readings.
 - **Votes** settle several choice judgments into one value:
   `vote verdict = agree of [first, second]` or `vote verdict = majority of [a, b, c]`.
 - The two parts, readings and rules, are revised separately and may be merged

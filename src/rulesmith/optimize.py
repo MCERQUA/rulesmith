@@ -350,6 +350,8 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "or both labels compared with ==. Name a condition the rules test more than once, "
         "before the rules that use it: 'let armed = ammo >= 1 and health >= 25', then "
         "'when armed: ATTACK' or 'when not armed and health < 10: MOVE_BACKWARD'. "
+        "'let' also computes a number from readings, with +, - and a number times a reading: "
+        "'let margin = 2 * gain - worst + 1', then 'when margin >= 3: CAPTURE'. "
         "Write no other syntax: no "
         "code fences, no section headings, no comments. "
         "The readings part holds declarations and the rules part holds "

@@ -243,15 +243,17 @@ settle it. Conditions join with `and` and `or`, group with parentheses, invert
 with `not`, name a reading to test that it has a value, or compare one with `>=`,
 `>`, `<=`, `<` or `==` against a number, a label, or another reading.
 
-`let` names a condition so the rules can test it by name:
+`let` names a condition so the rules can test it by name, or computes a number
+from readings with `+`, `-` and a constant weight:
 
 ```
 read ammo in [0, 50]
 read health in [0, 200]
 read enemy.health in [0, 200]
 let armed = ammo >= 1 and health >= 25
-when armed and health > enemy.health: ATTACK
-when not armed: MOVE_BACKWARD
+let lead = health - enemy.health
+when armed and lead >= 20: ATTACK
+when not armed or health < enemy.health: MOVE_BACKWARD
 always: MOVE_FORWARD
 ```
 

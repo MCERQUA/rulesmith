@@ -8,6 +8,7 @@ from rulesmith.graph import (
     NodeInput,
     Plan,
     Read,
+    Sum,
     Switch,
     Threshold,
     Value,
@@ -25,6 +26,7 @@ SHAPES = {
     Coalesce: ("([", "])"),
     Vote: ("[/", "\\]"),
     Confidence: ("[", "]"),
+    Sum: ("[", "]"),
     Value: ("((", "))"),
 }
 
@@ -46,6 +48,8 @@ def label(name: str, node) -> str:
         return f"{name}: {node.rule} of {len(node.sources)}"
     if isinstance(node, Confidence):
         return f"how sure {node.source} was"
+    if isinstance(node, Sum):
+        return f"{name}: sum"
     return name
 
 
@@ -90,4 +94,6 @@ def feeds(node) -> set[str]:
         return set(node.sources)
     if isinstance(node, (Switch, Threshold, Confidence)):
         return {node.source}
+    if isinstance(node, Sum):
+        return {term.node for term in node.terms}
     return set()

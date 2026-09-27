@@ -6,6 +6,7 @@ merges, switches, several outputs -- have no rule form and stay JSON.
 """
 
 import json
+import math
 import re
 from itertools import takewhile
 
@@ -23,6 +24,7 @@ from rulesmith.graph import (
     Present,
     Read,
     Relation,
+    Sum,
     Threshold,
     Value,
     Vote,
@@ -33,6 +35,11 @@ OPERATORS = {">=": "ge", "<": "lt", "==": "eq"}
 SYMBOLS = {name: symbol for symbol, name in OPERATORS.items()}
 LABEL = r"[A-Za-z_][\w+.]*"
 NAME = re.compile(r"[A-Za-z_]\w*")
+# Arithmetic sets its operators apart with spaces, which keeps a minus from reading as a sign
+# and leaves no way to confuse it with a condition.
+ARITHMETIC = re.compile(r" [-+*] ")
+NUMBER = re.compile(r"-?\d+(\.\d+)?(e-?\d+)?")
+COMPARING = re.compile(r"[<>=]|\band\b|\bor\b|\bnot\b")
 # The compiler names what the rules leave unnamed, so a written name must not look like one.
 GENERATED = re.compile(r"(read|rule)_\w*|decision")
 SECTIONS = ("readings", "rules")
@@ -178,7 +185,24 @@ def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
         return f"vote {name} = {node.rule} of [{', '.join(node.sources)}]"
     if isinstance(node, Value) and node.value is True and node.when is not None:
         return f"let {name} = {render_condition(node.when, reads, plan)}"
+    if isinstance(node, Sum) and node.when is None:
+        return f"let {name} = {render_sum(node, reads, plan)}"
     raise RuleError(f"{node.type} node {name!r} has no rule form")
+
+
+def render_sum(node: Sum, reads: dict[str, Read], plan: Plan) -> str:
+    """A sum as arithmetic: terms in order, a weight only where it is not one, the constant
+    last, and each sign carried by the operator before it."""
+    text = ""
+    for index, term in enumerate(node.terms):
+        weight = abs(term.weight)
+        operand = name_of(term.node, reads, plan)
+        operand = operand if weight == 1 else f"{number(weight)} * {operand}"
+        sign = "-" if term.weight < 0 else "+"
+        text += (f" {sign} " if index else "-" if sign == "-" else "") + operand
+    if node.constant:
+        text += f" {'-' if node.constant < 0 else '+'} {number(abs(node.constant))}"
+    return text
 
 
 def ordered(plan: Plan, top: str, guard: Condition | None = None) -> list[tuple[str, Condition]]:
@@ -283,10 +307,14 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         claim(name.strip(), node, nodes, names)
         return
     if line.startswith("let ") and "=" in line:
-        name, _, condition = line[4:].partition("=")
-        # A name holds when its condition does: a value that exists only then, which a rule
-        # tests by naming it.
-        node = {"type": "value", "value": True, "when": parse_condition(condition, names, nodes)}
+        name, _, body = line[4:].partition("=")
+        body = body.strip()
+        if ARITHMETIC.search(f" {body}") and not COMPARING.search(body):
+            node = parse_sum(body, names, nodes)
+        else:
+            # A named condition holds when its condition does: a value that exists only then,
+            # which a rule tests by naming it.
+            node = {"type": "value", "value": True, "when": parse_condition(body, names, nodes)}
         claim(name.strip(), node, nodes, names)
         return
     if line.startswith("vote ") and "=" in line:
@@ -315,6 +343,31 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
     name = f"rule_{len(sources) + 1}"
     nodes[name] = parse_action(action.strip(), names) | ({"when": guard} if guard else {})
     sources.append(name)
+
+
+def parse_sum(text: str, names: dict, nodes: dict) -> dict:
+    """'2 * gain - worst + 1' as weighted terms and a constant."""
+    pieces = re.split(r" ([+-]) ", text)
+    signed = [(1, pieces[0])] + [
+        (1 if sign == "+" else -1, piece)
+        for sign, piece in zip(pieces[1::2], pieces[2::2], strict=True)
+    ]
+    terms, constant = [], 0.0
+    for sign, piece in signed:
+        if piece.startswith("-") and not NUMBER.match(piece):
+            sign, piece = -sign, piece[1:]
+        factors = [factor.strip() for factor in piece.split(" * ")]
+        operands = [factor for factor in factors if not NUMBER.fullmatch(factor)]
+        weight = sign * math.prod(float(f) for f in factors if NUMBER.fullmatch(f))
+        if len(operands) > 1:
+            raise RuleError(f"{piece!r} multiplies two values; a weight must be a number")
+        if operands:
+            terms.append({"node": named(operands[0], names, nodes), "weight": weight})
+        else:
+            constant += weight
+    if not terms:
+        raise RuleError(f"{text!r} names no value to compute from")
+    return {"type": "sum", "terms": terms, "constant": constant}
 
 
 def claim(name: str, node: dict, nodes: dict, names: dict) -> None:

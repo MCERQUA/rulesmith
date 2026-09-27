@@ -615,6 +615,11 @@ def every_construct_plan():
                 "inputs": {"ticket": {"type": "state"}},
             },
             "agreed": {"type": "vote", "rule": "agree", "sources": ["team", "second"]},
+            "spread": {
+                "type": "sum",
+                "terms": [{"node": "urgency"}, {"node": "refund", "weight": -1}],
+                "constant": 0.5,
+            },
             "gate": {
                 "type": "threshold",
                 "source": "refund",
@@ -664,6 +669,7 @@ def every_construct_plan():
                     "policy": {"type": "literal", "value": {"version": 1}},
                     "sure": ref("sure"),
                     "agreed": ref("agreed"),
+                    "spread": ref("spread"),
                 },
             },
         },

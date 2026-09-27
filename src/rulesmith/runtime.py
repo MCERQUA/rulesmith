@@ -34,6 +34,7 @@ from rulesmith.graph import (
     State,
     StateInput,
     StrictModel,
+    Sum,
     Switch,
     Value,
     Vote,
@@ -196,6 +197,10 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
         # Ties go to whichever value a source named first, so a vote never depends on ordering
         # inside the counter.
         return max(set(cast), key=lambda value: (cast.count(value), -cast.index(value)))
+    if isinstance(node, Sum):
+        if any(term.node not in values for term in node.terms):
+            return MISSING
+        return node.constant + sum(term.weight * values[term.node] for term in node.terms)
     if isinstance(node, Read):
         return read_path(node, state)
     if isinstance(node, Confidence):
