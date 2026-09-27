@@ -259,10 +259,24 @@ always: MOVE_FORWARD
 
 A reading can be named the same way, `read health = variables.HEALTH in [0, 200]`,
 and the rules then say `health`. A name is a node in the graph, so it survives the
-round trip: search reads and
-rewrites `armed`, not the condition spelled out in every rule, and `draw` shows it
-as a box of its own. Programs that rules cannot express, such as two judgments
-merged into one input, are proposed as whole-graph JSON instead.
+round trip: search reads and rewrites `armed`, not the condition spelled out in
+every rule, and `draw` shows it as a box of its own.
+
+Rules decide the label, and `output <name>:` starts another list that decides
+something else from the same readings and judgments, asked once for both:
+
+```
+read severity in [0, 3]
+read account.vip one of [yes, no]
+when severity >= 2: review
+always: accept
+output priority:
+when severity >= 3 or account.vip == "yes": high
+always: low
+```
+
+Programs that rules cannot express, such as two judgments merged into one input,
+are proposed as whole-graph JSON instead.
 
 ### What a judgment can be
 

@@ -18,6 +18,7 @@ from rulesmith.graph import (
     Compare,
     Condition,
     Confidence,
+    LiteralInput,
     NodeInput,
     Not,
     Plan,
@@ -42,7 +43,10 @@ ARITHMETIC = re.compile(r" [-+*] ")
 NUMBER = re.compile(r"-?\d+(\.\d+)?(e-?\d+)?")
 COMPARING = re.compile(r"[<>=]|\band\b|\bor\b|\bnot\b")
 # The compiler names what the rules leave unnamed, so a written name must not look like one.
-GENERATED = re.compile(r"(read|rule)_\w*|decision")
+GENERATED = re.compile(r"(read|rule|decision)_\w*|decision")
+# The output a task scores, and the one rules decide unless a section names another.
+LABEL_OUTPUT = "label"
+OUTPUT = re.compile(r"output (\w+):")
 SECTIONS = ("readings", "rules")
 # What a judgment asked about the whole input calls it.
 WHOLE = "observation"
@@ -123,14 +127,17 @@ def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
 
 
 def render_rules(plan: Plan) -> str:
-    """The plan as rules, or a RuleError naming what has no rule form."""
-    if set(plan.outputs) != {"label"}:
-        raise RuleError(f"rules produce one label, not {sorted(plan.outputs)}")
-    (output,) = plan.outputs.values()
-    if not isinstance(output, NodeInput):
-        return "always: " + json.dumps(output.value).strip('"')
+    """The plan as rules, or a RuleError naming what has no rule form. The label's rules come
+    first; every other output follows under its own 'output <name>:' heading."""
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
-    rules = ordered(plan, output.node)
+    acting: set[str] = set()
+    for output, source in plan.outputs.items():
+        if isinstance(source, NodeInput):
+            if source.view != "value" or source.optional:
+                raise RuleError(f"output {output!r} has no rule form")
+            acting |= spine(plan, source.node)
+        elif not isinstance(source, LiteralInput):
+            raise RuleError(f"output {output!r} is the whole input, which has no rule form")
     lines = []
     for name, read in reads.items():
         domain = (
@@ -140,13 +147,18 @@ def render_rules(plan: Plan) -> str:
         )
         named = "" if GENERATED.fullmatch(name) else f"{name} = "
         lines.append(f"read {named}{path_of(read)} {domain}")
-    lines += declarations(plan, spine(plan, output.node), reads)
-    for name, guard in rules:
-        node = plan.nodes[name]
-        condition = render_condition(guard, reads, plan) if guard else None
-        lines.append(
-            f"{'when ' + condition if condition else 'always'}: {render_action(node, reads, plan)}"
-        )
+    lines += declarations(plan, acting, reads)
+    for output in sorted(plan.outputs, key=lambda output: output != LABEL_OUTPUT):
+        if output != LABEL_OUTPUT:
+            lines.append(f"output {output}:")
+        source = plan.outputs[output]
+        if isinstance(source, LiteralInput):
+            lines.append("always: " + json.dumps(source.value).strip('"'))
+            continue
+        for name, guard in ordered(plan, source.node):
+            action = render_action(plan.nodes[name], reads, plan)
+            condition = render_condition(guard, reads, plan) if guard else None
+            lines.append(f"{'when ' + condition if condition else 'always'}: {action}")
     return "\n".join(lines)
 
 
@@ -268,25 +280,41 @@ def compile_rules(text: str) -> Plan:
             raise RuleError(str(error)) from error
     nodes: dict[str, dict] = {}
     names: dict[str, str] = {}
-    sources: list[str] = []
+    sections: dict[str, list[str]] = {LABEL_OUTPUT: []}
     for number, line in enumerate(stripped.splitlines(), start=1):
         line = line.strip()
         # Asked for one part, a proposer tends to answer with the whole program: fenced, and with
         # the section headings written back out. Neither says anything about the rules themselves.
         if not line or line.startswith(("#", "```")) or line.rstrip(":") in SECTIONS:
             continue
+        heading = OUTPUT.fullmatch(line)
+        if heading and heading.group(1) in sections:
+            raise RuleError(f"line {number}: output {heading.group(1)!r} is declared twice")
+        if heading:
+            sections[heading.group(1)] = []
+            continue
         try:
-            read_rule(line, nodes, names, sources)
+            read_rule(line, nodes, names, list(sections.values())[-1])
         except RuleError as error:
             raise RuleError(f"line {number}: {error}") from error
-    if not sources:
+    if not any(sections.values()):
         raise RuleError("no rules")
-    only = nodes[sources[0]]
-    if len(sources) == 1 and only["type"] == "value" and "when" not in only:
-        # A policy of one unconditional action is a constant, and says so.
-        return Plan.constant(only["value"])
-    nodes["decision"] = {"type": "coalesce", "sources": sources}
-    return pruned(nodes, {"label": {"type": "node", "node": "decision"}})
+    outputs = {}
+    for output, rules in sections.items():
+        # Rules may decide only other outputs, and a task that needs a label says so itself.
+        if not rules and output == LABEL_OUTPUT:
+            continue
+        if not rules:
+            raise RuleError(f"output {output!r} has no rules")
+        only = nodes[rules[0]]
+        if len(rules) == 1 and only["type"] == "value" and "when" not in only:
+            # An output of one unconditional action is a constant, and says so.
+            outputs[output] = {"type": "literal", "value": only["value"]}
+            continue
+        joined = "decision" if output == LABEL_OUTPUT else f"decision_{output}"
+        nodes[joined] = {"type": "coalesce", "sources": rules}
+        outputs[output] = {"type": "node", "node": joined}
+    return pruned(nodes, outputs)
 
 
 def pruned(nodes: dict, outputs: dict) -> Plan:
@@ -357,7 +385,8 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
         if head == "always"
         else parse_condition(head.removeprefix("when").strip(), names, nodes)
     )
-    name = f"rule_{len(sources) + 1}"
+    # Numbered across every output, so each output's rules keep distinct names.
+    name = f"rule_{sum(key.startswith('rule_') for key in nodes) + 1}"
     nodes[name] = parse_action(action.strip(), names, nodes) | ({"when": guard} if guard else {})
     sources.append(name)
 

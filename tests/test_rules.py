@@ -143,17 +143,17 @@ def test_graphs_beyond_rules_stay_in_json():
     # Merges join several judgments into one value; rules have no way to say that.
     merged = {
         "nodes": {
-            "left": call(),
-            "right": call(),
+            "left": call(observation={"type": "state"}),
+            "right": call(observation={"type": "state"}),
             "both": {"type": "merge", "inputs": {"a": ref("left"), "b": ref("right")}},
         },
         "outputs": {"label": ref("both")},
     }
     with pytest.raises(RuleError, match="merge"):
         render_rules(Plan.model_validate(merged))
-    # Several outputs are beyond rules too, and say so.
+    # A judgment shown the input under its own key cannot be written as rules either.
     pair = json.loads((Path(__file__).resolve().parents[1] / "examples/dag.json").read_text())
-    with pytest.raises(RuleError, match="one label"):
+    with pytest.raises(RuleError, match="ticket"):
         render_rules(Plan.model_validate(pair))
 
 
@@ -268,3 +268,15 @@ def test_the_proposer_is_told_how_to_give_a_judgment_only_some_values():
         reads = "\n".join(f"read {path} in [0, 99]" for path in given if path != "observation")
         plan = compile_rules(f"{reads}\n{line}\nwhen {name}: review\nalways: accept")
         assert list(plan.nodes[name].inputs) == given
+
+
+def test_the_proposer_is_told_how_other_outputs_are_written():
+    # A seed with several outputs reaches the proposer as sections it has to keep intact.
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    headings = re.findall(r"'(output \w+:)'", prompt)
+    assert headings
+    for heading in headings:
+        plan = compile_rules(f"always: review\n{heading}\nalways: high")
+        assert set(plan.outputs) == {"label", heading.split()[1].rstrip(":")}
