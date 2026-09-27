@@ -22,7 +22,8 @@ Details and caveats are in the sections below.
 
 **`basic`** — kill one monster. From a graph that only strafes left, three
 rounds found one that strafes toward the monster and fires when it is centered.
-12 of 12 kills on held-out seeds.
+It kills the monster on all 12 of the task's seeds, including the 3 held out for
+test.
 [gif](assets/doom/basic-seed12.gif) · [all 12](assets/doom/basic-reel.mp4)
 
 | Judge | Validation | Test |
@@ -69,15 +70,25 @@ A Doom task replaces labeled examples with episode seeds. See
 
 | Field | Meaning |
 | --- | --- |
+| `description` | What the proposer is told about the game |
 | `scenario` | A scenario bundled with ViZDoom: `basic`, `defend_the_center`, `health_gathering`, `deadly_corridor`, and others |
 | `labels` | Actions the graph may choose: a Doom button, or buttons joined with `+` to press together, like `TURN_LEFT+ATTACK`. A button the scenario's own config leaves out is added for the task |
 | `reward_range` | Lowest and highest possible episode reward, used to scale scores to 0–1 |
 | `tics_per_action` | Game tics each chosen button is held (default 4) |
 | `episode_timeout` | Tics before an episode ends (default: the scenario's own). Cap scenarios that otherwise run until death |
 | `feedback_steps` | Final steps shown to the proposer per episode (default 8) |
+| `map` | Map to load, like `E1M1` (default: the scenario's own) |
 | `deathmatch` | Episodes are networked duels between graphs; `evaluate` and `optimize` require `--opponent` (default false) |
+| `variables` | ViZDoom game variables added to the observation, like `HEALTH` or `AMMO2` |
+| `rewards` | Rewards by ViZDoom setter name, like `kill_reward` or `death_penalty`, plus `explore` per newly visited cell and `progress` per map unit the route to the exit shrinks |
 | `observe` | Additional observation fields: `pose`, `rangefinder`, `compass`, `memory`, `target`, `route` |
-| `train`, `validation`, `test` | Distinct episode seeds |
+| `rays` | Rangefinder directions across the view (default 7) |
+| `rangefinder_range` | Map units a ray reports when no wall is within reach (default 2048) |
+| `compass_targets` | Object names the compass tracks anywhere on the map; required with `compass` |
+| `compass_size` | Nearest compass targets reported (default 8) |
+| `memory_steps` | Recent actions and movement kept by `memory` (default 4) |
+| `cell_size` | Map units per cell for visit counts and `explore` (default 64) |
+| `train`, `validation`, `test` | Episodes, distinct across splits: a seed, or `{"seed": 7, "scenario": "cig", "map": "MAP32"}` to play that seed on another map or scenario than the task's own |
 
 ## Scenarios
 
@@ -209,10 +220,11 @@ synchronous play they barely fire, even with perfect skill settings.
 
 Split by map, not by seed. A task whose three splits are seeds of one level
 measures how well a graph knows that level: a champion bred on cig MAP03 shut
-out a hand-written always-attack graph 9-0 there and lost to it on every other
-map where the two met. [examples/doom/duel-maps.json](../examples/doom/duel-maps.json)
+out the hand-written always-attack graph
+[duel-attack](../examples/doom/graphs/duel-attack.json) 9-0 there and lost to it
+on every other map where the two met. [examples/doom/duel-maps.json](../examples/doom/duel-maps.json)
 trains on four maps, validates on three others and tests on four more, so the
-validation score falls when a graph has learned a level rather than duelling.
+validation score falls when a graph has learned a level rather than dueling.
 A map only earns a place if graphs reliably meet on it; the scenario's other
 levels are too big, and matches there end 0-0 whatever the graphs do.
 
@@ -234,16 +246,13 @@ levels are too big, and matches there end 0-0 whatever the graphs do.
 
 `--opponent` turns a search into a duel: every episode is played against a fixed
 graph, scored from the candidate's own seat. Run that in a loop and it becomes a
-league. Search a challenger against the champion, play it against everyone in the
-pool, and hand over the title only when it wins the head-to-head.
+league. Search a challenger against the champion with the `optimize` command
+[under Arena](#arena), play it against everyone in the pool with `arena`, and
+hand over the title only when it wins the head-to-head.
 
-```sh
-uv run rulesmith optimize examples/doom/duel.json examples/doom/graphs/e1m1-exit.json \
-  --opponent examples/doom/graphs/e1m1-exit.json --max-nodes 40 --max-depth 16 \
-  --backend ruling --max-workers 1 \
-  --reflection-model "$REFLECTION_MODEL" \
-  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/challenger
-```
+This section is a record of past runs. The script that drove the league loop is
+not in the repo; each step it ran is an `optimize` or `arena` command, and the
+graphs it produced are in [examples/doom/graphs](../examples/doom/graphs).
 
 ### Making the measurement mean something
 
@@ -275,10 +284,10 @@ model added three rules that read `compass.2.bearing` and `compass.2.distance`
 and turn onto an opponent nobody can see, so it hunts between fights instead of
 walking toward an exit a deathmatch does not have.
 
-![The searched duelist hunting down the graph it dethroned](../docs/assets/doom/duel-hunter.gif)
+![The searched duelist hunting down the graph it dethroned](assets/doom/duel-hunter.gif)
 
 Its full rule list is [below](#the-duel-hunter), and the whole duel is
-[here](../docs/assets/doom/duel-hunter.mp4). Note what it is not: no judge calls.
+[here](assets/doom/duel-hunter.mp4). Note what it is not: no judge calls.
 Every graph that won anything reads numbers out of the observation, because
 `target.x < -0.12` is exact and free while a call costs a round trip each step.
 
@@ -884,9 +893,10 @@ flowchart TD
 which a self-play league bred from the graph above, and which then beat it 12-0.
 
 How it decides: each step it reads 12 values from the observation, then checks
-17 rules in order. The first rule whose conditions all hold sets the action.
-Rules 8-10 are the ones no other graph has: with nobody on screen, the compass
-still gives a bearing to the opponent, and the graph turns onto it.
+21 rules in order. The first rule whose conditions all hold sets the action.
+Mirrored pairs, and the door and exit rules, share a row in the table below. Rules 8-10 are the ones no other
+graph has: with nobody on screen, the compass still gives a bearing to the
+opponent, and the graph turns onto it.
 
 ```mermaid
 flowchart TD
@@ -901,11 +911,13 @@ flowchart TD
   G2 -.->|none fired| G3
   G4["<b>Wall ahead</b><br/>rules 13-14"]
   G3 -.->|none fired| G4
-  G5["<b>Follow the route</b><br/>rules 15-16"]
+  G5["<b>Doors and exit</b><br/>rules 15-16"]
   G4 -.->|none fired| G5
-  G6["<b>Default</b><br/>rule 17"]
+  G6["<b>Follow the route</b><br/>rules 17-20"]
   G5 -.->|none fired| G6
-  G0 & G1 & G2 & G3 & G4 & G5 & G6 ==> ACT(["first rule that fires sets the action"])
+  G7["<b>Default</b><br/>rule 21"]
+  G6 -.->|none fired| G7
+  G0 & G1 & G2 & G3 & G4 & G5 & G6 & G7 ==> ACT(["first rule that fires sets the action"])
 ```
 
 | # | Purpose | When | Action |
@@ -924,11 +936,12 @@ flowchart TD
 | 12 | Get unstuck | recent movement < 3, visits here ≥ 6 | turn toward the route |
 | 13 | Wall ahead | wall ahead < 64, route bearing ≥ 0 | turn left |
 | 14 | Wall ahead | wall ahead < 64, route bearing < 0 | turn right |
-| 15 | Follow the route | route bearing beyond ±35° | turn that way |
-| 16 | Follow the route | route bearing 10° to 35° either side | forward + that way |
-| 17 | Default | always | forward |
+| 15-16 | Doors and exit | route says exit within 100 or door within 90, bearing within 20° | forward + use |
+| 17-18 | Follow the route | route bearing beyond ±35° | turn that way |
+| 19-20 | Follow the route | route bearing 10° to 35° either side | forward + that way |
+| 21 | Default | always | forward |
 
-Rules 13-16 read `route`, which a deathmatch never fills in, so they are skipped
+Rules 13-20 read `route`, which a deathmatch never fills in, so they are skipped
 every step: inherited scaffolding the search kept but the map never exercises.
 
 <details>

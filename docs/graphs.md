@@ -60,13 +60,13 @@ This is a subset of the [TypeSafe question schema](https://docs.typesafe.ai/prim
 | Source | JSON |
 | --- | --- |
 | Original input | `{"type": "state"}` |
-
-An input is a string, a JSON object, or an array. `read` walks a path into it, so
-only a structured input can be read; a string can only be judged.
 | Constant | `{"type": "literal", "value": {"policy": "example"}}` |
 | Earlier node value | `{"type": "node", "node": "eligible"}` |
 | Full call answer | `{"type": "node", "node": "eligible", "view": "answer"}` |
 | Optional value | `{"type": "node", "node": "eligible", "optional": true}` |
+
+An input is a string, a JSON object, or an array. `read` walks a path into it, so
+only a structured input can be read; a string can only be judged.
 
 `view: "answer"` works only on call nodes and passes the whole validated answer,
 including its probability distribution, instead of the scalar value.

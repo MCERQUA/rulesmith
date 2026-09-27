@@ -15,8 +15,9 @@ move, so a graph can never stall.
 | `CHECK` | a checking move, and mate in one when there is one |
 | `SAVE` | the most valuable hanging piece, to a square nobody attacks |
 | `CASTLE` | castles |
-| `DEVELOP` | a knight or bishop off the back rank, towards the middle |
+| `DEVELOP` | a knight or bishop off the back rank, toward the middle |
 | `ADVANCE` | a pawn forward: into the middle early, up the board later |
+| `PROMOTE` | the passed pawn furthest up the board, promoting when it can |
 | `QUIET` | a safe quiet move |
 
 When a policy finds nothing of its kind, the board plays a safe quiet move. That
@@ -26,22 +27,29 @@ the whole ladder.
 
 ## What a graph sees
 
+White to move after 1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6:
+
 ```json
 {
-  "ply": 12,
-  "phase": "middlegame",
-  "material": {"mine": 39, "theirs": 36, "balance": 3},
+  "ply": 6,
+  "phase": "opening",
+  "material": {"mine": 39, "theirs": 39, "balance": 0},
   "king": {"in_check": 0, "attackers": 0, "can_castle": 1, "castled": 0},
-  "capture": {"best_gain": 3, "count": 2},
-  "check": {"available": 1, "gain": 0},
-  "hanging": {"count": 1, "worst": 3},
+  "capture": {"best_gain": -2, "count": 2},
+  "check": {"available": 1, "gain": -2},
+  "hanging": {"count": 1, "worst": 1},
+  "target": {"loose_count": 0, "loose_worst": 0, "king_ring": 1},
+  "pawns": {"passed": 0, "furthest": 0, "theirs_passed": 0},
+  "safety": {"king_ring": 0},
   "development": {"minor_home": 2},
-  "moves": {"count": 31}
+  "moves": {"count": 33}
 }
 ```
 
 Every leaf is a number or a string, so a `read` node takes any of them by path.
-All of it is from the side to move's point of view.
+All of it is from the side to move's point of view: `target` is the opponent's
+loose pieces and the pressure around their king, `safety` the pressure around
+the mover's own, and `pawns` the passed pawns on each side.
 
 ## Scoring a game
 
@@ -64,8 +72,9 @@ board is what says which graph stood better. It is the opposite problem to
 
 ## The baseline ladder
 
-Six graphs, every pair, 30 seeds played from both sides. 900 games, 38 seconds
-on a laptop.
+Six hand-written graphs, every pair, 30 seeds played from both sides. 900 games,
+38 seconds on a laptop. The graphs are rule files in
+[examples/chess/graphs](../examples/chess/graphs).
 
 | Graph | Elo | W | D | L | Material |
 | --- | --- | --- | --- | --- | --- |
@@ -84,13 +93,22 @@ tops both columns.
 
 ## Results
 
+This section is a record of past runs. The scripts that drove the 1,680-game
+ladder and the league are not in the repo, and the `arena` command ranks Doom
+graphs only, so these tables cannot be regenerated from it. The graphs they
+produced are: [searched.json](../examples/chess/graphs/searched.json), found
+before the league, and [league-best.json](../examples/chess/graphs/league-best.json),
+the league's `gen3`. The league searched on
+[examples/chess/league.json](../examples/chess/league.json), a task with 24
+training, 40 validation and 60 test seeds.
+
 Twelve games take about a second, which is the point of having it. A generation
 of search costs minutes; a Doom league generation takes half an hour, and two
 thirds of its matches end with the graphs never having found each other.
 
 ![Chess: the search curve, and the ladder the graph it found lands on](assets/chess.svg)
 
-Search beat the best graph I wrote by hand. Breeding `hunter` against `greedy`
+Search beat the best graph written by hand. Breeding `hunter` against `greedy`
 for ten rounds, round 7 proposed a graph scoring 0.602 on validation against the
 seed's 0.473, and it holds up where it counts: over 1,680 ladder games it takes
 113 wins to `hunter`'s 99 and loses 18 where `hunter` loses 31.
@@ -98,9 +116,10 @@ seed's 0.473, and it holds up where it counts: over 1,680 ladder games it takes
 What it changed is a real idea. `hunter` only looked for checks when already
 three points ahead. The searched graph checks when the position is level or
 close (`material.balance <= 2`), takes material through the middlegame, and goes
-back to checking once clearly winning (`>= 6`). That is the split the ladder
-shows: a graph that only ever checks wins 75 games while shedding 4,103 points
-of material, and a graph that only ever takes material wins 5.
+back to checking once clearly winning (`>= 6`). That is the split the 1,680-game
+ladder shows, the one that includes the searched graph, not the six-graph table
+above: there a graph that only ever checks wins 75 games while shedding 4,103
+points of material, and a graph that only ever takes material wins 5.
 
 A league runs that loop: breed a challenger from the champion, play it eighty
 times against every graph in the pool, refit Elo over every game ever played, and
@@ -137,7 +156,8 @@ and its rating fell from 1518 to 1500 over the run. A plot of the best rating pe
 generation is flat whatever search does.
 
 Against a reference that never moves, the picture is different. Every graph the
-league produced, played 400 games against the five hand-written ones:
+league produced, played 400 games against a fixed set of five of the
+hand-written graphs:
 
 | Graph | Entered | Score vs the hand-written set |
 | --- | --- | --- |
@@ -162,15 +182,10 @@ the proposer wrote (`pawns.furthest` appeared in seven proposals of one
 generation) without changing where it landed.
 
 Be careful reading a single split, though. On the twelve test games the searched
-graph scores 0.533 and `hunter` scores 0.531. Twelve games cannot resolve a
-17-Elo gap, and the validation jump oversold it. Only the ladder, which is cheap
-enough to play hundreds of games, settles it.
-
-Most games are drawn, because a rule list cannot force mate from a winning
-position. So the score is not the result alone: a fifth of it comes from the
-material on the board at the end, which is what tells a graph holding a won
-position apart from one shuffling in a dead equal one. Set `material_weight` to
-0 in the task if you want results only.
+graph scores 0.533 and `hunter` scores 0.531. Twelve games cannot resolve the
+17-Elo gap the 1,680-game ladder put between them, and the validation jump
+oversold it. Only a ladder, which is cheap enough to play hundreds of games,
+settles it.
 
 ## Running it
 
@@ -194,7 +209,7 @@ opponent.
 
 ## Limits
 
-- The policies are the ceiling. A graph chooses among seven kinds of move, so it
+- The policies are the ceiling. A graph chooses among eight kinds of move, so it
   cannot play a move no policy describes, and it cannot search ahead.
 - `gain` looks one recapture deep. A real exchange search would value some
   captures differently.

@@ -4,12 +4,14 @@
 
 **rulesmith lets DSPy build decision graphs for you.** Give it a
 classification task and labeled examples. A generative model proposes graphs of
-small typed judgments (Choice, Score, Noul), [GEPA](https://github.com/gepa-ai/gepa)
-scores them against a local Ruling or hosted Jev judge, and the best graph
-is saved as plain JSON you can run, inspect, and edit.
+small typed judgments (Choice, Score, and Noul, a probability that a statement
+is true), [GEPA](https://github.com/gepa-ai/gepa) scores them against a local
+Ruling or hosted Jev judge, and the best graph is saved as plain JSON you can
+run, inspect, and edit.
 
-This is an independent research prototype, not affiliated with TypeSafe. It
-optimizes graphs and question instructions, not model weights.
+This is an independent research prototype, not affiliated with TypeSafe. Jev is
+TypeSafe's hosted judge, selected with `--backend typesafe`. rulesmith optimizes
+graphs and question instructions, not model weights.
 
 ## Installation
 
@@ -457,15 +459,18 @@ scored by how it plays.
 
 **[Doom](docs/doom.md).** Each step a graph reads the visible objects and game
 variables and presses a button, scored by episode reward, so no labels are
-needed. Search found a graph that kills the monster on 12 of 12 held-out seeds, one
-that finishes E1M1, and a duelist that won 12-0 on the map it trained on and came
-last across 32 maps. [Results](docs/doom.md#results) ·
+needed. Search found a graph that kills the monster on all 12 of the task's
+seeds, including the 3 held out for test, one that finishes E1M1, and a duelist
+that won 12-0 on the map it trained on and, across 32 maps, finished behind the
+hand-written graph it had shut out there. [Results](docs/doom.md#results) ·
 [the league](docs/doom.md#the-league)
 
 **[Chess](docs/chess.md).** A label names a policy, such as taking the best
 capture or saving a hanging piece, and the board picks the move. A game costs
 milliseconds, so graphs are ranked over hundreds of games: search beat every
-hand-written graph and then converged by generation 7.
+hand-written graph and then converged by generation 7. The league is a record of
+past runs: its driver script is not in the repo, but its best graph is,
+[league-best.json](examples/chess/graphs/league-best.json).
 [Results](docs/chess.md#results)
 
 ## Look at what a graph does
@@ -492,7 +497,10 @@ uv run rulesmith ablate task.json plan.json --split validation \
 The command reads its states from a task's examples. A Doom or chess task keeps
 seeds instead, so for those, record the observations a graph saw and pass them to
 `effects(plan, states)` in `rulesmith.ablate`. Run that way against the
-best graph the chess league produced, over 116 positions from one game:
+best graph the chess league produced,
+[league-best.json](examples/chess/graphs/league-best.json), over 116 positions
+from one game (a past run; the script that recorded the positions is not in the
+repo):
 
 ```
 reading                       changed   share   why not
@@ -527,8 +535,10 @@ cannot matter are rules the proposer wastes proposals on.
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 
-Every command that reaches a model takes `--backend`, `--model`, `--base-url`,
-`--timeout` and `--max-workers`; see [backends](#backends).
+Every command that asks a judge (`run`, `evaluate`, `optimize`, `arena`,
+`record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,
+`--retries` and `--max-workers`; see [backends](#backends). `draft-labels` calls
+a generative model instead, set with `--labeler-model` and `--labeler-base-url`.
 
 A `.rules` file is a graph wherever the CLI takes one, so the examples run as
 they stand:
@@ -612,11 +622,10 @@ pairs typed questions with deterministic gates, though you build its circuits
 in Python instead of declaring them, and [GoRules ZEN](https://github.com/gorules/zen) executes
 statically validated JSON decision models with no model in the loop at all.
 
-What none of them do, as far as five sweeps could tell: a rule list that compiles
-to a statically validated DAG, calibrated probabilities taken from logits inside
-that graph, and a judge that can be called mid-execution and gated behind a cheap
-reading. Read the absence claims as unconfirmed, not proven: two of the
-"nothing found" calls in that search turned out to be wrong when checked.
+None of the projects above combines a rule list that compiles to a statically
+validated DAG, calibrated probabilities taken from logits inside that graph, and
+a judge that can be called mid-execution and gated behind a cheap reading. That
+is a claim about the work listed here, not a survey of the field.
 
 ## Learn more
 

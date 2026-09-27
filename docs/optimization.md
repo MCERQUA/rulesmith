@@ -44,6 +44,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--max-metric-calls` | 100 | Budget in example evaluations |
 | `--reflection-batch` | 3 | Training examples per reflection |
 | `--repair-attempts` | 2 | Times an invalid proposal goes back to the proposer with its validation error before search sees it |
+| `--reflection-max-tokens` | 4096 | Token limit on each proposal |
 | `--reflection-timeout` | none | Seconds before a proposal request fails, so a hung proposer stops the search instead of stalling it |
 | `--retries` | 0 | Retries for judge requests that fail or time out |
 | `--parallel-examples` | 1 | Examples scored at once; Doom allows more than 1 only for deathmatch tasks, whose duels each run their own games |
@@ -52,9 +53,10 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--seed` | 0 | Search seed |
 | `--grader-model` / `--grader-base-url` | — | DSPy model that grades answers instead of the labels; examples may then omit `label`. Must differ from the judge the graph asks. Also on `evaluate`. |
 
-All network commands also take `--backend`, `--model`, `--base-url`, `--timeout`,
-and `--max-workers`. Retries are disabled. With `--backend typesafe`, the model
-defaults to `jev-latest`; pin a version for reproducible runs.
+All commands that ask a judge also take `--backend`, `--model`, `--base-url`,
+`--timeout`, `--retries` and `--max-workers`. Retries default to 0, so a failed
+judge request stops the run unless you raise them. With `--backend typesafe`,
+the model defaults to `jev-latest`; pin a version for reproducible runs.
 
 > [!TIP]
 > Reflection only runs when the graph misses something in a training batch. If
@@ -127,7 +129,7 @@ export RULESMITH_REFLECTION_MODEL="$REFLECTION_MODEL"
 uv run pytest --live tests/test_live.py -q
 ```
 
-A local smoke run with a `Qwen3.5-9B-4bit` proposer and Ruling's `Qwen3.5-4B-4bit`
+A past local smoke run, whose output is not kept in the repo, with a `Qwen3.5-9B-4bit` proposer and Ruling's `Qwen3.5-4B-4bit`
 judge went from an always-`sales` seed to a generated one-Choice graph: 1/3 → 3/3
 on validation and on test, in 48 metric calls. That's 12 authored examples, which
 shows the pipeline works end to end, not a benchmark result.
@@ -168,8 +170,9 @@ always: MOVE_FORWARD
   reads the whole input unless it names what it is shown with `given [a, b]`;
   `observation` in that list is the whole input.
 - **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
-  An action is a label, an ask written the same way, or
-  `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`.
+  An action is a label, a conditional such as
+  `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`, or an ask without a name, whose
+  answer is the label: `always: ask "Fight or fall back?" [ATTACK: "Ammo and health allow it."] [MOVE_BACKWARD: "They do not."]`.
 - **Conditions** join with `and` and `or`, group with parentheses, invert with `not`,
   name a reading to test that it has a value, or compare one with `>=`, `>`, `<=`, `<`
   or `==`, against a number, a quoted label, or another reading
@@ -191,6 +194,6 @@ always: MOVE_FORWARD
 - A program beyond rules is proposed as whole-graph JSON, which is accepted as the
   complete program.
 
-Why: two fifths of proposals against a 36-node graph scored zero, not because the
+Why: in past runs, two fifths of proposals against a 36-node graph scored zero, not because the
 graphs played badly but because the JSON came back malformed. Every searched graph
 had the same shape anyway, so that shape became the surface.

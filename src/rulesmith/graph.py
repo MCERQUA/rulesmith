@@ -207,7 +207,7 @@ class Value(Guarded):
 
 class Vote(Guarded):
     """Several judgments settled into one value. `majority` takes the value most of them gave,
-    breaking a tie towards the earlier source; `agree` reports whether they all said the same,
+    breaking a tie toward the earlier source; `agree` reports whether they all said the same,
     which is how a second opinion verifies a first."""
 
     type: Literal["vote"] = "vote"
