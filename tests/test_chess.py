@@ -1,9 +1,22 @@
 """Chess as a task: a graph names a policy and the board turns it into a move."""
 
+import os
+import shutil
+
 import chess
 import pytest
 
-from rulesmith.chess import POLICIES, ChessTask, Games, chosen, gain, material, observe, played
+from rulesmith.chess import (
+    POLICIES,
+    ChessTask,
+    Engine,
+    Games,
+    chosen,
+    gain,
+    material,
+    observe,
+    played,
+)
 from rulesmith.rules import compile_rules
 from rulesmith.runtime import MISSING, DecisionProgram, resolve_node
 
@@ -194,3 +207,17 @@ def test_a_king_that_walked_is_not_castled():
 def test_a_promotion_gains_what_the_pawn_becomes():
     board = chess.Board("8/P6k/8/8/8/8/8/4K3 w - - 0 1")
     assert gain(board, chess.Move.from_uci("a7a8q")) == 8
+
+
+STOCKFISH = shutil.which("stockfish") or os.environ.get("RULESMITH_STOCKFISH")
+
+
+@pytest.mark.skipif(not STOCKFISH, reason="needs a stockfish binary on PATH or RULESMITH_STOCKFISH")
+def test_a_graph_can_be_measured_against_a_fixed_engine(task):
+    # Elo fitted over our own pool drifts with the pool; an engine at a fixed skill does not.
+    with Engine(STOCKFISH, skill=0, seconds=0.01) as engine:
+        outcome = Games(task, engine)(program(GREEDY), 0)
+    assert outcome.error is None
+    board = chess.Board(outcome.record["fen"])
+    assert board.is_valid()
+    assert "engine" in outcome.record["policies"]

@@ -10,6 +10,7 @@ import random
 from typing import Literal, Self
 
 import chess
+import chess.engine
 from pydantic import Field, model_validator
 
 from rulesmith.graph import Plan, StrictModel, Text
@@ -369,14 +370,42 @@ class ChessTask(StrictModel):
         return board
 
 
-def played(task: ChessTask, white: DecisionProgram, black: DecisionProgram, seed: int) -> dict:
-    """One game. Returns the result from white's side, with what each graph did along the way."""
+class Engine:
+    """A UCI engine at a fixed strength, as a reference opponent that does not drift the way
+    Elo fitted over a pool of graphs does. Stockfish's skill level 0 is calibrated near 1320
+    CCRL blitz Elo."""
+
+    def __init__(self, path: str, skill: int, seconds: float):
+        self.path, self.skill, self.limit = path, skill, chess.engine.Limit(time=seconds)
+
+    def __enter__(self) -> Self:
+        self.engine = chess.engine.SimpleEngine.popen_uci(self.path)
+        self.engine.configure({"Skill Level": self.skill})
+        return self
+
+    def __exit__(self, *raised) -> None:
+        self.engine.quit()
+
+    def move(self, board: chess.Board) -> chess.Move:
+        return self.engine.play(board, self.limit).move
+
+
+Player = DecisionProgram | Engine
+
+
+def played(task: ChessTask, white: Player, black: Player, seed: int) -> dict:
+    """One game. Returns the result from white's side, with what each side did along the way."""
     board = task.opening(seed)
     sides = {chess.WHITE: white, chess.BLACK: black}
     moves, models, error, loser = [], set(), None, None
     first: dict[bool, dict] = {}
     while not board.is_game_over() and board.ply() < task.move_limit:
         program = sides[board.turn]
+        if isinstance(program, Engine):
+            move = program.move(board)
+            moves.append({"policy": "engine", "move": move.uci()})
+            board.push(move)
+            continue
         seen = observe(board)
         first.setdefault(board.turn, seen)
         try:
@@ -425,7 +454,7 @@ def material(board: chess.Board, color: bool) -> int:
 class Games:
     """Scores a graph by how it fares against a fixed opponent, one game per seed."""
 
-    def __init__(self, task: ChessTask, opponent: DecisionProgram):
+    def __init__(self, task: ChessTask, opponent: Player):
         self.task = task
         self.opponent = opponent
 
@@ -461,6 +490,7 @@ class Games:
                 },
                 "score": score,
                 "error": error,
+                "fen": game["fen"],
             },
             trace={
                 "Inputs": game["first"].get(mine, {}),

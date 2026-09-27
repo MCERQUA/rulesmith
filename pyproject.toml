@@ -32,7 +32,9 @@ dependencies = [
 rulesmith = "rulesmith.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "hypothesis>=6,<7", "ruff>=0.12,<1"]
+dev = ["pytest>=8,<10", "hypothesis>=6,<7", "ruff>=0.12,<1", {include-group = "bench"}]
+# Public benchmarks: parquet datasets and the trained-classifier baseline.
+bench = ["pyarrow>=17,<22", "scikit-learn>=1.5,<2"]
 
 [build-system]
 requires = ["hatchling>=1.26"]
