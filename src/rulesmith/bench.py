@@ -259,7 +259,11 @@ def search(
     whether a graph improves on asking the judge once."""
     # 50 validation examples reward a lucky candidate; keep the direct call unless the gain holds.
     config = SearchConfig(
-        max_metric_calls=budget, seed=seed, call_cost=call_cost, significance=SIGNIFICANCE
+        max_metric_calls=budget,
+        seed=seed,
+        call_cost=call_cost,
+        significance=SIGNIFICANCE,
+        mine=True,
     )
     best, report = optimize_plan(task, direct_plan(task, labels), client, model, proposer, config)
     return record(
@@ -272,6 +276,7 @@ def search(
         validation=report["validation_score"],
         seed_validation=report["seed_validation_score"],
         kept_seed=report["kept_seed"],
+        mined=report["mined"],
         nodes=len(best.nodes),
         graph=best.model_dump(mode="json"),
     )

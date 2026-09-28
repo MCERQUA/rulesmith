@@ -145,6 +145,11 @@ def parser() -> argparse.ArgumentParser:
             )
             command.add_argument("--merges", type=int, default=SearchConfig().merges)
             command.add_argument(
+                "--mine",
+                action="store_true",
+                help="Mine rules a field alone settles, and start there if they score better",
+            )
+            command.add_argument(
                 "--significance",
                 type=float,
                 help="Keep the seed unless the winner's gain passes a sign test at this level",
@@ -460,6 +465,7 @@ def main() -> None:
             merges=args.merges,
             call_cost=args.call_cost,
             significance=args.significance,
+            mine=args.mine,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:

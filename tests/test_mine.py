@@ -1,0 +1,117 @@
+"""Rules mined from the data, offered to search before any proposal is written."""
+
+from test_graph import call
+
+from rulesmith.graph import Plan, Task
+from rulesmith.mine import fields, mine
+from rulesmith.rules import compile_rules, render_rules
+from rulesmith.runtime import DecisionProgram
+
+
+def reviews(count: int = 60) -> list[dict]:
+    """A rating settles most reviews; a three-star one could go either way."""
+    rows = []
+    for index in range(count):
+        rating = index % 5 + 1
+        # Three-star labels vary with nothing in the fields, department included.
+        mixed = "yes" if index // 10 % 2 else "no"
+        label = "yes" if rating >= 4 else "no" if rating <= 2 else mixed
+        department = ["Tops", "Dresses"][index % 2]
+        state = {"rating": rating, "department": department, "review": f"review {index}"}
+        rows.append({"id": str(index), "state": state, "label": label})
+    return rows
+
+
+def task(rows: list[dict] | None = None) -> Task:
+    rows = rows or reviews()
+    return Task(
+        description="Would the reviewer recommend it?",
+        labels=["no", "yes"],
+        train=rows[:40],
+        validation=rows[40:50],
+        test=rows[50:],
+    )
+
+
+def test_the_field_that_settles_most_cases_becomes_rules_ahead_of_the_seed():
+    seed = Plan.constant("no")
+    mined = mine(task(), seed)
+    program = DecisionProgram(mined, None, "none")
+    # Four and five stars are settled by a rule; three stars fall through to the seed.
+    assert program({"rating": 5, "department": "Tops"}).label == "yes"
+    assert program({"rating": 1, "department": "Tops"}).label == "no"
+    assert program({"rating": 3, "department": "Tops"}).label == "no"
+    assert "rating" in render_rules(mined)
+
+
+def test_a_mined_graph_asks_the_judge_only_for_what_the_rules_leave(provider, client):
+    provider.answers = {"eligible": {"type": "noul", "noul": 0.9}}
+    seed = compile_rules('ask eligible = "Recommended?"\nwhen eligible >= 0.5: yes\nalways: no')
+    program = DecisionProgram(mine(task(), seed), client, "fixture")
+    program({"rating": 5, "department": "Tops"})
+    assert provider.requests == []
+    program({"rating": 3, "department": "Tops"})
+    assert len(provider.requests) == 1
+
+
+def test_a_mined_graph_reads_back_as_the_same_rules():
+    mined = mine(task(), Plan.constant("no"))
+    once = render_rules(mined)
+    assert render_rules(compile_rules(once)) == once
+    mined.check(["no", "yes"], 16, 8)
+
+
+def test_nothing_is_mined_where_no_field_decides():
+    # Labels alternate with nothing in the fields, so no test is anywhere near pure.
+    labels = ["no", "yes"]
+    noisy = [
+        {"id": str(i), "state": {"rating": i % 5 + 1, "review": f"r{i}"}, "label": labels[i % 2]}
+        for i in range(60)
+    ]
+    assert mine(task(noisy), Plan.constant("no")) is None
+    text = [
+        {"id": str(i), "state": f"review {i}", "label": ["no", "yes"][i % 2]} for i in range(60)
+    ]
+    assert mine(task(text), Plan.constant("no")) is None
+
+
+def test_a_seed_with_no_rule_form_is_left_alone():
+    merged = Plan.model_validate(
+        {
+            "nodes": {
+                "a": call(observation={"type": "state"}),
+                "b": {"type": "merge", "inputs": {"a": {"type": "node", "node": "a"}}},
+            },
+            "outputs": {
+                "label": {"type": "literal", "value": "no"},
+                "extra": {"type": "node", "node": "b"},
+            },
+        }
+    )
+    assert mine(task(), merged) is None
+
+
+def test_fields_are_summarized_by_what_values_they_take():
+    summary = fields(task().train)
+    assert summary["rating"] == "numbers from 1 to 5"
+    assert summary["department"] == "one of Dresses, Tops"
+    # Text that differs on every example is not a category a rule can name.
+    assert "review" not in summary
+
+
+def test_search_starts_from_the_mined_graph_when_it_scores_better(client):
+    from rulesmith.optimize import SearchConfig, optimize_plan
+
+    seed = Plan.constant("no")
+    # A proposer that only ever offers the seed back: whatever search keeps, mining found.
+    config = SearchConfig(max_metric_calls=30, reflection_batch=3, mine=True)
+    plan, report = optimize_plan(task(), seed, client, "none", lambda _: "always: no", config)
+    assert report["mined"]["used"] and report["mined"]["rules"] >= 2
+    assert DecisionProgram(plan, None, "none")({"rating": 5, "department": "Tops"}).label == "yes"
+
+
+def test_the_proposer_is_told_what_each_field_holds():
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(task(), SearchConfig())
+    assert "numbers from 1 to 5" in prompt and "one of Dresses, Tops" in prompt

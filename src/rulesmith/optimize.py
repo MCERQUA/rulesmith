@@ -7,6 +7,7 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib.metadata import version
+from statistics import mean
 from typing import Protocol
 
 import dspy
@@ -17,6 +18,7 @@ from pydantic import Field, ValidationError
 from typesafe_sdk import TypeSafeClient
 
 from rulesmith.graph import Example, Plan, StrictModel, Task
+from rulesmith.mine import fields, mine
 from rulesmith.rules import RuleError, parts, whole
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError, Remembered
 
@@ -176,6 +178,11 @@ class SearchConfig(StrictModel):
         "validation passes a one-sided sign test at this level; small validation sets otherwise "
         "reward a lucky candidate",
     )
+    mine: bool = Field(
+        default=False,
+        description="Before any proposal, mine rules a field alone settles and start from them "
+        "if they score better on validation",
+    )
     call_cost: float = Field(
         default=0,
         ge=0,
@@ -302,6 +309,16 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return {component: eval_batch.trajectories for component in components_to_update}
 
 
+def field_summary(task: SearchTask) -> str:
+    """What the fields of the inputs hold, so a proposer can see which a rule could read."""
+    examples = [example for example in task.train if hasattr(example, "state")]
+    summary = fields(examples)
+    if not summary:
+        return ""
+    described = "; ".join(f"{name}: {held}" for name, held in summary.items())
+    return f"Fields of the inputs, as seen in training: {described}.\n"
+
+
 def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
     """Everything the proposer is told: the language, the task, and the part to return."""
     syntax_example = Plan.model_validate(
@@ -366,6 +383,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "The label output must have a statically known domain within the allowed labels. "
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
+        f"{field_summary(task)}"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
         # The schema is twelve thousand characters and rules need none of it; a proposal
         # that falls back to whole-graph JSON is rare enough to ask for the schema then.
@@ -442,6 +460,23 @@ def optimize_plan(
     if config.max_metric_calls < minimum_budget:
         raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
     adapter = GraphAdapter(task, client, model, config, execution, score)
+    start, mined_report = initial, None
+    mined = mine(task, initial) if config.mine and isinstance(task, Task) else None
+    if mined is not None:
+        try:
+            adapter.parse(components(mined))
+        except ValueError:
+            mined = None
+    if mined is not None:
+        # Two extra scorings of the validation set, outside the budget, to pick where to start.
+        scored = {
+            name: mean(adapter.evaluate(task.validation, components(plan)).scores)
+            for name, plan in (("seed", initial), ("mined", mined))
+        }
+        used = scored["mined"] >= scored["seed"]
+        start = mined if used else initial
+        rules = sum(1 for name in mined.nodes if name.startswith("rule_mined"))
+        mined_report = {"rules": rules, "validation": scored["mined"], "used": used}
     reflection_calls = 0
     repairs = 0
 
@@ -508,7 +543,7 @@ def optimize_plan(
 
     adapter.propose_new_texts = propose
     result = gepa.optimize(
-        seed_candidate=components(initial),
+        seed_candidate=components(start),
         trainset=task.train,
         valset=task.validation,
         adapter=adapter,
@@ -539,6 +574,7 @@ def optimize_plan(
         "resolved_models": sorted(adapter.resolved_models),
         "task_sha256": hashlib.sha256(task.model_dump_json().encode()).hexdigest(),
         "seed_sha256": hashlib.sha256(initial.model_dump_json().encode()).hexdigest(),
+        "mined": mined_report,
         "versions": {name: version(name) for name in ("dspy", "gepa", "typesafe-sdk")},
         "search": config.model_dump(),
         "execution": adapter.execution.model_dump(),
