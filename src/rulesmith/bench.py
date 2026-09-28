@@ -481,7 +481,7 @@ def run(
     order, each finishing every method before the next begins, so a run cut short by `deadline`
     (seconds since the epoch) loses whole seeds rather than whole methods."""
     resources = resources or Models()
-    results = {"dataset": dataset.name, **sizes, "models": models, "runs": []}
+    results = {"dataset": dataset.name, **sizes, "runs": []}
     if output.exists():
         results = json.loads(output.read_text())
         if {key: results[key] for key in sizes} != sizes:
@@ -494,7 +494,9 @@ def run(
                 continue
             if time.time() > deadline:
                 return results["runs"]
-            results["runs"].append(measure(method, seed, task, dataset, resources))
+            # Per run, since a resumed file may be finished with other models than started it.
+            result = measure(method, seed, task, dataset, resources) | {"models": models}
+            results["runs"].append(result)
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(json.dumps(results, indent=2) + "\n")
     return results["runs"]

@@ -286,3 +286,13 @@ def test_a_failed_example_scores_zero_instead_of_ending_the_run():
     guarded = Failsafe(Broken())
     predicted = guarded(text="anything")
     assert predicted.label is None and guarded.failures == 1
+
+
+def test_each_result_names_the_models_that_produced_it(tmp_path):
+    # A resumed run may use other models than the one that started the file; a single header
+    # written at the start would credit every result to the first run's models.
+    output = tmp_path / "toy.json"
+    sizes = {"train": 30, "validation": 6, "test": 12}
+    run(toy(), [0], ["majority"], sizes, output, {"proposer": "first"})
+    runs = run(toy(), [0, 1], ["majority"], sizes, output, {"proposer": "second"})
+    assert [r["models"]["proposer"] for r in runs] == ["first", "second"]
