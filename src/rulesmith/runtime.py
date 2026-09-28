@@ -198,6 +198,10 @@ def read_path(node: Read, state: State):
             value = value[str(step)]
         else:
             return MISSING
+    if node.measure == "length":
+        if not isinstance(value, str | list):
+            return MISSING
+        value = len(value)
     if node.categories is not None:
         allowed = isinstance(value, str) and value in node.categories
     else:

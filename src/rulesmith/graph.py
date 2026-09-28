@@ -253,11 +253,18 @@ class Read(Guarded):
     path: list[str | int] = Field(min_length=1)
     bounds: tuple[float, float] | None = None
     categories: list[Text] | None = Field(default=None, min_length=1)
+    measure: Literal["value", "length"] = Field(
+        default="value",
+        description="The value itself, or how long it is when it is a text or a list: an empty "
+        "field or a one-line answer is often as telling as what it says, and costs nothing",
+    )
 
     @model_validator(mode="after")
     def one_domain(self) -> Self:
         if (self.bounds is None) == (self.categories is None):
             raise ValueError("a read declares exactly one of bounds or categories")
+        if self.measure == "length" and self.bounds is None:
+            raise ValueError("a length is a number, so its read declares bounds")
         if self.bounds is not None and self.bounds[0] > self.bounds[1]:
             raise ValueError("read bounds must be increasing")
         return self

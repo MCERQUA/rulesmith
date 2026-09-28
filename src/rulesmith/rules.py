@@ -52,6 +52,8 @@ LEVEL = re.compile(r"\[([^:\]\[]+)\]")
 # A choice over every label the task has, as the task describes them: a task of dozens of labels
 # would otherwise have its whole list restated each time a proposer touches the question.
 TASK_LABELS = "[task labels]"
+# How a rule reads the length of a text or list rather than the value itself.
+LENGTH = "length of "
 # The output a task scores, and the one rules decide unless a section names another.
 LABEL_OUTPUT = "label"
 OUTPUT = re.compile(r"output (\w+):")
@@ -128,7 +130,8 @@ def path_of(read: Read) -> str:
     # A digit is read back as a list index, so a text key made of digits cannot be written.
     if any(isinstance(part, str) and part.isdigit() for part in read.path):
         raise RuleError(f"the path {read.path!r} has a key made of digits, which reads as an index")
-    return ".".join(str(part) for part in read.path)
+    path = ".".join(str(part) for part in read.path)
+    return f"{LENGTH}{path}" if read.measure == "length" else path
 
 
 def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
@@ -513,8 +516,12 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     alias = re.match(r"(\S+) = ", text)
     if alias:
         text = text[alias.end() :]
+    measure = "length" if text.startswith(LENGTH) else "value"
+    text = text.removeprefix(LENGTH)
     path, _, domain = text.partition(" ")
     node: dict = {"type": "read", "path": [int(p) if p.isdigit() else p for p in path.split(".")]}
+    if measure == "length":
+        node["measure"] = measure
     if domain.startswith("in "):
         low, high = json.loads(domain[3:].strip())
         node["bounds"] = [low, high]
@@ -526,9 +533,11 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
         claim(alias.group(1), node, nodes, names)
         return
     # A path restated keeps its node; a new one gets a name no other reading has taken.
-    name = names.get(path) or fresh("read_" + re.sub(r"\W", "_", path), nodes)
+    written = f"{LENGTH}{path}" if measure == "length" else path
+    base = "read_" + ("length_" if measure == "length" else "") + re.sub(r"\W", "_", path)
+    name = names.get(written) or fresh(base, nodes)
     nodes[name] = node
-    names[path] = name
+    names[written] = name
 
 
 def fresh(base: str, nodes: dict) -> str:
