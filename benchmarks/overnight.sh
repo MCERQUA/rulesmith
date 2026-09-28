@@ -6,6 +6,7 @@
 #   HOURS=4 benchmarks/overnight.sh
 #   PROPOSER_MODEL=openrouter/qwen/qwen3.8-27b PROPOSER_URL= benchmarks/overnight.sh
 #   JUDGES="http://127.0.0.1:8010 http://127.0.0.1:8012" benchmarks/overnight.sh
+#   kill $(cat runs/overnight/driver.pid)   # stop it, and only it
 #
 # One Ruling answers one request at a time, so a second on another port shares the datasets.
 #
@@ -52,6 +53,18 @@ ready() {
 
 # The Mac must not sleep, or every model and game stops at the first idle timeout.
 caffeinate -dimsu -w $$ &
+
+# Stopping the run is 'kill $(cat runs/overnight/driver.pid)': the driver then ends its own work,
+# found by the command lines only it starts, and nothing else on the machine.
+print $$ >$LOGS/driver.pid
+halt() {
+  note "stopped by request"
+  pkill -f "rulesmith.bench run"; pkill -f "rulesmith optimize"; pkill -f "rulesmith evaluate"
+  [[ -n ${stopper:-} ]] && kill $stopper 2>/dev/null
+  rm -f $LOGS/driver.pid
+  exit 143
+}
+trap halt TERM INT
 
 for judge in $JUDGES; do
   if ! up $judge/v1/models; then
@@ -135,4 +148,5 @@ for dataset in trec clothing jobs banking77 news; do
   [[ -f benchmarks/results/$dataset.json ]] && uv run python3 -m rulesmith.bench report \
     benchmarks/results/$dataset.json >>$LOGS/report.md && print >>$LOGS/report.md
 done
+rm -f $LOGS/driver.pid
 note "all finished; tables in $LOGS/report.md"
