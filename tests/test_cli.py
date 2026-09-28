@@ -484,3 +484,55 @@ def test_an_engine_only_plays_chess(tmp_path):
     plan = write(tmp_path / "plan.json", binary_plan())
     result = invoke("evaluate", task, plan, "--engine", "stockfish", "--output", tmp_path / "o")
     assert result.returncode != 0 and "chess" in result.stderr
+
+
+ROOT = Path(__file__).resolve().parents[1]
+# The packages only the doom, chess and bench extras install.
+EXTRAS_ONLY = (
+    "vizdoom",
+    "gymnasium",
+    "numpy",
+    "PIL",
+    "imageio_ffmpeg",
+    "chess",
+    "pyarrow",
+    "sklearn",
+)
+
+
+def invoke_core(*args):
+    """The command line as a core install runs it: a None entry in sys.modules makes importing
+    that package fail just as it does when the package is not installed."""
+    script = (
+        "import sys\n"
+        f"sys.modules.update(dict.fromkeys({EXTRAS_ONLY!r}))\n"
+        f"sys.argv = ['rulesmith', *{list(map(str, args))!r}]\n"
+        "from rulesmith.cli import main\n"
+        "main()\n"
+    )
+    return subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+
+
+def test_a_core_install_validates_and_runs_a_classification_graph(tmp_path):
+    validated = invoke_core("validate", ROOT / "examples/task.json", ROOT / "examples/seed.json")
+    assert validated.returncode == 0, validated.stderr
+    assert json.loads(validated.stdout)["labels"] == ["billing", "technical", "sales"]
+    plan = tmp_path / "plan.rules"
+    plan.write_text("read order.total in [0, 1000]\nwhen order.total < 50: ship\nalways: hold")
+    state = write(tmp_path / "state.json", {"order": {"total": 20}})
+    ran = invoke_core("run", plan, state)
+    assert ran.returncode == 0, ran.stderr
+    assert json.loads(ran.stdout)["label"] == "ship"
+
+
+@pytest.mark.parametrize(
+    ("extra", "task", "plan"),
+    [
+        ("doom", ROOT / "examples/doom/duel.json", ROOT / "examples/doom/graphs/duel-attack.json"),
+        ("chess", CHESS / "duel.json", CHESS / "graphs/greedy.rules"),
+    ],
+)
+def test_a_game_task_without_its_extra_names_the_install(extra, task, plan):
+    result = invoke_core("validate", task, plan)
+    assert result.returncode != 0 and "Traceback" not in result.stderr
+    assert f"pip install 'rulesmith[{extra}]'" in result.stderr
