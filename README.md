@@ -13,11 +13,51 @@ This is an independent research prototype, not affiliated with TypeSafe. Jev is
 TypeSafe's hosted judge, selected with `--backend typesafe`. rulesmith optimizes
 graphs and question instructions, not model weights.
 
+## When to use rulesmith, and when DSPy
+
+rulesmith is built on DSPy and solves a narrower problem. It fits when:
+
+- the answer must be one of a fixed set of labels, not free text;
+- the input is structured, so cheap rules over its fields settle many cases and
+  the judge is asked only about the rest;
+- a calibrated probability matters, or an unsure case should go to a person
+  rather than be guessed;
+- a small local judge should be enough, and a large model per decision is more
+  than the task is worth.
+
+Use DSPy directly for open-ended generation, programs of several steps,
+retrieval, and tasks where worked examples in the prompt carry the accuracy.
+rulesmith searches over rules and questions, not demonstrations, so it has
+nothing to add there.
+
 ## Installation
 
-Requires Python 3.12–3.14 and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.12–3.14.
 
 ```sh
+pip install rulesmith
+```
+
+That covers classification tasks and every command except the games. The games
+and the public benchmarks need packages the core leaves out, so they come as
+extras:
+
+| Extra | For | Adds |
+| --- | --- | --- |
+| `doom` | Doom tasks, `arena`, `record` | ViZDoom, NumPy, Pillow, ffmpeg |
+| `chess` | Chess tasks | python-chess |
+| `bench` | `python -m rulesmith.bench` | pyarrow, scikit-learn, Hugging Face Hub |
+
+```sh
+pip install 'rulesmith[doom,chess]'
+```
+
+The examples below run from a checkout with [uv](https://docs.astral.sh/uv/),
+which installs every extra and the test tools:
+
+```sh
+git clone https://github.com/bradAGI/rulesmith.git
+cd rulesmith
 uv sync --locked
 ```
 
@@ -635,6 +675,9 @@ is a claim about the work listed here, not a survey of the field.
 - [Chess](docs/chess.md): policies, what a graph sees, scoring, and the baseline ladder.
 
 ## Development
+
+`uv sync` installs the project with every extra, so the whole suite runs. CI runs
+the same checks on Python 3.12 and 3.13.
 
 ```sh
 uv run pytest -q

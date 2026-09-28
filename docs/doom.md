@@ -3,6 +3,7 @@
 rulesmith can optimize graphs that play [ViZDoom](https://github.com/Farama-Foundation/ViZDoom)
 scenarios. The graph runs once per action, and search scores it by episode
 reward instead of label accuracy.
+Install the `doom` extra first: `pip install 'rulesmith[doom]'`.
 
 ```mermaid
 flowchart LR
