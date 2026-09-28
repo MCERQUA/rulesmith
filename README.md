@@ -355,7 +355,9 @@ always: MOVE_FORWARD
 ```
 
 A reading can be named the same way, `read health = variables.HEALTH in [0, 200]`,
-and the rules then say `health`. A name is a node in the graph, so it survives the
+and the rules then say `health`. `read length of company_profile in [0, 10000]`
+reads how long a text or list is, so `when length of company_profile < 20` can
+settle an empty field without asking anyone. A name is a node in the graph, so it survives the
 round trip: search reads and rewrites `armed`, not the condition spelled out in
 every rule, and `draw` shows it as a box of its own.
 

@@ -48,7 +48,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--reflection-timeout` | none | Seconds before a proposal request fails, so a hung proposer stops the search instead of stalling it |
 | `--retries` | 0 | Retries for judge requests that fail or time out |
 | `--parallel-examples` | 1 | Examples scored at once; Doom allows more than 1 only for deathmatch tasks, whose duels each run their own games |
-| `--mine` | off | Before any proposal, mine rules that a single field settles (a star rating, a flag) from the training data, put them ahead of the starting graph so its judgments are asked only about what they leave, and start search there if that scores better on validation |
+| `--mine` | off | Before any proposal, mine rules that one field, or two together, settle (a star rating, a flag, an empty text by its length) from the training data, put them ahead of the starting graph so its judgments are asked only about what they leave, and start search there if that scores better on validation |
 | `--significance` | off | Keep the starting graph unless the winner's gain on validation passes a one-sided sign test at this level, so a candidate that was only lucky on a small validation set does not replace it |
 | `--call-cost` | 0 | Score taken off an example for each judge question it asks, so search prefers the graph that asks less when two answer alike |
 | `--merges` | 5 | Times search may combine two candidates, taking each part from whichever graph scored better |
@@ -169,7 +169,8 @@ always: MOVE_FORWARD
 ```
 
 - **Readings** declare what the program may look at: `read <path> in [low, high]`,
-  `read <path> one of [a, b]`, `read <name> = <path> in [low, high]` to give a
+  `read <path> one of [a, b]`, `read length of <path> in [low, high]` for how long a text or list is (tested as
+  `length of <path> < 20`), `read <name> = <path> in [low, high]` to give a
   reading a name the rules use instead of its path, or `ask <name> = "question" [label: "when it applies"] ...`
   for a judgment, which may end `when <condition>` to be asked only then. A judgment
   reads the whole input unless it names what it is shown with `given [a, b]`;

@@ -95,8 +95,8 @@ def test_fields_are_summarized_by_what_values_they_take():
     summary = fields(task().train)
     assert summary["rating"] == "numbers from 1 to 5"
     assert summary["department"] == "one of Dresses, Tops"
-    # Text that differs on every example is not a category a rule can name.
-    assert "review" not in summary
+    # Text that differs on every example is no category, so it is known by how long it is.
+    assert summary["review"] == "text of 8 to 9 characters"
 
 
 def test_search_starts_from_the_mined_graph_when_it_scores_better(client):
@@ -115,3 +115,53 @@ def test_the_proposer_is_told_what_each_field_holds():
 
     prompt = proposer_prompt(task(), SearchConfig())
     assert "numbers from 1 to 5" in prompt and "one of Dresses, Tops" in prompt
+
+
+def postings(count: int = 80) -> list[dict]:
+    """A scam lacks a logo while remote, or has one while not: every single field is a coin
+    flip, at any step of a rule list, and only the two together decide."""
+    rows = []
+    for index in range(count):
+        logo, remote = index % 2, index // 2 % 2
+        label = "scam" if logo != remote else "real"
+        state = {"logo": logo, "remote": remote, "title": f"job {index}"}
+        rows.append({"id": str(index), "state": state, "label": label})
+    return rows
+
+
+def test_two_fields_together_can_settle_what_neither_settles_alone():
+    rows = postings()
+    plan = mine(task_of(rows, ["real", "scam"]), Plan.constant("real"))
+    program = DecisionProgram(plan, None, "none")
+    assert program({"logo": 0, "remote": 1, "title": "x"}).label == "scam"
+    assert program({"logo": 1, "remote": 1, "title": "x"}).label == "real"
+    assert program({"logo": 1, "remote": 0, "title": "x"}).label == "scam"
+    once = render_rules(plan)
+    assert render_rules(compile_rules(once)) == once
+
+
+def test_an_empty_text_field_can_settle_a_case():
+    rows = [
+        {
+            "id": str(i),
+            "state": {
+                "profile": "" if i % 3 == 0 else f"We are a firm founded in {1900 + i}.",
+                "title": f"job {i}",
+            },
+            "label": "scam" if i % 3 == 0 else "real",
+        }
+        for i in range(60)
+    ]
+    plan = mine(task_of(rows, ["real", "scam"]), Plan.constant("real"))
+    assert "length of profile" in render_rules(plan)
+    assert DecisionProgram(plan, None, "none")({"profile": "", "title": "x"}).label == "scam"
+
+
+def task_of(rows: list[dict], labels: list[str]) -> Task:
+    return Task(
+        description="Which?",
+        labels=labels,
+        train=rows[: len(rows) * 2 // 3],
+        validation=rows[len(rows) * 2 // 3 : len(rows) * 5 // 6],
+        test=rows[len(rows) * 5 // 6 :],
+    )

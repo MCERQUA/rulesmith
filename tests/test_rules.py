@@ -291,3 +291,15 @@ def test_the_proposer_is_asked_for_the_parts_search_sends():
     for part in parts(compile_rules("read x in [0, 1]\nwhen x >= 1: review\nalways: accept")):
         assert f"'{part}'" in prompt or f"{part} part" in prompt
     assert "for policy" not in prompt and "perception" not in prompt
+
+
+def test_the_proposer_is_told_how_to_read_a_length():
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    forms = re.findall(r"'(read length of [^']+)'", prompt)
+    assert forms
+    for line in forms:
+        path = line.removeprefix("read length of ").split()[0]
+        plan = compile_rules(f"{line}\nwhen length of {path} < 20: review\nalways: accept")
+        assert any(node.type == "read" and node.measure == "length" for node in plan.nodes.values())
