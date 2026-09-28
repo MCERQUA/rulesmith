@@ -262,3 +262,11 @@ def test_the_judge_waits_as_long_as_the_run_allows():
 
     with judge_client("http://127.0.0.1:9", 3600) as client:
         assert client._config.timeout == 3600
+
+
+def test_a_dropped_connection_to_a_generative_model_is_retried():
+    # One dropped connection to a local server under load ended a whole overnight dataset.
+    from rulesmith.bench import language_model
+
+    lm = language_model("openai/fixture", "http://127.0.0.1:9", None, 64, 5, retries=3)
+    assert lm.num_retries == 3

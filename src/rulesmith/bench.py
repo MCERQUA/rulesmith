@@ -550,10 +550,17 @@ def chess_reference(
 
 
 def language_model(
-    model: str | None, base_url: str | None, options: str | None, max_tokens: int, timeout: float
+    model: str | None,
+    base_url: str | None,
+    options: str | None,
+    max_tokens: int,
+    timeout: float,
+    retries: int,
 ) -> dspy.LM | None:
     """A generative model, given its DSPy id. `options` is extra request JSON, such as switching
-    off a model's thinking so a one-word label does not cost a page of reasoning."""
+    off a model's thinking so a one-word label does not cost a page of reasoning. A failed request
+    is retried: a local server under several runs' load drops connections, and DSPy's GEPA ends
+    the whole run on a single missing answer."""
     if model is None:
         return None
     extra = {"extra_body": json.loads(options)} if options else {}
@@ -561,7 +568,7 @@ def language_model(
     return dspy.LM(
         model,
         cache=False,
-        num_retries=0,
+        num_retries=retries,
         max_tokens=max_tokens,
         timeout=timeout,
         **endpoint,
@@ -620,6 +627,9 @@ def main() -> None:
         type=float,
         help="Start nothing new after this many hours; finished results are kept either way",
     )
+    bench.add_argument(
+        "--retries", type=int, default=3, help="Retries for a failed generative request"
+    )
     bench.add_argument("--output", type=Path, required=True)
     games = commands.add_parser("chess", help="Play chess graphs against a fixed-strength engine")
     games.add_argument("task", type=Path, help="A chess task; its move limit and openings apply")
@@ -653,6 +663,7 @@ def main() -> None:
             getattr(args, f"{role}_options"),
             args.max_tokens,
             args.timeout,
+            args.retries,
         )
         for role in ("proposer", "student", "reflection")
     }
