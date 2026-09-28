@@ -307,6 +307,8 @@ def render_action(node, reads: dict[str, Read], plan: Plan, labels: dict[str, st
     elif question.type == "choice":
         listed(list(question.criteria), "the choice", ",[]:")
         asked += " " + " ".join(f"[{k}: {quoted(v)}]" for k, v in question.criteria.items())
+    if node.temperature != 1:
+        asked += f" calibrated {number(node.temperature)}"
     return asked + render_given(node, reads, plan)
 
 
@@ -661,6 +663,11 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
                 else {"type": "node", "node": named(name, names, nodes)}
                 for name in listed
             }
+        tempered = re.search(r"\s+calibrated\s+(\S+)\s*$", body)
+        temperature = {}
+        if tempered:
+            body = body[: tempered.start()]
+            temperature = {"temperature": float(tempered.group(1))}
         instructions = QUOTED.match(body)
         if not instructions:
             if re.match(r"\w+\s*=", body):
@@ -672,7 +679,7 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
             if labels is None:
                 raise RuleError(f"{TASK_LABELS} asks over a task's labels, so it needs a task")
             question |= {"type": "choice", "criteria": dict(labels)}
-            return {"type": "call", "question": question, "inputs": inputs}
+            return {"type": "call", "question": question, "inputs": inputs, **temperature}
         pairs = PAIR.findall(criteria)
         levels = [] if pairs else LEVEL.findall(criteria)
         # Whatever the brackets fail to account for would be dropped without a word.
@@ -685,11 +692,7 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
             question |= {"type": "score", "criteria": [level.strip() for level in levels]}
         else:
             question |= {"type": "noul"}
-        return {
-            "type": "call",
-            "question": question,
-            "inputs": inputs,
-        }
+        return {"type": "call", "question": question, "inputs": inputs, **temperature}
     if "?" in text and ":" in text:
         test, _, arms = text.partition("?")
         above, _, below = arms.partition(":")

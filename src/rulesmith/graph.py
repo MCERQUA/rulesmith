@@ -174,6 +174,12 @@ class Call(Guarded):
     type: Literal["call"] = "call"
     question: Question
     inputs: dict[Text, Source] = Field(min_length=1)
+    temperature: float = Field(
+        default=1,
+        gt=0,
+        description="Divides the judge's log-odds before they are read: above 1 tempers an "
+        "overconfident judge, below 1 sharpens a timid one. Fitted by rulesmith calibrate",
+    )
 
 
 class Switch(Guarded):
@@ -476,6 +482,13 @@ class Example(StrictModel):
         return self
 
 
+class Abstain(StrictModel):
+    """A label that passes an example to a person, at a cost between nothing and a mistake."""
+
+    label: Text
+    cost: float = Field(gt=0, lt=1, description="As a share of the dearest mistake")
+
+
 class Task(StrictModel):
     description: Text
     labels: list[Text] = Field(min_length=2)
@@ -490,6 +503,7 @@ class Task(StrictModel):
         default_factory=dict,
         description="What each label means, for a question over them all; its words where unlisted",
     )
+    abstain: Abstain | None = None
 
     @model_validator(mode="after")
     def disjoint_splits(self) -> Self:
@@ -518,11 +532,22 @@ class Task(StrictModel):
             raise ValueError(f"descriptions name labels the task does not have: {sorted(unknown)}")
         if self.worst == 0:
             raise ValueError("costs make every mistake free, so no answer is worse than another")
+        if self.abstain is not None:
+            passed = self.abstain.label
+            if passed not in self.labels:
+                raise ValueError(f"the abstain label {passed!r} must be one of the task's labels")
+            if passed in self.costs or any(passed in row for row in self.costs.values()):
+                raise ValueError("the abstain label's cost is set by abstain, not by costs")
+            for example in self.train + self.validation + self.test:
+                if passed in (example.label, *example.accepted):
+                    raise ValueError(f"example {example.id} expects {passed!r}, which no person is")
         return self
 
     def cost(self, expected: str, answered: str) -> float:
         if expected == answered:
             return 0.0
+        if self.abstain is not None and answered == self.abstain.label:
+            return self.abstain.cost * self.worst
         return self.costs.get(expected, {}).get(answered, 1.0)
 
     def criteria(self) -> dict[str, str]:
@@ -533,8 +558,11 @@ class Task(StrictModel):
 
     @property
     def worst(self) -> float:
-        """The dearest mistake the task can make, which scores zero."""
-        return max(self.cost(e, a) for e in self.labels for a in self.labels if e != a)
+        """The dearest mistake the task can make, which scores zero. Passing an example to a
+        person is not a mistake, and nothing expects it, so it takes no part."""
+        passed = self.abstain.label if self.abstain is not None else None
+        answers = [label for label in self.labels if label != passed]
+        return max(self.costs.get(e, {}).get(a, 1.0) for e in answers for a in answers if e != a)
 
     def baseline_plan(self) -> Plan:
         """A call-free majority-label seed, so search can start from the task alone. Graded

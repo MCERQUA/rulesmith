@@ -211,6 +211,17 @@ count as fully right besides `label`:
 {"id": "t7", "state": "Refund my duplicate charge and fix the export bug.", "label": "billing", "accepted": ["technical"]}
 ```
 
+**Passing a case to a person.** Add a label for it and say what it costs, as a
+share of the worst mistake, and search can learn to hand over the cases it is
+unsure of rather than guess:
+
+```json
+"labels": ["approve", "decline", "human"],
+"abstain": {"label": "human", "cost": 0.3}
+```
+
+No example may expect `human`; it is an answer, not a truth.
+
 **No labels at all.** A stronger model can grade the answers instead. Examples
 may then leave out `label`; where one is present, the grader is shown it as a
 reference:
@@ -365,6 +376,13 @@ ask threat = "Fight or fall back?" [ATTACK: "Ammo and health allow it."] [MOVE_B
 when threat.confidence >= 0.7 and threat == "ATTACK": ATTACK
 always: MOVE_FORWARD
 ```
+
+A threshold like that only means something if the judge's probabilities do: a
+small model that says 0.97 and is right three times in five is overconfident.
+`rulesmith calibrate task.json plan.rules --output calibrated.rules` fits one
+temperature per choice question over the task's labels, from its answers on the
+training examples, and writes it into the question (`... [ATTACK: "..."]
+calibrated 1.8`). The answers stay the same; how sure they read changes.
 
 **What several of them agree on.** A vote settles two or more judgments into
 one value: `agree` reports whether they all said the same, which is how a second
@@ -539,6 +557,7 @@ cannot matter are rules the proposer wastes proposals on.
 | `optimize` | Search for a better graph, writing `plan.json` and `report.json` |
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
+| `calibrate` | Fit how sure each judgment should read, from the training examples |
 | `draw` | Write a graph as a Mermaid flowchart |
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |

@@ -99,6 +99,28 @@ def read_answer(question: Question, answer: NoulAnswer | ChoiceAnswer | ScoreAns
     }
 
 
+def calibrated(answer: dict, temperature: float) -> dict:
+    """An answer with its log-odds divided by `temperature`. The choice itself never changes,
+    only how sure it reads; a score is the expected level of its tempered probabilities."""
+    if temperature == 1:
+        return answer
+    if answer["type"] == "noul":
+        odds = (
+            math.log(answer["value"]) - math.log1p(-answer["value"])
+            if 0 < answer["value"] < 1
+            else None
+        )
+        value = answer["value"] if odds is None else 1 / (1 + math.exp(-odds / temperature))
+        return answer | {"value": value}
+    weights = {key: p ** (1 / temperature) for key, p in answer["probabilities"].items()}
+    total = sum(weights.values())
+    probabilities = {key: weight / total for key, weight in weights.items()}
+    tempered = answer | {"probabilities": probabilities}
+    if answer["type"] == "score":
+        tempered["value"] = sum(int(level) * p for level, p in probabilities.items())
+    return tempered
+
+
 class GraphExecutionError(ValueError):
     """A valid graph failed to produce a required output for this input."""
 
@@ -290,7 +312,8 @@ class DecisionProgram(dspy.Module):
                 "output_tokens": response.usage.output_tokens if first else 0,
                 "request": sorted(questions),
             }
-            results[key] = read_answer(node.question, response.answers[key]), usage
+            answer = calibrated(read_answer(node.question, response.answers[key]), node.temperature)
+            results[key] = answer, usage
         return results
 
     def forward(self, state: State) -> dspy.Prediction:

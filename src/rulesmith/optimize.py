@@ -93,6 +93,17 @@ class Outcome:
     error: str | None = None
 
 
+def passed(task: Task, answered: str | None, expected: str, score: float) -> str | None:
+    """Feedback for an example handed to a person, which is neither right nor a mistake."""
+    if task.abstain is None or answered != task.abstain.label:
+        return None
+    return (
+        f"Passed to a person where the answer was {expected}, which costs "
+        f"{task.abstain.cost:g} of the worst mistake. Score: {score:g}. Pass on only what the "
+        "readings and judgments leave unsure."
+    )
+
+
 class Labels:
     """Scores an answer against an example's labels. A right or accepted answer scores 1, the
     task's dearest mistake 0, and a cheaper mistake in between; with no costs set, every mistake
@@ -130,6 +141,7 @@ class Labels:
                 "Inputs": example.state,
                 "Generated Outputs": dict(prediction),
                 "Feedback": error
+                or passed(self.task, answered, example.label, score)
                 or (
                     f"Expected label: {example.label}{also}. Answered: {answered}, which costs "
                     f"{cost:g} where the worst mistake costs {self.task.worst:g}. "
@@ -316,6 +328,18 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return {component: eval_batch.trajectories for component in components_to_update}
 
 
+def abstaining(task: SearchTask) -> str:
+    """How to hand an example to a person, when the task allows it."""
+    abstain = getattr(task, "abstain", None)
+    if abstain is None:
+        return ""
+    return (
+        f"Answer {abstain.label!r} to pass an example to a person rather than guess; it costs "
+        f"{abstain.cost:g} of a mistake, so use it where the case stays unsure, for example "
+        f"'when threat.confidence < 0.6: {abstain.label}'.\n"
+    )
+
+
 def field_summary(task: SearchTask) -> str:
     """What the fields of the inputs hold, so a proposer can see which a rule could read."""
     examples = [example for example in task.train if hasattr(example, "state")]
@@ -399,6 +423,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
         f"{field_summary(task)}"
+        f"{abstaining(task)}"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
         # The schema is twelve thousand characters and rules need none of it; a proposal
         # that falls back to whole-graph JSON is rare enough to ask for the schema then.
@@ -429,6 +454,8 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "list of declared names, which is all it is then shown and costs less to read: "
         "'ask close = \"The enemy is close enough to fight.\" given [enemy.distance, health]'. "
         "'observation' in that list is the whole input. "
+        "A judgment may end with calibrated and a number, a temperature fitted to how often "
+        "it is right; keep it as written and never invent one. "
         "A choice or a score also reports how sure it was: test "
         "'threat.confidence >= 0.7' to act only on a sure answer and let a hedged one fall "
         "through. 'vote verdict = agree of [first, second]' answers yes when every judgment "

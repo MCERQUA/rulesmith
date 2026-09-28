@@ -18,6 +18,7 @@ from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from rulesmith.ablate import effects
 from rulesmith.arena import Duels, Entrant, duel, tournament
+from rulesmith.calibrate import calibrate
 from rulesmith.chess import ChessTask, Engine, Games
 from rulesmith.diagram import mermaid
 from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
@@ -32,7 +33,7 @@ from rulesmith.optimize import (
     evaluate_plan,
     optimize_plan,
 )
-from rulesmith.rules import compile_rules
+from rulesmith.rules import compile_rules, render_rules
 from rulesmith.runtime import DecisionProgram, ExecutionConfig
 
 
@@ -180,6 +181,13 @@ def parser() -> argparse.ArgumentParser:
     arena.add_argument("--max-depth", type=int, default=SearchConfig().max_depth)
     arena.add_argument("--output", type=Path, required=True)
     provider_arguments(arena)
+    fit = commands.add_parser(
+        "calibrate", help="Fit how sure each judgment should read, from the training examples"
+    )
+    fit.add_argument("task", type=Path)
+    fit.add_argument("plan", type=Path)
+    fit.add_argument("--output", type=Path, required=True, help="A .rules or .json plan")
+    provider_arguments(fit)
     draw = commands.add_parser("draw", help="Write a plan as a Mermaid flowchart")
     draw.add_argument("plan", type=Path)
     ablation = commands.add_parser(
@@ -363,6 +371,27 @@ def opponent_of(args: argparse.Namespace) -> str | None:
     return str(args.opponent) if getattr(args, "opponent", None) else None
 
 
+def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """A plan whose choice questions over the task's labels read as sure as they are right."""
+    task = load_task(cli, args.task)
+    if not isinstance(task, Task):
+        cli.error("calibrate fits judgments against a labeled task's examples")
+    if args.output.exists():
+        cli.error(f"output already exists: {args.output}")
+    plan = read_plan(cli, args.plan, task)
+    model, judge_client = judge(args, True)
+    with judge_client as client:
+        fitted, temperatures = calibrate(plan, task, client, model)
+    written = (
+        render_rules(fitted, task.criteria())
+        if args.output.suffix == ".rules"
+        else fitted.model_dump_json(indent=2)
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(written + "\n")
+    print(dump({"temperatures": temperatures, "output": str(args.output)}), end="")
+
+
 def read_plan(
     cli: argparse.ArgumentParser, path: Path, task: Task | DoomTask | ChessTask | None = None
 ) -> Plan:
@@ -406,6 +435,9 @@ def main() -> None:
         return
     if args.command == "ablate":
         ablation(cli, args)
+        return
+    if args.command == "calibrate":
+        calibration(cli, args)
         return
     task = None if args.command == "run" else load_task(cli, args.task)
     plan = read_plan(cli, args.plan, task) if args.plan else task.baseline_plan()
