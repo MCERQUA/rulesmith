@@ -165,3 +165,18 @@ def task_of(rows: list[dict], labels: list[str]) -> Task:
         validation=rows[len(rows) * 2 // 3 : len(rows) * 5 // 6],
         test=rows[len(rows) * 5 // 6 :],
     )
+
+
+def test_an_empty_string_is_never_offered_as_a_category():
+    # Blank fields are common in real data; a category must be a non-empty label.
+    rows = [
+        {
+            "id": str(i),
+            "state": {"experience": ["", "Entry", "Senior"][i % 3], "n": i},
+            "label": "yes" if i % 3 == 0 else "no",
+        }
+        for i in range(60)
+    ]
+    plan = mine(task(rows), Plan.constant("no"))
+    reads = [node for node in (plan.nodes.values() if plan else []) if node.type == "read"]
+    assert all("" not in (node.categories or []) for node in reads)

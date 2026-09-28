@@ -70,10 +70,13 @@ def columns(examples: list[Example]) -> dict[Feature, list]:
         if not all(re.fullmatch(r"[A-Za-z_]\w*", part) for part in path):
             continue
         if all(isinstance(value, str) for value in seen):
-            written = all(not set(",[]\n") & set(value) for value in seen)
-            if len(set(seen)) <= MOST_CATEGORIES and written:
-                usable[path, "value"] = seen
-            elif len(set(seen)) > MOST_CATEGORIES:
+            # A blank is no label a rule can name, but it has a length: an empty field is often
+            # the most telling thing about it.
+            named = [value for value in seen if value]
+            written = all(not set(",[]\n") & set(value) for value in named)
+            if named and len(set(named)) <= MOST_CATEGORIES and written:
+                usable[path, "value"] = named
+            elif len(set(named)) > MOST_CATEGORIES:
                 usable[path, "length"] = [len(value) for value in seen]
         elif all(isinstance(value, (int, float)) for value in seen):
             usable[path, "value"] = seen
@@ -91,7 +94,7 @@ def row(state, features: Iterable[Feature]) -> dict[Feature, float | str]:
         if measure == "length":
             if isinstance(value, str):
                 found[path, measure] = len(value)
-        else:
+        elif value != "":
             found[path, measure] = value
     return found
 

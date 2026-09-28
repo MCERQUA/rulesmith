@@ -254,3 +254,11 @@ def test_a_download_that_is_not_the_published_file_is_refused(tmp_path, monkeypa
 
     digest = hashlib.sha1(source.read_bytes()).hexdigest()
     assert cached(source.as_uri(), "data.csv", sha1=digest).read_text() == "a,b\n1,2\n"
+
+
+def test_the_judge_waits_as_long_as_the_run_allows():
+    # Four datasets, chess and DSPy queue on one local judge; the SDK's ten seconds ended runs.
+    from rulesmith.bench import judge_client
+
+    with judge_client("http://127.0.0.1:9", 3600) as client:
+        assert client._config.timeout == 3600

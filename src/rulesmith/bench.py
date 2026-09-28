@@ -569,9 +569,15 @@ def language_model(
     )
 
 
-def main() -> None:
+def judge_client(base_url: str, timeout: float):
+    """The local judge, waiting as long as a generative request may: every run of a benchmark
+    queues on the same judge, and the SDK's ten seconds ended runs that were only waiting."""
     from typesafe_sdk import TypeSafeClient
 
+    return TypeSafeClient(base_url=base_url, api_key="local-no-auth", timeout=timeout)
+
+
+def main() -> None:
     root = argparse.ArgumentParser(description=__doc__)
     commands = root.add_subparsers(dest="command", required=True)
     bench = commands.add_parser("run", help="Run methods over seeds, resuming a results file")
@@ -661,7 +667,7 @@ def main() -> None:
     models = {"judge": args.judge_model, "note": args.note or "", "call_cost": args.call_cost} | {
         role: getattr(args, f"{role}_model") for role in lms if getattr(args, f"{role}_model")
     }
-    with TypeSafeClient(base_url=args.judge_base_url, api_key="local-no-auth") as client:
+    with judge_client(args.judge_base_url, args.timeout) as client:
         resources = Models(
             client=client,
             judge=args.judge_model,
