@@ -5,7 +5,8 @@
 #   benchmarks/overnight.sh                # 10 hours, proposer served by LM Studio
 #   HOURS=4 benchmarks/overnight.sh
 #   PROPOSER_MODEL=openrouter/qwen/qwen3.8-27b PROPOSER_URL= benchmarks/overnight.sh
-#   JUDGES="http://127.0.0.1:8010 http://127.0.0.1:8012" benchmarks/overnight.sh
+#   JUDGES="http://127.0.0.1:8010 http://127.0.0.1:8012" STUDENT_PORTS="8081 8082 8083" \
+#     benchmarks/overnight.sh
 #   kill $(cat runs/overnight/driver.pid)   # stop it, and only it
 #
 # One Ruling answers one request at a time, so a second on another port shares the datasets.
@@ -36,7 +37,7 @@ if [[ -n ${PROPOSER_OPTIONS:-} ]]; then
   reflector+=(--reflection-options $PROPOSER_OPTIONS)
 fi
 STUDENT=${STUDENT:-mlx-community/Qwen3.5-4B-4bit}
-STUDENT_PORT=${STUDENT_PORT:-8081}
+STUDENT_PORTS=(${=STUDENT_PORTS:-8081})
 BUDGET=${BUDGET:-200}
 LOGS=runs/overnight
 mkdir -p $LOGS benchmarks/results
@@ -79,25 +80,29 @@ for judge in $JUDGES; do
       >$ROOT/$LOGS/ruling-${judge##*:}.log 2>&1 &)
   fi
 done
-if ! up http://127.0.0.1:$STUDENT_PORT/v1/models; then
-  note "starting the DSPy student $STUDENT"
-  # Capped batching and prompt cache: uncapped, a burst of long chain-of-thought replies ran the
-  # GPU out of memory and left the server answering nothing but status checks.
-  (cd $RULING_DIR && nohup uv run mlx_lm.server --model $STUDENT --port $STUDENT_PORT \
-    --decode-concurrency 4 --prompt-concurrency 2 --prompt-cache-bytes 1000000000 \
-    >$ROOT/$LOGS/student.log 2>&1 &)
-fi
+# One request at a time per server, as Ruling runs: mlx_lm's batching ran the GPU out of memory,
+# and with that capped, out of Metal allocations, and either way stopped generating while still
+# answering status checks. Several servers share the datasets instead.
+for port in $STUDENT_PORTS; do
+  if ! up http://127.0.0.1:$port/v1/models; then
+    note "starting the DSPy student $STUDENT on $port"
+    (cd $RULING_DIR && nohup uv run mlx_lm.server --model $STUDENT --port $port \
+      --decode-concurrency 1 --prompt-concurrency 1 >$ROOT/$LOGS/student-$port.log 2>&1 &)
+  fi
+done
 for judge in $JUDGES; do
   ready $judge/v1/models || { note "Ruling did not start at $judge; see $LOGS"; exit 1; }
 done
-ready http://127.0.0.1:$STUDENT_PORT/v1/models || { note "student did not start"; exit 1; }
+for port in $STUDENT_PORTS; do
+  ready http://127.0.0.1:$port/v1/models || { note "student did not start on $port"; exit 1; }
+done
 if [[ -n $PROPOSER_URL ]] && ! curl -s -m 10 $PROPOSER_URL/models | grep -q "\"${PROPOSER_MODEL#openai/}\""; then
   note "nothing serves $PROPOSER_MODEL at $PROPOSER_URL; load it and run again"
   exit 1
 fi
 
 bench() {
-  local dataset=$1 judge=$2; shift 2
+  local dataset=$1 judge=$2 student=$3; shift 3
   # A crash loses only the step it was on, so try again while there is time left.
   for attempt in 1 2 3; do
     local left=$(( (deadline - $(date +%s)) / 3600.0 ))
@@ -106,7 +111,7 @@ bench() {
     uv run python3 -m rulesmith.bench run $dataset --seeds 0 1 2 --methods "$@" \
       --train 50 --validation 50 --test 300 --budget $BUDGET --hours $left --judge-base-url $judge \
       $proposer \
-      --student-model openai/$STUDENT --student-base-url http://127.0.0.1:$STUDENT_PORT/v1 \
+      --student-model openai/$STUDENT --student-base-url http://127.0.0.1:$student/v1 \
       --student-options '{"chat_template_kwargs": {"enable_thinking": false}}' \
       --note "Ruling with RULING_ROTATIONS=1 (one option ordering per question), $STUDENT" \
       --output benchmarks/results/$dataset.json >>$LOGS/$dataset.log 2>&1 \
@@ -136,12 +141,14 @@ chess() {
 # Banking77's seventy-seven options make it the heaviest on a judge, so it and news take the
 # second judge when there is one.
 first=$JUDGES[1] second=${JUDGES[2]:-$JUDGES[1]}
-bench trec $first majority tfidf direct search dspy dspy-cot & runs+=($!)
-bench clothing $first majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
-bench jobs $first majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
-bench banking77 $second majority tfidf direct search dspy & runs+=($!)
+# Datasets take the DSPy students in turn.
+student() { print ${STUDENT_PORTS[$(( ($1 - 1) % ${#STUDENT_PORTS} + 1 ))]}; }
+bench trec $first $(student 1) majority tfidf direct search dspy dspy-cot & runs+=($!)
+bench clothing $first $(student 2) majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
+bench jobs $first $(student 3) majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
+bench banking77 $second $(student 4) majority tfidf direct search dspy & runs+=($!)
 # Chosen before any result and used for nothing while building: the check on the rest.
-bench news $second majority tfidf direct search dspy dspy-cot & runs+=($!)
+bench news $second $(student 5) majority tfidf direct search dspy dspy-cot & runs+=($!)
 chess & runs+=($!)
 
 # The hard stop: whatever is still running at the deadline ends, and what finished is kept.
