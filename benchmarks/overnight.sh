@@ -81,7 +81,10 @@ for judge in $JUDGES; do
 done
 if ! up http://127.0.0.1:$STUDENT_PORT/v1/models; then
   note "starting the DSPy student $STUDENT"
+  # Capped batching and prompt cache: uncapped, a burst of long chain-of-thought replies ran the
+  # GPU out of memory and left the server answering nothing but status checks.
   (cd $RULING_DIR && nohup uv run mlx_lm.server --model $STUDENT --port $STUDENT_PORT \
+    --decode-concurrency 8 --prompt-concurrency 4 --prompt-cache-bytes 2000000000 \
     >$ROOT/$LOGS/student.log 2>&1 &)
 fi
 for judge in $JUDGES; do
