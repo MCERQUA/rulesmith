@@ -238,3 +238,11 @@ def test_nothing_new_starts_after_the_deadline(tmp_path):
     assert runs == [] and not output.exists()
     runs = run(toy(), [0], ["majority"], sizes, output, {}, deadline=time.time() + 3600)
     assert [r["method"] for r in runs] == ["majority"]
+
+
+def test_the_judge_waits_as_long_as_the_run_allows():
+    # Four datasets, chess and DSPy queue on one local judge; the SDK's ten seconds ended runs.
+    from rulesmith.bench import judge_client
+
+    with judge_client("http://127.0.0.1:9", 3600) as client:
+        assert client._config.timeout == 3600
