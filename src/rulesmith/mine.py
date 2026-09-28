@@ -41,7 +41,7 @@ def scalars(state, prefix: tuple[str, ...] = ()) -> dict[tuple[str, ...], float 
         path = (*prefix, str(key))
         if isinstance(value, bool) or value is None:
             continue
-        if isinstance(value, (int, float, str)):
+        if isinstance(value, (int, float)) or (isinstance(value, str) and value):
             found[path] = value
         else:
             found |= scalars(value, path)
@@ -60,9 +60,11 @@ def columns(examples: list[Example]) -> dict[tuple[str, ...], list]:
         if not all(re.fullmatch(r"[A-Za-z_]\w*", part) for part in path):
             continue
         if all(isinstance(value, str) for value in seen):
-            written = all(not set(",[]\n") & set(value) for value in seen)
-            if len(set(seen)) <= MOST_CATEGORIES and written:
-                usable[path] = seen
+            # A blank is no label a rule can name; the example simply lacks the field.
+            named = [value for value in seen if value]
+            written = all(not set(",[]\n") & set(value) for value in named)
+            if named and len(set(named)) <= MOST_CATEGORIES and written:
+                usable[path] = named
         elif all(isinstance(value, (int, float)) for value in seen):
             usable[path] = seen
     return usable
