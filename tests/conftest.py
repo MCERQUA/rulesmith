@@ -5,6 +5,9 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
+# Before any test module imports dspy: DSPy (3.3 and 3.4) replaces numpy with a lazy proxy that
+# breaks pyarrow if pyarrow loads after it, and the benchmark tests need pyarrow.
+import pyarrow.parquet  # noqa: F401  # isort: skip
 import pytest
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
