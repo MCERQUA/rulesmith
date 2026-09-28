@@ -334,7 +334,11 @@ def dspy_baseline(
 
     with dspy.context(lm=student, adapter=text_adapter()):
         optimizer = dspy.GEPA(
-            metric=metric, max_metric_calls=budget, reflection_lm=reflection, seed=seed
+            metric=metric,
+            max_metric_calls=budget,
+            reflection_lm=reflection,
+            seed=seed,
+            num_threads=DSPY_THREADS,
         )
         tuned = optimizer.compile(
             program, trainset=dspy_examples(task.train), valset=dspy_examples(task.validation)
@@ -635,7 +639,7 @@ def main() -> None:
         help="Start nothing new after this many hours; finished results are kept either way",
     )
     bench.add_argument(
-        "--retries", type=int, default=3, help="Retries for a failed generative request"
+        "--retries", type=int, default=10, help="Retries for a failed generative request"
     )
     bench.add_argument("--output", type=Path, required=True)
     games = commands.add_parser("chess", help="Play chess graphs against a fixed-strength engine")
@@ -837,6 +841,9 @@ TREC_REVISION = "0a34640b3cac3affef6f0abdfb81e3d0ecffcf92"
 JOBS_REPO = "victor/real-or-fake-fake-jobposting-prediction"
 JOBS_REVISION = "a751f55136a26da3c36e26aa207a9e187ca24b45"
 SIGNIFICANCE = 0.1
+# DSPy evaluates eight examples at once by default; five datasets doing that at once swamp one
+# local model server, and a connection it drops ends the run inside DSPy's GEPA.
+DSPY_THREADS = 4
 NEWS_SHA1 = {
     "train": "ab226210b6a878b449d01f33a195014c65c22311",
     "test": "a71516784ce6e168bd9933e9ec50080f65cb05fd",
