@@ -2,10 +2,12 @@
 # Every public benchmark, run locally with a hard time limit. Results resume from their files in
 # benchmarks/results, so running this again picks up where an interrupted run stopped.
 #
-#   benchmarks/overnight.sh                # 10 hours
+#   benchmarks/overnight.sh                # 10 hours, proposer served by LM Studio
 #   HOURS=4 benchmarks/overnight.sh
+#   PROPOSER_MODEL=openrouter/qwen/qwen3.8-27b PROPOSER_URL= benchmarks/overnight.sh
 #
-# Needs: LM Studio serving $PROPOSER, a checkout of Ruling at $RULING_DIR, and Stockfish at
+# Needs: the proposer (LM Studio at $PROPOSER_URL, or a hosted model with its key in the
+# environment when PROPOSER_URL is empty), a checkout of Ruling at $RULING_DIR, and Stockfish at
 # $STOCKFISH for the chess run. Logs and a status file go to runs/overnight.
 set -u
 cd "${0:A:h}/.."
@@ -14,8 +16,14 @@ ROOT=$PWD
 HOURS=${HOURS:-10}
 RULING_DIR=${RULING_DIR:-../ruling}
 STOCKFISH=${STOCKFISH:-$HOME/.local/bin/stockfish}
-PROPOSER=${PROPOSER:-qwen3.8-27b-mlx}
-PROPOSER_URL=${PROPOSER_URL:-http://127.0.0.1:1234/v1}
+PROPOSER_MODEL=${PROPOSER_MODEL:-openai/qwen3.8-27b-mlx}
+PROPOSER_URL=${PROPOSER_URL-http://127.0.0.1:1234/v1}
+proposer=(--proposer-model $PROPOSER_MODEL)
+reflector=(--reflection-model $PROPOSER_MODEL)
+if [[ -n $PROPOSER_URL ]]; then
+  proposer+=(--proposer-base-url $PROPOSER_URL)
+  reflector+=(--reflection-base-url $PROPOSER_URL)
+fi
 STUDENT=${STUDENT:-mlx-community/Qwen3.5-4B-4bit}
 STUDENT_PORT=${STUDENT_PORT:-8081}
 BUDGET=${BUDGET:-200}
@@ -46,10 +54,10 @@ if ! up http://127.0.0.1:$STUDENT_PORT/v1/models; then
 fi
 ready http://127.0.0.1:8010/v1/models || { note "Ruling did not start; see $LOGS/ruling.log"; exit 1; }
 ready http://127.0.0.1:$STUDENT_PORT/v1/models || { note "student did not start"; exit 1; }
-curl -s -m 10 $PROPOSER_URL/models | grep -q "\"$PROPOSER\"" || {
-  note "LM Studio is not serving $PROPOSER at $PROPOSER_URL; load it and run again"
+if [[ -n $PROPOSER_URL ]] && ! curl -s -m 10 $PROPOSER_URL/models | grep -q "\"${PROPOSER_MODEL#openai/}\""; then
+  note "nothing serves $PROPOSER_MODEL at $PROPOSER_URL; load it and run again"
   exit 1
-}
+fi
 
 bench() {
   local dataset=$1; shift
@@ -60,7 +68,7 @@ bench() {
     note "$dataset: attempt $attempt, ${left}h left"
     uv run python3 -m rulesmith.bench run $dataset --seeds 0 1 2 --methods "$@" \
       --train 50 --validation 50 --test 300 --budget $BUDGET --hours $left \
-      --proposer-model openai/$PROPOSER --proposer-base-url $PROPOSER_URL \
+      $proposer \
       --student-model openai/$STUDENT --student-base-url http://127.0.0.1:$STUDENT_PORT/v1 \
       --student-options '{"chat_template_kwargs": {"enable_thinking": false}}' \
       --note "Ruling with RULING_ROTATIONS=1 (one option ordering per question), $STUDENT" \
@@ -74,7 +82,7 @@ chess() {
   note "chess: searching against Stockfish from greedy"
   uv run rulesmith optimize examples/chess/stockfish.json examples/chess/graphs/greedy.rules \
     --engine $STOCKFISH --backend ruling --max-workers 1 \
-    --reflection-model openai/$PROPOSER --reflection-base-url $PROPOSER_URL \
+    $reflector \
     --reflection-max-tokens 16384 --reflection-timeout 3600 --max-metric-calls $BUDGET \
     --output $LOGS/chess-search >>$LOGS/chess.log 2>&1 || { note "chess: search failed"; return; }
   for graph in $LOGS/chess-search/plan.json examples/chess/graphs/greedy.rules; do
