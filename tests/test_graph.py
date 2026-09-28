@@ -218,6 +218,7 @@ def task_data():
         lambda t: t["test"][0].update(label="invented"),
         lambda t: t.update(validation=[]),
         lambda t: t.update(labels=["accept", "accept"]),
+        lambda t: t.update(descriptions={"invented": "A label the task does not have."}),
     ],
 )
 def test_task_rejects_leakage_and_invalid_targets(change):

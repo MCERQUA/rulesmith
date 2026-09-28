@@ -175,15 +175,21 @@ def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, paral
         return list(pool.map(lambda example: score(program, example), examples))
 
 
-def components(plan: Plan) -> dict[str, str]:
+def described_labels(task: SearchTask) -> dict[str, str] | None:
+    """What a question written '[task labels]' asks: a labeled task's labels, each with its
+    description. A game's actions have none, so its rules write every choice out."""
+    return task.criteria() if isinstance(task, Task) else None
+
+
+def components(plan: Plan, labels: dict[str, str] | None = None) -> dict[str, str]:
     """The candidate a proposer revises: rules, not the graph they compile to."""
-    return parts(plan)
+    return parts(plan, labels)
 
 
-def assemble(candidate: dict[str, str]) -> Plan:
+def assemble(candidate: dict[str, str], labels: dict[str, str] | None = None) -> Plan:
     """The plan a candidate describes, however its parts were rewritten."""
     try:
-        return whole(candidate)
+        return whole(candidate, labels)
     except RuleError as error:
         raise ValueError(str(error)) from error
 
@@ -199,6 +205,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         score: Scorer | None = None,
     ):
         self.task = task
+        self.labels = described_labels(task)
         self.score = score or Labels(task)
         self.client = client
         self.model = model
@@ -216,7 +223,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         self.scored: dict[tuple[str, str], Outcome] = {}
 
     def parse(self, candidate: dict[str, str]) -> Plan:
-        plan = assemble(candidate)
+        plan = assemble(candidate, self.labels)
         plan.check(self.task.labels, self.config.max_nodes, self.config.max_depth)
         return plan
 
@@ -291,6 +298,14 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
             "outputs": {"label": {"type": "node", "node": "decision"}},
         }
     )
+    # Only a labeled task describes its labels; a game's rules have no list to point to.
+    every_label = (
+        "A choice over every allowed label, each as the task describes it, is written "
+        "'ask intent = \"question\" [task labels]' instead of listing them; keep that form "
+        "rather than writing the labels out. "
+        if isinstance(task, Task)
+        else ""
+    )
     return (
         "Improve this decision program using observed execution failures. It is written in "
         "two parts, 'readings' (what it may look at and ask) and 'rules' (what it decides), "
@@ -356,7 +371,9 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "'ask severity = \"question\" [minor] [major] [critical]' answers a position on that "
         "rubric, ordered, tested 'severity >= 2'; and "
         "'ask winning = \"a statement that is either true or false\"' answers the probability "
-        "that it is true, tested 'winning >= 0.8'. Ask for a probability when a threshold "
+        "that it is true, tested 'winning >= 0.8'. "
+        f"{every_label}"
+        "Ask for a probability when a threshold "
         "suits the decision, and for labels when the answers have no order. Any judgment may "
         "end 'when <condition>' to be asked only then, which is how a costly question is kept "
         "behind a cheap reading. A judgment reads the whole input unless it ends 'given' a "
@@ -477,7 +494,7 @@ def optimize_plan(
 
     adapter.propose_new_texts = propose
     result = gepa.optimize(
-        seed_candidate=components(initial),
+        seed_candidate=components(initial, adapter.labels),
         trainset=task.train,
         valset=task.validation,
         adapter=adapter,

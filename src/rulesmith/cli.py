@@ -28,6 +28,7 @@ from rulesmith.optimize import (
     GraphProposer,
     Labels,
     SearchConfig,
+    described_labels,
     evaluate_plan,
     optimize_plan,
 )
@@ -214,7 +215,7 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         cli.error(f"output already exists: {args.output}")
     # A plan is structurally valid once it loads; size limits bound what search may write, and
     # have nothing to say about measuring a graph that already exists.
-    plan = read_plan(cli, args.plan)
+    plan = read_plan(cli, args.plan, task)
     examples = getattr(task, args.split)
     if not all(hasattr(example, "state") for example in examples):
         cli.error(
@@ -256,7 +257,7 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     for path in args.plans:
         if path.stem in plans:
             cli.error(f"entrants share the name {path.stem}; rename a plan file")
-        plans[path.stem] = read_plan(cli, path)
+        plans[path.stem] = read_plan(cli, path, task)
         plans[path.stem].check(task.labels, args.max_nodes, args.max_depth)
     if len(plans) < 2:
         cli.error("the arena needs at least two entrants")
@@ -346,12 +347,17 @@ def opponent_of(args: argparse.Namespace) -> str | None:
     return str(args.opponent) if getattr(args, "opponent", None) else None
 
 
-def read_plan(cli: argparse.ArgumentParser, path: Path) -> Plan:
-    """A graph from its JSON, or from the rules it is written as. A file that does not hold one
-    is a mistake in the command, reported as such rather than as a crash."""
+def read_plan(
+    cli: argparse.ArgumentParser, path: Path, task: Task | DoomTask | ChessTask | None = None
+) -> Plan:
+    """A graph from its JSON, or from the rules it is written as, which may ask over the labels
+    of the task the command names. A file that does not hold one is a mistake in the command,
+    reported as such rather than as a crash."""
     text = path.read_text()
     try:
-        return compile_rules(text) if path.suffix == ".rules" else Plan.model_validate_json(text)
+        if path.suffix == ".rules":
+            return compile_rules(text, described_labels(task) if task else None)
+        return Plan.model_validate_json(text)
     except ValueError as error:
         cli.error(f"{path}: {error}")
 
@@ -385,9 +391,8 @@ def main() -> None:
     if args.command == "ablate":
         ablation(cli, args)
         return
-    if args.command != "run":
-        task = load_task(cli, args.task)
-    plan = read_plan(cli, args.plan) if args.plan else task.baseline_plan()
+    task = None if args.command == "run" else load_task(cli, args.task)
+    plan = read_plan(cli, args.plan, task) if args.plan else task.baseline_plan()
     if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
@@ -410,7 +415,7 @@ def main() -> None:
         cli.error("--opponent is required for, and only for, tasks played against another graph")
     opponent = None
     if played and not engine:
-        opponent = read_plan(cli, args.opponent)
+        opponent = read_plan(cli, args.opponent, task)
         opponent.check(task.labels, args.max_nodes, args.max_depth)
     if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
         cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")

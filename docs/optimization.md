@@ -168,7 +168,10 @@ always: MOVE_FORWARD
   reading a name the rules use instead of its path, or `ask <name> = "question" [label: "when it applies"] ...`
   for a judgment, which may end `when <condition>` to be asked only then. A judgment
   reads the whole input unless it names what it is shown with `given [a, b]`;
-  `observation` in that list is the whole input.
+  `observation` in that list is the whole input. `[task labels]` in place of the
+  labels, as in `ask intent = "Which intent is this?" [task labels]`, asks over
+  every task label as the task's `descriptions` describe it. A choice over exactly
+  those, in the task's order, is shown to the proposer in this short form.
 - **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
   An action is a label, a conditional such as
   `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`, or an ask without a name, whose

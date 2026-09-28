@@ -49,6 +49,9 @@ GENERATED = re.compile(r"(read|rule|decision|confidence)_\w*|decision")
 QUOTED = re.compile(r'\s*"(?:[^"\\]|\\.)*"')
 PAIR = re.compile(r'\[([^:\]]+):\s*("(?:[^"\\]|\\.)*")\]')
 LEVEL = re.compile(r"\[([^:\]\[]+)\]")
+# A choice over every label the task has, as the task describes them: a task of dozens of labels
+# would otherwise have its whole list restated each time a proposer touches the question.
+TASK_LABELS = "[task labels]"
 # The output a task scores, and the one rules decide unless a section names another.
 LABEL_OUTPUT = "label"
 OUTPUT = re.compile(r"output (\w+):")
@@ -58,11 +61,11 @@ WHOLE = "observation"
 JOINERS = ((" or ", "any"), (" and ", "all"))
 
 
-def parts(plan: Plan) -> dict[str, str]:
+def parts(plan: Plan, labels: dict[str, str] | None = None) -> dict[str, str]:
     """The rules split into what the graph can know and what it decides, for search to revise
     one at a time. A graph beyond rules is carried whole, as JSON, in its rules part."""
     try:
-        lines = render_rules(plan).splitlines()
+        lines = render_rules(plan, labels).splitlines()
     except RuleError:
         return {"readings": "", "rules": plan.model_dump_json(indent=2)}
     # A judgment asked under a named condition follows that name, so it and everything after it
@@ -72,14 +75,14 @@ def parts(plan: Plan) -> dict[str, str]:
     return {readings: "\n".join(declared), rules: "\n".join(lines[len(declared) :])}
 
 
-def whole(candidate: dict[str, str]) -> Plan:
+def whole(candidate: dict[str, str], labels: dict[str, str] | None = None) -> Plan:
     """One plan from the parts a proposer returned: readings first, so rules can name them."""
     order = [part for part in SECTIONS if part in candidate]
     order += [part for part in candidate if part not in SECTIONS]
     written = [candidate[part] for part in order if candidate[part]]
     # An answer in whole-graph JSON is the program entire, not a part to join to the rules.
     graph = [text for text in written if text.lstrip().startswith("{")]
-    return compile_rules(graph[-1] if graph else "\n".join(written))
+    return compile_rules(graph[-1] if graph else "\n".join(written), labels)
 
 
 class RuleError(ValueError):
@@ -162,9 +165,10 @@ def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
     return node
 
 
-def render_rules(plan: Plan) -> str:
+def render_rules(plan: Plan, labels: dict[str, str] | None = None) -> str:
     """The plan as rules, or a RuleError naming what has no rule form. The label's rules come
-    first; every other output follows under its own 'output <name>:' heading."""
+    first; every other output follows under its own 'output <name>:' heading. A choice over
+    exactly the task `labels` given, each described as the task describes it, is written short."""
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
     acting: set[str] = set()
     for output, source in plan.outputs.items():
@@ -183,7 +187,7 @@ def render_rules(plan: Plan) -> str:
         )
         named = "" if GENERATED.fullmatch(name) else f"{name} = "
         lines.append(f"read {named}{path_of(read)} {domain}")
-    lines += declarations(plan, acting, reads)
+    lines += declarations(plan, acting, reads, labels)
     for output in sorted(plan.outputs, key=lambda output: output != LABEL_OUTPUT):
         if output != LABEL_OUTPUT:
             lines.append(f"output {output}:")
@@ -192,7 +196,7 @@ def render_rules(plan: Plan) -> str:
             lines.append(f"always: {label_text(source.value)}")
             continue
         for name, guard in ordered(plan, source.node):
-            action = render_action(plan.nodes[name], reads, plan)
+            action = render_action(plan.nodes[name], reads, plan, labels)
             condition = render_condition(guard, reads, plan) if guard else None
             lines.append(f"{'when ' + condition if condition else 'always'}: {action}")
     return "\n".join(lines)
@@ -206,7 +210,9 @@ def spine(plan: Plan, top: str) -> set[str]:
     return {top}
 
 
-def declarations(plan: Plan, acting: set[str], reads: dict[str, Read]) -> list[str]:
+def declarations(
+    plan: Plan, acting: set[str], reads: dict[str, Read], labels: dict[str, str] | None
+) -> list[str]:
     """A line for every name the rules test, each after the names it is built from. Judgments
     come first and votes after them, as the reader expects, unless a name has to go earlier."""
     dependencies, written, lines = plan.dependencies(), set(), []
@@ -220,7 +226,7 @@ def declarations(plan: Plan, acting: set[str], reads: dict[str, Read]) -> list[s
         node = plan.nodes[name]
         # A confidence is written where it is tested, as the judgment's name and '.confidence'.
         if not isinstance(node, Confidence):
-            lines.append(declaration(name, node, reads, plan))
+            lines.append(declaration(name, node, reads, plan, labels))
 
     rank = {Call: 0, Vote: 1}
     for name in sorted(plan.nodes, key=lambda name: rank.get(type(plan.nodes[name]), 2)):
@@ -233,10 +239,12 @@ def named_condition(node) -> bool:
     return isinstance(node, Value) and node.value is True and node.when is not None
 
 
-def declaration(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
+def declaration(
+    name: str, node, reads: dict[str, Read], plan: Plan, labels: dict[str, str] | None
+) -> str:
     if isinstance(node, Call):
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
-        return f"ask {name} = {render_action(node, reads, plan).removeprefix('ask ')}{gate}"
+        return f"ask {name} = {render_action(node, reads, plan, labels).removeprefix('ask ')}{gate}"
     if isinstance(node, Vote):
         voters = ", ".join(name_of(source, reads, plan) for source in node.sources)
         return f"vote {name} = {node.rule} of [{voters}]"
@@ -281,7 +289,7 @@ def ordered(plan: Plan, top: str, guard: Condition | None = None) -> list[tuple[
     raise RuleError(f"{node.type} node {top!r} has no rule form")
 
 
-def render_action(node, reads: dict[str, Read], plan: Plan) -> str:
+def render_action(node, reads: dict[str, Read], plan: Plan, labels: dict[str, str] | None) -> str:
     if isinstance(node, Value):
         return label_text(node.value)
     if isinstance(node, Threshold):
@@ -293,6 +301,9 @@ def render_action(node, reads: dict[str, Read], plan: Plan) -> str:
     if question.type == "score":
         listed(question.criteria, "the rubric level", ",[]:")
         asked += " " + " ".join(f"[{level}]" for level in question.criteria)
+    # Order counts: the judge reads the options in the order the question lists them.
+    elif question.type == "choice" and labels and [*question.criteria.items()] == [*labels.items()]:
+        asked += " " + TASK_LABELS
     elif question.type == "choice":
         listed(list(question.criteria), "the choice", ",[]:")
         asked += " " + " ".join(f"[{k}: {quoted(v)}]" for k, v in question.criteria.items())
@@ -317,8 +328,9 @@ def render_given(node: Call, reads: dict[str, Read], plan: Plan) -> str:
     return f" given [{', '.join(node.inputs)}]"
 
 
-def compile_rules(text: str) -> Plan:
-    """A plan from rule text, or from whole-graph JSON for what rules cannot say."""
+def compile_rules(text: str, labels: dict[str, str] | None = None) -> Plan:
+    """A plan from rule text, or from whole-graph JSON for what rules cannot say. `labels` maps
+    each task label to its description, and is what a question written '[task labels]' asks."""
     stripped = text.strip()
     if stripped.startswith("{"):
         try:
@@ -342,7 +354,7 @@ def compile_rules(text: str) -> Plan:
             sections[heading.group(1)] = []
             continue
         try:
-            read_rule(line, nodes, names, list(sections.values())[-1])
+            read_rule(line, nodes, names, list(sections.values())[-1], labels)
         # Malformed JSON inside a line is as much the line's fault as a rule error.
         except ValueError as error:
             raise RuleError(f"line {line_number}: {error}") from error
@@ -388,14 +400,16 @@ def pruned(nodes: dict, outputs: dict) -> Plan:
         raise RuleError(str(error)) from error
 
 
-def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
+def read_rule(
+    line: str, nodes: dict, names: dict, sources: list, labels: dict[str, str] | None
+) -> None:
     if line.startswith("read "):
         declare_read(line[5:].strip(), nodes, names)
         return
     if line.startswith("ask ") and "=" in line.split("[", 1)[0]:
         name, _, question = line[4:].partition("=")
         question, gate = split_gate(question.strip())
-        node = parse_action(f"ask {question}", names, nodes)
+        node = parse_action(f"ask {question}", names, nodes, labels)
         if gate:
             node["when"] = parse_condition(gate, names, nodes)
         claim(name.strip(), node, nodes, names)
@@ -438,7 +452,9 @@ def read_rule(line: str, nodes: dict, names: dict, sources: list) -> None:
     )
     # Numbered across every output, so each output's rules keep distinct names.
     name = f"rule_{sum(key.startswith('rule_') for key in nodes) + 1}"
-    nodes[name] = parse_action(action.strip(), names, nodes) | ({"when": guard} if guard else {})
+    nodes[name] = parse_action(action.strip(), names, nodes, labels) | (
+        {"when": guard} if guard else {}
+    )
     sources.append(name)
 
 
@@ -631,7 +647,7 @@ def named(path: str, names: dict, nodes: dict | None = None) -> str:
     return names[path]
 
 
-def parse_action(text: str, names: dict, nodes: dict) -> dict:
+def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | None) -> dict:
     if text.startswith("ask "):
         body = text[4:].strip()
         given = re.search(r"\s+given\s+\[([^\]]*)\]\s*$", body)
@@ -652,6 +668,11 @@ def parse_action(text: str, names: dict, nodes: dict) -> dict:
             raise RuleError(f"a question is quoted text, not {body!r}")
         question: dict = {"instructions": json.loads(instructions.group())}
         criteria = body[instructions.end() :]
+        if criteria.strip() == TASK_LABELS:
+            if labels is None:
+                raise RuleError(f"{TASK_LABELS} asks over a task's labels, so it needs a task")
+            question |= {"type": "choice", "criteria": dict(labels)}
+            return {"type": "call", "question": question, "inputs": inputs}
         pairs = PAIR.findall(criteria)
         levels = [] if pairs else LEVEL.findall(criteria)
         # Whatever the brackets fail to account for would be dropped without a word.

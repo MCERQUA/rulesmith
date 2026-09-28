@@ -190,14 +190,15 @@ def test_the_proposer_is_told_every_kind_of_judgment_it_may_ask():
     from rulesmith.graph import Task
     from rulesmith.optimize import SearchConfig, proposer_prompt
 
-    prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
+    task = Task.model_validate(task_data())
+    prompt = proposer_prompt(task, SearchConfig())
     # A form given named values needs readings declared, and has a test of its own.
     asked = [form for form in re.findall(r"'(ask [^']+)'", prompt) if " given [" not in form]
     kinds = set()
     for form in asked:
         name = form.split()[1]
         # A judgment nothing asks about is pruned, so give each one a rule that uses it.
-        plan = compile_rules(f"{form}\nwhen {name}: review\nalways: accept")
+        plan = compile_rules(f"{form}\nwhen {name}: review\nalways: accept", task.criteria())
         kinds |= {node.question.type for node in plan.nodes.values() if node.type == "call"}
     assert kinds == {"choice", "score", "noul"}
 

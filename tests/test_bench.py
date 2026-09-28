@@ -66,7 +66,8 @@ def test_a_sample_larger_than_the_pool_is_refused():
 
 def test_the_direct_call_asks_one_question_over_every_label(provider, client):
     task = sample(toy(), 6, 3, 3, 0)
-    plan = direct_plan(task, LABELS)
+    plan = direct_plan(task)
+    assert plan.nodes["label"].question.criteria == LABELS
     plan.check(task.labels, 16, 8)
     provider.answers = {
         "label": {

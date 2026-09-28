@@ -346,6 +346,14 @@ ask close = "The enemy is close enough to fight." given [enemy.distance, health]
 `given [observation, first]` shows it the whole input and another judgment's
 answer, which is how one judgment checks another's work.
 
+A choice over every label the task has need not list them.
+`ask intent = "Which intent is this?" [task labels]` asks over the task's
+labels, each described by the task's `descriptions` (`"descriptions":
+{"card_arrival": "The customer is waiting for a card to arrive."}`) or, where
+it has none, by its own words with underscores read as spaces. Search writes
+such a question this way, so a proposer revising a 77-label question rewrites one
+line, not 77. The form needs a task, so `rulesmith draw` and `run` refuse it.
+
 Two things a rule can say about a judgment besides what it answered.
 
 **How sure it was.** A choice or a score comes back with a confidence, and
