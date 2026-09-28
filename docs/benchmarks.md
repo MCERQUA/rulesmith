@@ -112,6 +112,15 @@ when has_company_logo == 0 and length of company_profile == 0: fraudulent
 always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
 ```
 
+**At the real scam rate, that rule is much worse than it looks here.** The benchmark samples
+both labels equally; in the dataset fewer than 5% of postings are scams. On all 3,576 test
+postings at the real rate, the rule fires on 14% of them with precision 0.24: three in four
+postings it calls scams are genuine, though it catches 71% of scams. On the balanced samples
+its precision is 0.85 to 0.89 on held-out test postings, as on the examples search saw, so it
+did not overfit its examples; it fits the balanced rate it was searched on. For real use,
+search on a sample at the real rate, with a cost matrix that prices flagging a genuine
+posting.
+
 Search beats every language-model method here by 9 to 19 points. TF-IDF beats search by 8:
 scam postings share vocabulary that a word-level classifier picks up from 100 examples and a
 judge reading one posting at a time does not.
