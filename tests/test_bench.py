@@ -1,23 +1,33 @@
 """The benchmark harness: tasks drawn from public data, baselines, and the report."""
 
 import json
+import time
+from statistics import mean
+from typing import Literal
 
 import pytest
+from conftest import chat_reply
 from hypothesis import given
 from hypothesis import strategies as st
 
 from rulesmith.bench import (
+    Answer,
     Dataset,
+    Models,
     direct_plan,
+    dspy_answers,
     elo_against,
+    graph_answers,
     majority,
+    mcnemar,
+    measure,
     record,
     report,
     run,
     sample,
+    selective,
     summarize,
     tfidf,
-    tokens_and_calls,
 )
 from rulesmith.graph import Task
 
@@ -82,44 +92,107 @@ def test_a_trained_classifier_separates_what_words_separate():
     assert result["accuracy"] == 1.0 and result["calls_per_example"] == 0
 
 
-def test_calls_and_tokens_are_counted_per_example():
-    records = [
-        {"calls": {"a": {"input_tokens": 10}, "b": {"input_tokens": 0}}, "input_tokens": 10},
-        {"calls": {}, "input_tokens": 0},
-    ]
-    assert tokens_and_calls(records) == (1.0, 5.0)
+def test_a_graph_answer_carries_its_cost_and_how_sure_it_was():
+    asked = {
+        "correct": True,
+        "calls": {"a": {}, "b": {}},
+        "input_tokens": 10,
+        "answers": {
+            "a": {"type": "choice", "value": "x", "probabilities": {"x": 0.7, "y": 0.3}},
+            "b": {"type": "noul", "value": 0.2},
+        },
+    }
+    settled = {"correct": False, "calls": {}, "input_tokens": 0, "answers": {}}
+    failed = {"correct": False, "error": "skipped", "answers": {}}
+    first, second, third = graph_answers([asked, settled, failed])
+    # The least sure judgment decides; rules alone count as sure; a failure as not sure at all.
+    assert (first.calls, first.input_tokens, first.confidence) == (2, 10, 0.7)
+    assert second.confidence == 1.0 and third.confidence == 0.0 and third.invalid
+
+
+@given(st.lists(st.tuples(st.booleans(), st.floats(0, 1)), min_size=1, max_size=50))
+def test_answering_only_the_surest_never_scores_below_ranking_by_chance(pairs):
+    answers = [Answer(correct=c, confidence=f) for c, f in pairs]
+    assert selective(answers, 1.0) == mean(c for c, _ in pairs)
+    # When confidence tracks correctness exactly, keeping the surest can only help.
+    ordered = [Answer(correct=c, confidence=float(c)) for c, _ in pairs]
+    assert selective(ordered, 0.5) >= selective(ordered, 1.0)
+    assert selective([Answer(correct=True)], 0.5) is None
+
+
+def test_mcnemar_tells_a_real_difference_from_chance():
+    same = [True, False] * 50
+    assert mcnemar(same, same) == 1.0
+    # Ten examples only the first got right, none the other way: p = 2 / 2**10.
+    first = [True] * 10 + [False] * 90
+    second = [False] * 100
+    assert mcnemar(first, second) == pytest.approx(2 / 2**10)
+    assert mcnemar(first, second) == mcnemar(second, first)
+
+
+def test_a_balanced_dataset_draws_every_label_about_equally():
+    rows = {
+        split: [(f"{split} rare {i}", "rare") for i in range(40)]
+        + [(f"{split} common {i}", "common") for i in range(400)]
+        for split in ("train", "test")
+    }
+    dataset = Dataset("skewed", "Which?", lambda: rows, str, balanced=True)
+    task = sample(dataset, 20, 20, 40, 0)
+    assert sum(e.label == "rare" for e in task.test) == 20
+    assert abs(sum(e.label == "rare" for e in task.train + task.validation) - 20) <= 1
+
+
+def test_hand_written_rules_are_scored_like_any_graph():
+    rows = toy().rows
+    dataset = Dataset("toy", "Route.", rows, LABELS.__getitem__, handwritten="always: billing")
+    task = sample(dataset, 6, 3, 12, 0)
+    run = measure("handwritten", 0, task, dataset, Models())
+    assert run["accuracy"] == sum(e.label == "billing" for e in task.test) / len(task.test)
+    assert run["calls_per_example"] == 0 and len(run["correct"]) == len(task.test)
+
+
+def test_a_dspy_reply_naming_no_allowed_label_is_invalid(provider):
+    import dspy
+
+    provider.completion = chat_reply(label="bogus")
+    task = sample(toy(), 6, 3, 3, 0)
+    fields = {
+        "text": (str, dspy.InputField()),
+        "label": (Literal[tuple(task.labels)], dspy.OutputField()),
+    }
+    signature = dspy.make_signature(fields, task.description)
+    student = dspy.LM(
+        "openai/fixture-model",
+        api_base=provider.url + "/v1",
+        api_key="test-placeholder",
+        cache=False,
+        num_retries=0,
+    )
+    answers, _ = dspy_answers(dspy.Predict(signature), task, student)
+    assert all(answer.invalid and not answer.correct for answer in answers)
 
 
 def test_the_summary_averages_each_method_over_seeds():
-    runs = [
-        {
-            "method": "direct",
-            "seed": 0,
-            "accuracy": 0.5,
-            "calls_per_example": 1,
-            "tokens_per_example": 100,
-        },
-        {
-            "method": "direct",
-            "seed": 1,
-            "accuracy": 0.7,
-            "calls_per_example": 1,
-            "tokens_per_example": 120,
-        },
-        {
-            "method": "majority",
-            "seed": 0,
-            "accuracy": 0.1,
-            "calls_per_example": 0,
-            "tokens_per_example": 0,
-        },
-    ]
+    def run(method, seed, accuracy, calls):
+        return {
+            "method": method,
+            "seed": seed,
+            "accuracy": accuracy,
+            "calls_per_example": calls,
+            "tokens_per_example": 100 * calls,
+            "accuracy_at_80": None,
+            "correct": [True],
+        }
+
+    runs = [run("direct", 0, 0.5, 1), run("direct", 1, 0.7, 1), run("majority", 0, 0.1, 0)]
     summary = summarize(runs)
     assert summary["direct"]["seeds"] == 2
     assert summary["direct"]["accuracy"] == pytest.approx(0.6)
     assert summary["direct"]["spread"] == pytest.approx(0.1414, abs=1e-4)
-    assert summary["direct"]["tokens_per_example"] == 110
+    assert summary["direct"]["tokens_per_example"] == 100
     assert summary["majority"]["spread"] == 0
+    # A figure a method cannot give stays missing rather than averaged as zero.
+    assert summary["direct"]["accuracy_at_80"] is None
     assert "direct" in report({"dataset": "toy", "test": 300, "runs": runs})
 
 
@@ -154,3 +227,13 @@ def test_an_elo_estimate_follows_the_score_against_a_rated_reference():
     assert elo_against(1320, 0.5) == 1320
     assert elo_against(1320, 0.75) > 1320 > elo_against(1320, 0.25)
     assert elo_against(1320, 0.0) is None and elo_against(1320, 1.0) is None
+
+
+def test_nothing_new_starts_after_the_deadline(tmp_path):
+    # An overnight run has a hard stop; work already written stays, and nothing half-starts.
+    output = tmp_path / "toy.json"
+    sizes = {"train": 30, "validation": 6, "test": 12}
+    runs = run(toy(), [0, 1], ["majority", "tfidf"], sizes, output, {}, deadline=time.time() - 1)
+    assert runs == [] and not output.exists()
+    runs = run(toy(), [0], ["majority"], sizes, output, {}, deadline=time.time() + 3600)
+    assert [r["method"] for r in runs] == ["majority"]

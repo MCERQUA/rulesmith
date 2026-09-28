@@ -11,6 +11,7 @@ import json
 import math
 import os
 import random
+import time
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ from typing import Literal
 # extension importing numpy afterwards ("numpy._core.multiarray failed to import").
 import pyarrow.parquet as parquet  # isort: skip
 import dspy
+from dspy.utils.exceptions import AdapterParseError
 
 from rulesmith.graph import Plan, State, Task
 from rulesmith.optimize import (
@@ -32,9 +34,11 @@ from rulesmith.optimize import (
     optimize_plan,
     text_adapter,
 )
+from rulesmith.rules import compile_rules
 from rulesmith.runtime import DecisionProgram
 
 Rows = dict[str, list[tuple[State, str]]]
+COVERAGES = (0.8, 0.5)
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,10 @@ class Dataset:
     description: str
     rows: Callable[[], Rows]
     describe: Callable[[str], str]
+    # Draw every label equally, for a dataset whose rare label is the one that matters.
+    balanced: bool = False
+    # The rules a person would write in a few minutes, where a field obviously decides most cases.
+    handwritten: str | None = None
 
     def labels(self) -> dict[str, str]:
         """Every label the dataset trains on, with what the direct question says about it."""
@@ -61,11 +69,23 @@ def sample(dataset: Dataset, train: int, validation: int, test: int, seed: int) 
     rng = random.Random(seed)
     seen: set[str] = set()
 
-    def draw(pool: str, count: int) -> list[dict]:
+    def order(pool: str) -> list[tuple[State, str]]:
         rows = list(pools[pool])
         rng.shuffle(rows)
+        if not dataset.balanced:
+            return rows
+        by_label: dict[str, list] = {}
+        for row in rows:
+            by_label.setdefault(row[1], []).append(row)
+        # Take one of each label in turn, so any prefix holds every label about equally.
+        groups = [by_label[label] for label in sorted(by_label)]
+        return [
+            group[i] for i in range(max(map(len, groups))) for group in groups if i < len(group)
+        ]
+
+    def draw(pool: str, count: int) -> list[dict]:
         drawn = []
-        for state, label in rows:
+        for state, label in order(pool):
             key = json.dumps(state, sort_keys=True)
             if key not in seen:
                 seen.add(key)
@@ -76,6 +96,8 @@ def sample(dataset: Dataset, train: int, validation: int, test: int, seed: int) 
 
     held = draw("test", test)
     searched = draw("train", train + validation)
+    # A balanced draw alternates labels, so split it without handing one split every even row.
+    rng.shuffle(searched)
     splits = {"train": searched[:train], "validation": searched[train:], "test": held}
     return Task(
         description=dataset.description,
@@ -107,33 +129,90 @@ def direct_plan(task: Task, labels: dict[str, str]) -> Plan:
     )
 
 
-def tokens_and_calls(records: list[dict]) -> tuple[float, float]:
-    """Judge questions answered and input tokens billed, each per example."""
-    calls = sum(len(record.get("calls", {})) for record in records)
-    tokens = sum(record.get("input_tokens", 0) for record in records)
-    return calls / len(records), tokens / len(records)
+@dataclass(frozen=True)
+class Answer:
+    """One test example as a method answered it, with what the answer cost."""
+
+    correct: bool
+    # How sure the method was, to rank answers by; None for a method that cannot say.
+    confidence: float | None = None
+    calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    invalid: bool = False
 
 
-def result(method: str, seed: int, accuracy: float, records: list[dict], **extra) -> dict:
-    calls, tokens = tokens_and_calls(records)
+def confidence(record: dict) -> float:
+    """How sure a graph was of an answer: the least sure of the judgments it rests on. An answer
+    the rules settled without asking rests on none and counts as sure, which is the point of
+    writing the rule; a graph that failed to answer is not sure at all."""
+    if record.get("error"):
+        return 0.0
+    sure = []
+    for answer in record.get("answers", {}).values():
+        if answer["type"] == "choice":
+            sure.append(answer["probabilities"][answer["value"]])
+        elif answer["type"] == "score":
+            sure.append(answer["confidence"])
+        else:
+            sure.append(max(answer["value"], 1 - answer["value"]))
+    return min(sure, default=1.0)
+
+
+def graph_answers(records: list[dict]) -> list[Answer]:
+    return [
+        Answer(
+            correct=bool(record["correct"]),
+            confidence=confidence(record),
+            calls=len(record.get("calls", {})),
+            input_tokens=record.get("input_tokens", 0),
+            output_tokens=record.get("output_tokens", 0),
+            invalid=bool(record.get("error")),
+        )
+        for record in records
+    ]
+
+
+def selective(answers: list[Answer], coverage: float) -> float | None:
+    """Accuracy on the share of examples a method was surest of: what it scores when it may pass
+    the rest to a person. None for a method with no confidence to rank by."""
+    if any(answer.confidence is None for answer in answers):
+        return None
+    ranked = sorted(answers, key=lambda answer: -answer.confidence)
+    kept = ranked[: max(1, math.ceil(coverage * len(ranked)))]
+    return mean(answer.correct for answer in kept)
+
+
+def result(method: str, seed: int, answers: list[Answer], seconds: float, **extra) -> dict:
+    count = len(answers)
     return {
         "method": method,
         "seed": seed,
-        "accuracy": accuracy,
-        "calls_per_example": calls,
-        "tokens_per_example": tokens,
+        "accuracy": mean(answer.correct for answer in answers),
+        **{f"accuracy_at_{round(k * 100)}": selective(answers, k) for k in COVERAGES},
+        "calls_per_example": sum(answer.calls for answer in answers) / count,
+        "tokens_per_example": sum(answer.input_tokens for answer in answers) / count,
+        "output_tokens_per_example": sum(answer.output_tokens for answer in answers) / count,
+        "seconds_per_example": seconds / count,
+        "invalid_rate": mean(answer.invalid for answer in answers),
+        # Kept per example, so two methods can be compared on the very same examples.
+        "correct": [answer.correct for answer in answers],
         **extra,
     }
 
 
 def record(method: str, seed: int, task: Task, plan: Plan, client, model: str, **extra) -> dict:
     """A graph scored on the task's test split."""
+    started = time.perf_counter()
     scored = evaluate_plan(plan, task.test, client, model, Labels(task))
-    return result(method, seed, scored["score"], scored["examples"], **extra)
+    seconds = time.perf_counter() - started
+    return result(method, seed, graph_answers(scored["examples"]), seconds, **extra)
 
 
 def majority(seed: int, task: Task) -> dict:
-    return record("majority", seed, task, task.baseline_plan(), None, "none")
+    run = record("majority", seed, task, task.baseline_plan(), None, "none")
+    # One label for everything ranks nothing, so it has no coverage to trade.
+    return run | {f"accuracy_at_{round(k * 100)}": None for k in COVERAGES}
 
 
 def text(state: State) -> str:
@@ -152,9 +231,18 @@ def tfidf(seed: int, task: Task) -> dict:
         LogisticRegression(max_iter=2000),
     )
     model.fit([text(e.state) for e in seen], [e.label for e in seen])
-    guessed = model.predict([text(e.state) for e in task.test])
-    right = sum(guess == e.label for guess, e in zip(guessed, task.test, strict=True))
-    return result("tfidf", seed, right / len(task.test), [{}] * len(task.test))
+    started = time.perf_counter()
+    odds = model.predict_proba([text(e.state) for e in task.test])
+    seconds = time.perf_counter() - started
+    classes = list(model.classes_)
+    answers = [
+        Answer(
+            correct=classes[max(range(len(row)), key=row.__getitem__)] == e.label,
+            confidence=float(max(row)),
+        )
+        for row, e in zip(odds, task.test, strict=True)
+    ]
+    return result("tfidf", seed, answers, seconds)
 
 
 def search(
@@ -174,11 +262,48 @@ def search(
         validation=report["validation_score"],
         seed_validation=report["seed_validation_score"],
         nodes=len(best.nodes),
+        graph=best.model_dump(mode="json"),
     )
 
 
-def dspy_baseline(seed: int, task: Task, student: dspy.LM, reflection: dspy.LM, budget: int):
-    """A standard DSPy classifier on a text-generating model, optimized with DSPy's own GEPA."""
+def dspy_examples(split) -> list[dspy.Example]:
+    return [dspy.Example(text=text(e.state), label=e.label).with_inputs("text") for e in split]
+
+
+def dspy_answers(program: dspy.Module, task: Task, student: dspy.LM) -> tuple[list[Answer], float]:
+    """A DSPy program's answers on the test split. A reply that names no allowed label is an
+    invalid answer, counted wrong, since a typed judgment cannot give one."""
+    answers, started = [], time.perf_counter()
+    with dspy.context(lm=student, adapter=text_adapter()):
+        for example in dspy_examples(task.test):
+            before = len(student.history)
+            try:
+                label, invalid = program(text=example.text).label, False
+            except AdapterParseError:
+                label, invalid = None, True
+            usage = [entry.get("usage") or {} for entry in student.history[before:]]
+            answers.append(
+                Answer(
+                    correct=label == example.label,
+                    calls=len(usage),
+                    input_tokens=sum(u.get("prompt_tokens", 0) for u in usage),
+                    output_tokens=sum(u.get("completion_tokens", 0) for u in usage),
+                    invalid=invalid,
+                )
+            )
+    return answers, time.perf_counter() - started
+
+
+def dspy_baseline(
+    seed: int,
+    task: Task,
+    student: dspy.LM,
+    reflection: dspy.LM,
+    budget: int,
+    reasoning: bool = False,
+) -> dict:
+    """A standard DSPy classifier on a text-generating model, optimized with DSPy's own GEPA.
+    With `reasoning` it thinks step by step first, the stronger and costlier standard form."""
     signature = dspy.make_signature(
         {
             "text": (str, dspy.InputField()),
@@ -186,7 +311,7 @@ def dspy_baseline(seed: int, task: Task, student: dspy.LM, reflection: dspy.LM, 
         },
         task.description,
     )
-    program = dspy.Predict(signature)
+    program = dspy.ChainOfThought(signature) if reasoning else dspy.Predict(signature)
 
     def metric(gold, predicted, trace=None, pred_name=None, pred_trace=None):
         right = predicted.label == gold.label
@@ -195,62 +320,97 @@ def dspy_baseline(seed: int, task: Task, student: dspy.LM, reflection: dspy.LM, 
             feedback="Correct." if right else f"Expected {gold.label}, answered {predicted.label}.",
         )
 
-    def examples(split):
-        return [dspy.Example(text=text(e.state), label=e.label).with_inputs("text") for e in split]
-
     with dspy.context(lm=student, adapter=text_adapter()):
         optimizer = dspy.GEPA(
             metric=metric, max_metric_calls=budget, reflection_lm=reflection, seed=seed
         )
         tuned = optimizer.compile(
-            program, trainset=examples(task.train), valset=examples(task.validation)
+            program, trainset=dspy_examples(task.train), valset=dspy_examples(task.validation)
         )
-        calls_before = len(student.history)
-        right = sum(
-            tuned(text=example.text).label == example.label for example in examples(task.test)
-        )
-        used = student.history[calls_before:]
-    tokens = sum((entry.get("usage") or {}).get("prompt_tokens", 0) for entry in used)
-    return {
-        "method": "dspy",
-        "seed": seed,
-        "accuracy": right / len(task.test),
-        "calls_per_example": len(used) / len(task.test),
-        "tokens_per_example": tokens / len(task.test),
-    }
+    answers, seconds = dspy_answers(tuned, task, student)
+    return result("dspy-cot" if reasoning else "dspy", seed, answers, seconds)
+
+
+def mcnemar(first: list[bool], second: list[bool]) -> float:
+    """Exact two-sided McNemar p-value: could two methods scored on the same examples differ
+    this much by chance? Only the examples exactly one of them got right count."""
+    only_first = sum(a and not b for a, b in zip(first, second, strict=True))
+    only_second = sum(b and not a for a, b in zip(first, second, strict=True))
+    split = only_first + only_second
+    tail = sum(math.comb(split, k) for k in range(min(only_first, only_second) + 1)) / 2**split
+    return min(1.0, 2 * tail)
 
 
 def summarize(runs: list[dict]) -> dict[str, dict]:
-    """Each method's test accuracy averaged over seeds, with the spread between seeds."""
+    """Each method averaged over seeds, with the spread of its accuracy between seeds."""
     methods: dict[str, list[dict]] = {}
     for run in runs:
         methods.setdefault(run["method"], []).append(run)
+
+    def averaged(done: list[dict], key: str) -> float | None:
+        values = [run.get(key) for run in done]
+        return None if any(value is None for value in values) else mean(values)
+
+    fields = (
+        "calls_per_example",
+        "tokens_per_example",
+        "output_tokens_per_example",
+        "seconds_per_example",
+        "invalid_rate",
+        *(f"accuracy_at_{round(k * 100)}" for k in COVERAGES),
+    )
     return {
         method: {
             "seeds": len(done),
             "accuracy": mean(run["accuracy"] for run in done),
             "spread": stdev(run["accuracy"] for run in done) if len(done) > 1 else 0.0,
-            "calls_per_example": mean(run["calls_per_example"] for run in done),
-            "tokens_per_example": mean(run["tokens_per_example"] for run in done),
+            **{field: averaged(done, field) for field in fields},
         }
         for method, done in methods.items()
     }
 
 
+def against(runs: list[dict], method: str) -> dict[str, float]:
+    """McNemar p-values of `method` against every other, over the seeds both finished, their
+    test examples pooled."""
+    by_seed = {(run["method"], run["seed"]): run["correct"] for run in runs}
+    found = {}
+    for other in sorted({run["method"] for run in runs} - {method}):
+        seeds = sorted(s for m, s in by_seed if m == method and (other, s) in by_seed)
+        if seeds:
+            mine = [c for s in seeds for c in by_seed[method, s]]
+            theirs = [c for s in seeds for c in by_seed[other, s]]
+            found[other] = mcnemar(mine, theirs)
+    return found
+
+
 def report(results: dict) -> str:
-    """The results as a Markdown table, best accuracy first."""
+    """The results as a Markdown table, best accuracy first, and whether search's differences
+    from each other method could be chance."""
+
+    def shown(value: float | None, digits: str = ".3f") -> str:
+        return "n/a" if value is None else format(value, digits)
+
     rows = sorted(summarize(results["runs"]).items(), key=lambda item: -item[1]["accuracy"])
     lines = [
         f"{results['dataset']}, {results['test']} test examples per seed",
         "",
-        "| Method | Test accuracy | Seeds | Judge calls / example | Input tokens / example |",
-        "| --- | --- | --- | --- | --- |",
+        "| Method | Accuracy | At 80% | At 50% | Seeds | Judge or LM calls | Input tokens "
+        "| Output tokens | Seconds | Invalid |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for method, row in rows:
         lines.append(
-            f"| {method} | {row['accuracy']:.3f} ± {row['spread']:.3f} | {row['seeds']} | "
-            f"{row['calls_per_example']:.2f} | {math.ceil(row['tokens_per_example'])} |"
+            f"| {method} | {row['accuracy']:.3f} ± {row['spread']:.3f} | "
+            f"{shown(row['accuracy_at_80'])} | {shown(row['accuracy_at_50'])} | {row['seeds']} | "
+            f"{shown(row['calls_per_example'], '.2f')} | {shown(row['tokens_per_example'], '.0f')} "
+            f"| {shown(row['output_tokens_per_example'], '.0f')} | "
+            f"{shown(row['seconds_per_example'], '.2f')} | {shown(row['invalid_rate'], '.1%')} |"
         )
+    compared = against(results["runs"], "search")
+    if compared:
+        lines += ["", "Search against each method, exact McNemar p over pooled test examples:", ""]
+        lines += [f"- {other}: p = {p:.3g}" for other, p in compared.items()]
     return "\n".join(lines)
 
 
@@ -274,8 +434,11 @@ def run(
     output: Path,
     models: dict[str, str],
     resources: Models | None = None,
+    deadline: float = math.inf,
 ) -> list[dict]:
-    """Every method on every seed, written to `output` after each one finishes."""
+    """Every method on every seed, written to `output` after each one finishes. Seeds go in
+    order, each finishing every method before the next begins, so a run cut short by `deadline`
+    (seconds since the epoch) loses whole seeds rather than whole methods."""
     resources = resources or Models()
     results = {"dataset": dataset.name, **sizes, "models": models, "runs": []}
     if output.exists():
@@ -288,6 +451,8 @@ def run(
         for method in methods:
             if (method, seed) in done:
                 continue
+            if time.time() > deadline:
+                return results["runs"]
             results["runs"].append(measure(method, seed, task, dataset, resources))
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(json.dumps(results, indent=2) + "\n")
@@ -302,6 +467,9 @@ def measure(method: str, seed: int, task: Task, dataset: Dataset, resources: Mod
     if method == "direct":
         plan = direct_plan(task, dataset.labels())
         return record("direct", seed, task, plan, resources.client, resources.judge)
+    if method == "handwritten":
+        plan = compile_rules(dataset.handwritten)
+        return record("handwritten", seed, task, plan, resources.client, resources.judge)
     if method == "search":
         return search(
             seed,
@@ -312,7 +480,14 @@ def measure(method: str, seed: int, task: Task, dataset: Dataset, resources: Mod
             resources.proposer,
             resources.budget,
         )
-    return dspy_baseline(seed, task, resources.student, resources.reflection, resources.budget)
+    return dspy_baseline(
+        seed,
+        task,
+        resources.student,
+        resources.reflection,
+        resources.budget,
+        reasoning=method == "dspy-cot",
+    )
 
 
 def elo_against(reference: float, score: float) -> float | None:
@@ -415,6 +590,11 @@ def main() -> None:
         help="Seconds a generative request may take; runs sharing one local model queue behind "
         "each other",
     )
+    bench.add_argument(
+        "--hours",
+        type=float,
+        help="Start nothing new after this many hours; finished results are kept either way",
+    )
     bench.add_argument("--output", type=Path, required=True)
     games = commands.add_parser("chess", help="Play chess graphs against a fixed-strength engine")
     games.add_argument("task", type=Path, help="A chess task; its move limit and openings apply")
@@ -451,10 +631,13 @@ def main() -> None:
         )
         for role in ("proposer", "student", "reflection")
     }
-    needed = {"search": "proposer", "dspy": "student"}
+    needed = {"search": "proposer", "dspy": "student", "dspy-cot": "student"}
     for method, role in needed.items():
         if method in args.methods and lms[role] is None:
             root.error(f"{method} needs --{role}-model")
+    dataset = DATASETS[args.dataset]
+    if "handwritten" in args.methods and dataset.handwritten is None:
+        root.error(f"{dataset.name} has no hand-written rules to run")
     sizes = {split: getattr(args, split) for split in ("train", "validation", "test")}
     models = {"judge": args.judge_model, "note": args.note or ""} | {
         role: getattr(args, f"{role}_model") for role in lms if getattr(args, f"{role}_model")
@@ -468,7 +651,8 @@ def main() -> None:
             reflection=lms["reflection"] or lms["proposer"],
             budget=args.budget,
         )
-        run(DATASETS[args.dataset], args.seeds, args.methods, sizes, args.output, models, resources)
+        deadline = time.time() + args.hours * 3600 if args.hours else math.inf
+        run(dataset, args.seeds, args.methods, sizes, args.output, models, resources, deadline)
     print(report(json.loads(args.output.read_text())))
 
 
@@ -541,6 +725,35 @@ def trec() -> Rows:
     return rows
 
 
+def jobs() -> Rows:
+    """Real or Fake Job Postings (CC0): whether a posting is a scam, from its structured fields
+    (company logo, screening questions, salary, employment type) and its text. The source has one
+    file, so every fifth posting is held out as the test pool."""
+    path = hub(JOBS_REPO, JOBS_REVISION, "fake_job_postings.csv")
+    with path.open(newline="") as file:
+        postings = list(csv.DictReader(file))
+    rows: Rows = {"train": [], "test": []}
+    for index, row in enumerate(postings):
+        state = {
+            "title": row["title"],
+            "location": row["location"],
+            "salary_range": row["salary_range"],
+            "employment_type": row["employment_type"],
+            "required_experience": row["required_experience"],
+            "required_education": row["required_education"],
+            "industry": row["industry"],
+            "function": row["function"],
+            "telecommuting": int(row["telecommuting"]),
+            "has_company_logo": int(row["has_company_logo"]),
+            "has_questions": int(row["has_questions"]),
+            "company_profile": row["company_profile"],
+            "description": row["description"],
+        }
+        label = "fraudulent" if row["fraudulent"] == "1" else "genuine"
+        rows["test" if index % 5 == 0 else "train"].append((state, label))
+    return rows
+
+
 def spelled(label: str) -> str:
     """A label described by its own words, the most a direct question gets for free."""
     return label.replace("_", " ")
@@ -548,7 +761,9 @@ def spelled(label: str) -> str:
 
 CLOTHING_REVISION = "4e788183125a6143d8bdba24e58f1efda2e4b48f"
 TREC_REVISION = "0a34640b3cac3affef6f0abdfb81e3d0ecffcf92"
-METHODS = ("majority", "tfidf", "direct", "search", "dspy")
+JOBS_REPO = "victor/real-or-fake-fake-jobposting-prediction"
+JOBS_REVISION = "a751f55136a26da3c36e26aa207a9e187ca24b45"
+METHODS = ("majority", "tfidf", "direct", "handwritten", "search", "dspy", "dspy-cot")
 DATASETS: dict[str, Dataset] = {
     "banking77": Dataset(
         "banking77",
@@ -561,6 +776,31 @@ DATASETS: dict[str, Dataset] = {
         "Would this shopper recommend the clothing item they reviewed?",
         clothing,
         spelled,
+        handwritten="\n".join(
+            [
+                "read rating in [1, 5]",
+                "when rating >= 4: recommended",
+                "when rating < 3: not_recommended",
+                'always: ask "Would this shopper recommend the clothing item they reviewed?" '
+                '[recommended: "They would recommend it."] '
+                '[not_recommended: "They would not recommend it."]',
+            ]
+        ),
+    ),
+    "jobs": Dataset(
+        "jobs",
+        "Is this job posting a scam?",
+        jobs,
+        spelled,
+        balanced=True,
+        handwritten="\n".join(
+            [
+                "read has_company_logo in [0, 1]",
+                "when has_company_logo >= 1: genuine",
+                'always: ask "Is this job posting a scam?" '
+                '[fraudulent: "It is a scam."] [genuine: "It is a real job."]',
+            ]
+        ),
     ),
     "trec": Dataset("trec", "What kind of answer does this question ask for?", trec, spelled),
 }

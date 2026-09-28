@@ -1,0 +1,92 @@
+{
+  "runs": [
+    {
+      "graph": "always-capture",
+      "games": 40,
+      "won": 0,
+      "drew": 0,
+      "lost": 40,
+      "score": 0.0,
+      "material": -6.8,
+      "plies": 46.35,
+      "elo": null
+    },
+    {
+      "graph": "always-check",
+      "games": 40,
+      "won": 0,
+      "drew": 0,
+      "lost": 40,
+      "score": 0.0,
+      "material": -16.525,
+      "plies": 44.7,
+      "elo": null
+    },
+    {
+      "graph": "always-quiet",
+      "games": 40,
+      "won": 0,
+      "drew": 0,
+      "lost": 40,
+      "score": 0.0,
+      "material": -13.525,
+      "plies": 43.25,
+      "elo": null
+    },
+    {
+      "graph": "developer",
+      "games": 40,
+      "won": 0,
+      "drew": 0,
+      "lost": 40,
+      "score": 0.0,
+      "material": -13.325,
+      "plies": 52.45,
+      "elo": null
+    },
+    {
+      "graph": "greedy",
+      "games": 40,
+      "won": 0,
+      "drew": 1,
+      "lost": 39,
+      "score": 0.0125,
+      "material": -7.05,
+      "plies": 65.05,
+      "elo": 560.9491634838234
+    },
+    {
+      "graph": "hunter",
+      "games": 40,
+      "won": 0,
+      "drew": 0,
+      "lost": 40,
+      "score": 0.0,
+      "material": -7.9,
+      "plies": 58.6,
+      "elo": null
+    },
+    {
+      "graph": "league-best",
+      "games": 40,
+      "won": 1,
+      "drew": 0,
+      "lost": 39,
+      "score": 0.025,
+      "material": -10.85,
+      "plies": 55.675,
+      "elo": 683.5741571894004
+    },
+    {
+      "graph": "searched",
+      "games": 40,
+      "won": 0,
+      "drew": 0,
+      "lost": 40,
+      "score": 0.0,
+      "material": -9.925,
+      "plies": 53.45,
+      "elo": null
+    }
+  ]
+}
