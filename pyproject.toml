@@ -2,9 +2,10 @@
 name = "rulesmith"
 version = "0.1.0"
 description = "Search for rule programs that ask a small judge for typed decisions, with DSPy and GEPA."
-readme = "README.md"
+dynamic = ["readme"]
 license = "MIT"
 license-files = ["LICENSE"]
+authors = [{name = "rulesmith contributors"}]
 requires-python = ">=3.12,<3.15"
 keywords = ["dspy", "gepa", "llm", "decision graphs", "rules", "program search"]
 classifiers = [
@@ -30,6 +31,11 @@ chess = ["chess>=1.11,<2"]
 # Public benchmarks: parquet datasets, pinned dataset downloads, the trained-classifier baseline.
 bench = ["huggingface-hub>=1,<2", "pyarrow>=17,<22", "scikit-learn>=1.5,<2"]
 
+[project.urls]
+Homepage = "https://github.com/bradAGI/rulesmith"
+Repository = "https://github.com/bradAGI/rulesmith"
+Issues = "https://github.com/bradAGI/rulesmith/issues"
+
 [project.scripts]
 rulesmith = "rulesmith.cli:main"
 
@@ -38,7 +44,7 @@ rulesmith = "rulesmith.cli:main"
 dev = ["rulesmith[doom,chess,bench]", "pytest>=8,<10", "hypothesis>=6,<7", "ruff>=0.12,<1"]
 
 [build-system]
-requires = ["hatchling>=1.26"]
+requires = ["hatchling>=1.26", "hatch-fancy-pypi-readme>=25,<26"]
 build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
@@ -56,5 +62,21 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.hatch.build.targets.sdist]
-# The docs' game videos run to tens of megabytes and are for reading on GitHub, not installing.
-exclude = ["docs/assets"]
+# The docs' game videos run to tens of megabytes and are for reading on GitHub, not installing;
+# the README's banner image is served from GitHub too (see the substitutions below).
+exclude = ["docs/assets", "image.png"]
+
+# PyPI renders the README away from the repository, where its relative links and image would break.
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '!\[([^\]]*)\]\(((?!https?://)[^)\s]+)\)'
+replacement = '![\1](https://raw.githubusercontent.com/bradAGI/rulesmith/main/\2)'
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[([^\]]+)\]\(((?!https?://|#)[^)\s]+)\)'
+replacement = '[\1](https://github.com/bradAGI/rulesmith/blob/main/\2)'
