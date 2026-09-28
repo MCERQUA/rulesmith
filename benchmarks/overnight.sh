@@ -58,12 +58,18 @@ caffeinate -dimsu -w $$ &
 # found by the command lines only it starts, and nothing else on the machine.
 print $$ >$LOGS/driver.pid
 halt() {
-  note "stopped by request"
-  pkill -f "rulesmith.bench run"; pkill -f "rulesmith optimize"; pkill -f "rulesmith evaluate"
+  trap - TERM INT
+  note "stopping"
+  # The retry loops go first, or they would take their runs ending for a crash and start again.
+  (( ${#runs} )) && kill $runs 2>/dev/null
+  # Anchored to how the runs start, so a shell that merely mentions these words is left alone.
+  pkill -f '^[^ ]*python3 -m rulesmith[.]bench run'
+  pkill -f '^[^ ]*python3 [^ ]*/rulesmith (optimize|evaluate) '
   [[ -n ${stopper:-} ]] && kill $stopper 2>/dev/null
   rm -f $LOGS/driver.pid
   exit 143
 }
+runs=()
 trap halt TERM INT
 
 for judge in $JUDGES; do
@@ -127,7 +133,6 @@ chess() {
 # Banking77's seventy-seven options make it the heaviest on a judge, so it and news take the
 # second judge when there is one.
 first=$JUDGES[1] second=${JUDGES[2]:-$JUDGES[1]}
-runs=()
 bench trec $first majority tfidf direct search dspy dspy-cot & runs+=($!)
 bench clothing $first majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
 bench jobs $first majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
@@ -137,8 +142,7 @@ bench news $second majority tfidf direct search dspy dspy-cot & runs+=($!)
 chess & runs+=($!)
 
 # The hard stop: whatever is still running at the deadline ends, and what finished is kept.
-( sleep $(( deadline - $(date +%s) )); note "deadline reached, stopping";
-  pkill -f "rulesmith.bench run"; pkill -f "rulesmith optimize"; pkill -f "rulesmith evaluate" ) &
+( sleep $(( deadline - $(date +%s) )); note "deadline reached"; kill -TERM $$ ) &
 stopper=$!
 
 # Waiting on these alone: caffeinate runs until this script exits, so a bare wait never returns.
