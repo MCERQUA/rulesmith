@@ -45,6 +45,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--reflection-batch` | 3 | Training examples per reflection |
 | `--repair-attempts` | 2 | Times an invalid proposal goes back to the proposer with its validation error before search sees it |
 | `--reflection-max-tokens` | 4096 | Token limit on each proposal |
+| `--reflection-options` | — | Extra request JSON for the proposer, such as `{"reasoning": {"max_tokens": 2048}}` to cap a hosted thinking model that would otherwise reason past its reply limit |
 | `--reflection-timeout` | none | Seconds before a proposal request fails, so a hung proposer stops the search instead of stalling it |
 | `--retries` | 0 | Retries for judge requests that fail or time out |
 | `--parallel-examples` | 1 | Examples scored at once; Doom allows more than 1 only for deathmatch tasks, whose duels each run their own games |

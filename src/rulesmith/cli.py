@@ -137,6 +137,12 @@ def parser() -> argparse.ArgumentParser:
             command.add_argument("--reflection-base-url")
             command.add_argument("--reflection-max-tokens", type=int, default=4096)
             command.add_argument(
+                "--reflection-options",
+                type=json.loads,
+                help="Extra request JSON for the proposer, such as a cap on a thinking model's "
+                'reasoning: \'{"reasoning": {"max_tokens": 2048}}\'',
+            )
+            command.add_argument(
                 "--reflection-timeout", type=float, help="Seconds before a proposal request fails"
             )
             command.add_argument(
@@ -533,6 +539,8 @@ def main() -> None:
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:
             lm_options["timeout"] = args.reflection_timeout
+        if args.reflection_options:
+            lm_options["extra_body"] = args.reflection_options
         reflection = dspy.LM(
             args.reflection_model,
             temperature=1,

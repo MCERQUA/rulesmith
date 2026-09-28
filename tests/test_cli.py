@@ -536,3 +536,39 @@ def test_a_game_task_without_its_extra_names_the_install(extra, task, plan):
     result = invoke_core("validate", task, plan)
     assert result.returncode != 0 and "Traceback" not in result.stderr
     assert f"pip install 'rulesmith[{extra}]'" in result.stderr
+
+
+def test_reflection_options_reach_the_proposers_requests(tmp_path, provider, monkeypatch):
+    # A hosted thinking model left alone reasons past any token limit; a cap has to reach it.
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
+    data = task_data()
+    data["train"].append({"id": "d", "state": "request D", "label": "review"})
+    task = write(tmp_path / "task.json", data)
+    provider.completion = chat_reply(graph=binary_plan())
+    provider.on_request = lambda request: provider.body.update(
+        answers={"eligible": {"type": "noul", "noul": 0.9}}
+    )
+    result = invoke(
+        "optimize",
+        task,
+        "--output",
+        tmp_path / "run",
+        "--base-url",
+        provider.url,
+        "--model",
+        "fixture-model",
+        "--reflection-model",
+        "openai/fixture-model",
+        "--reflection-base-url",
+        provider.url + "/v1",
+        "--max-metric-calls",
+        6,
+        "--reflection-batch",
+        2,
+        "--reflection-options",
+        '{"reasoning": {"max_tokens": 64}}',
+    )
+    assert result.returncode == 0, result.stderr
+    chats = [body for path, body in provider.requests if path == "/v1/chat/completions"]
+    assert chats and all(body.get("reasoning") == {"max_tokens": 64} for body in chats)

@@ -28,6 +28,12 @@ if [[ -n $PROPOSER_URL ]]; then
   proposer+=(--proposer-base-url $PROPOSER_URL)
   reflector+=(--reflection-base-url $PROPOSER_URL)
 fi
+# Extra request JSON for the proposer; a hosted thinking model needs its reasoning capped, or it
+# reasons past any reply limit: '{"reasoning": {"max_tokens": 2048}}'.
+if [[ -n ${PROPOSER_OPTIONS:-} ]]; then
+  proposer+=(--proposer-options $PROPOSER_OPTIONS)
+  reflector+=(--reflection-options $PROPOSER_OPTIONS)
+fi
 STUDENT=${STUDENT:-mlx-community/Qwen3.5-4B-4bit}
 STUDENT_PORT=${STUDENT_PORT:-8081}
 BUDGET=${BUDGET:-200}
