@@ -956,3 +956,15 @@ def test_scoring_the_same_graph_twice_costs_one_evaluation(client):
     again = adapter.evaluate(task.train, parts)
     assert calls == [example.id for example in task.train]
     assert again.scores == first.scores and again.outputs == first.outputs
+
+
+def test_candidates_that_ask_the_same_question_pay_for_it_once(provider, client):
+    # Most candidates change one part and keep the rest, so search re-asks the judge the same
+    # questions about the same examples; only a question it has not heard before costs a call.
+    task = Task.model_validate(task_data())
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+    adapter = GraphAdapter(task, client, "fixture", SearchConfig())
+    for cutoff in (0.5, 0.7):
+        adapter.evaluate(task.train, components(Plan.model_validate(rule_plan(cutoff))))
+    asked = [path for path, _ in provider.requests if path == "/v1/systemone"]
+    assert len(asked) == len(task.train)

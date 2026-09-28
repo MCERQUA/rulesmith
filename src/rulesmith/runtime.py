@@ -8,7 +8,14 @@ from graphlib import TopologicalSorter
 
 import dspy
 from pydantic import ConfigDict, Field, TypeAdapter
-from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer, TypeSafeClient
+from typesafe_sdk import (
+    ChoiceAnswer,
+    NoulAnswer,
+    ScoreAnswer,
+    SystemOneResponse,
+    TypeSafeClient,
+    Usage,
+)
 
 from rulesmith.graph import (
     All,
@@ -218,6 +225,37 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
     if isinstance(node, Switch):
         return node.cases[value]
     return node.above if value >= node.cutoff else node.below
+
+
+class Remembered:
+    """A judge that answers each question about each input once. Search scores candidates that
+    mostly keep one another's questions, and ablation replays a graph with one input switched
+    off; either way the same question about the same input would otherwise be paid for again,
+    and could come back different. A question is known by what it asks, not its name, so a
+    renamed but identical question is not asked twice."""
+
+    def __init__(self, client: TypeSafeClient):
+        self.client = client
+        self.answers: dict[str, tuple[object, str]] = {}
+
+    def system_one(self, *, state, questions, model):
+        def key(name):
+            return json.dumps([state, questions[name], model], sort_keys=True)
+
+        unasked = {name: q for name, q in questions.items() if key(name) not in self.answers}
+        if unasked:
+            response = self.client.system_one(state=state, questions=unasked, model=model)
+            # Checked here as well as by the caller, since a bad answer must not be remembered.
+            if set(response.answers) != set(unasked):
+                raise ResponseError("answer IDs do not match the requested question IDs")
+            for name in unasked:
+                self.answers[key(name)] = response.answers[name], response.model
+        remembered = {name: self.answers[key(name)] for name in questions}
+        answers = {name: answer for name, (answer, _) in remembered.items()}
+        # Answers already paid for cost nothing now; a fresh request reports its own usage.
+        usage = response.usage if unasked else Usage(input_tokens=0, output_tokens=0)
+        _, served = next(iter(remembered.values()))
+        return SystemOneResponse(model=served, usage=usage, answers=answers)
 
 
 class DecisionProgram(dspy.Module):

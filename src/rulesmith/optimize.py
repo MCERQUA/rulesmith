@@ -17,7 +17,7 @@ from typesafe_sdk import TypeSafeClient
 
 from rulesmith.graph import Example, Plan, StrictModel, Task
 from rulesmith.rules import RuleError, parts, whole
-from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError
+from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError, Remembered
 
 
 def text_adapter() -> dspy.ChatAdapter:
@@ -200,7 +200,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
     ):
         self.task = task
         self.score = score or Labels(task)
-        self.client = client
+        self.client = Remembered(client) if client is not None else None
         self.model = model
         self.config = config
         self.execution = execution or ExecutionConfig()

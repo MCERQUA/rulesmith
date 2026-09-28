@@ -5,10 +5,7 @@ beats to the decision, or a threshold real data never trips. All three look iden
 -- the graph runs, decides something, and scores like a graph that simply decides badly.
 """
 
-import json
 from dataclasses import dataclass
-
-from typesafe_sdk import SystemOneResponse, Usage
 
 from rulesmith.graph import Call, Plan, Read, State, Sum
 from rulesmith.rules import named_condition
@@ -17,6 +14,7 @@ from rulesmith.runtime import (
     DecisionProgram,
     ExecutionConfig,
     GraphExecutionError,
+    Remembered,
     read_path,
 )
 
@@ -34,33 +32,6 @@ class Effect:
     @property
     def share(self) -> float:
         return self.changed / self.decided if self.decided else 0.0
-
-
-class Remembered:
-    """A judge that answers each question about each state once. Judgments with the same inputs
-    share a request, so switching one off changes the request but not the questions left in it;
-    those get the answers the baseline paid for. A call whose inputs did change is a different
-    question and goes to the judge."""
-
-    def __init__(self, client):
-        self.client = client
-        self.answers: dict[str, tuple[object, str]] = {}
-
-    def system_one(self, *, state, questions, model):
-        def key(name):
-            return json.dumps([state, name, questions[name], model], sort_keys=True)
-
-        unasked = {name: q for name, q in questions.items() if key(name) not in self.answers}
-        if unasked:
-            response = self.client.system_one(state=state, questions=unasked, model=model)
-            for name in unasked:
-                self.answers[key(name)] = response.answers[name], response.model
-        remembered = {name: self.answers[key(name)] for name in questions}
-        answers = {name: answer for name, (answer, _) in remembered.items()}
-        # Answers already paid for cost nothing now; a fresh request reports its own usage.
-        usage = response.usage if unasked else Usage(input_tokens=0, output_tokens=0)
-        _, served = next(iter(remembered.values()))
-        return SystemOneResponse(model=served, usage=usage, answers=answers)
 
 
 def decisions(program: DecisionProgram, states: list[State]) -> list[dict | None]:
