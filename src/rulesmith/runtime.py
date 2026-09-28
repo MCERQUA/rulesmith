@@ -45,6 +45,7 @@ from rulesmith.graph import (
     Switch,
     Value,
     Vote,
+    tested,
 )
 
 
@@ -284,6 +285,59 @@ class Remembered:
         return SystemOneResponse(model=served, usage=usage, answers=answers)
 
 
+def fallbacks(plan: Plan) -> dict[str, list[list[str]]]:
+    """For each judgment used only as a fallback, the sources ahead of it in every rule order
+    that uses it. Rules are tried in order and the first to answer decides, so such a judgment
+    is worth asking only once everything ahead of it has settled without an answer. A judgment
+    anything else reads (a condition, a merge, a confidence, an output) is always asked."""
+    dependencies = plan.dependencies()
+    uses: dict[str, list[list[str]] | None] = {}
+    for name, node in plan.nodes.items():
+        tested_here = tested(node.when)
+        if isinstance(node, Coalesce):
+            for index, source in enumerate(node.sources):
+                if source not in tested_here and uses.get(source, []) is not None:
+                    uses.setdefault(source, []).append(node.sources[:index])
+        for used in dependencies[name] - (
+            set(node.sources) - tested_here if isinstance(node, Coalesce) else set()
+        ):
+            uses[used] = None
+    for source in plan.outputs.values():
+        if isinstance(source, NodeInput):
+            uses[source.node] = None
+
+    def ancestors(name: str, seen: set[str]) -> set[str]:
+        for parent in dependencies[name] - seen:
+            seen.add(parent)
+            ancestors(parent, seen)
+        return seen
+
+    found = {}
+    for name, ahead in uses.items():
+        if ahead is None or not isinstance(plan.nodes[name], Call):
+            continue
+        # Waiting on a source that itself waits on this judgment would never end.
+        if any(name in ancestors(source, set()) for sources in ahead for source in sources):
+            continue
+        found[name] = ahead
+    return found
+
+
+def demand(ahead: list[list[str]] | None, values: dict, settled: set[str]) -> str:
+    """Whether a judgment is needed now: 'ask', 'wait' until what is ahead of it settles, or
+    'skip' because in every rule order that uses it something ahead has already answered."""
+    if ahead is None:
+        return "ask"
+    waiting = False
+    for sources in ahead:
+        if any(source in values for source in sources):
+            continue
+        if all(source in settled for source in sources):
+            return "ask"
+        waiting = True
+    return "wait" if waiting else "skip"
+
+
 class DecisionProgram(dspy.Module):
     def __init__(
         self,
@@ -299,6 +353,7 @@ class DecisionProgram(dspy.Module):
         self.execution = execution or ExecutionConfig()
         if client is None and any(isinstance(node, Call) for node in plan.nodes.values()):
             raise ValueError("graphs containing calls require a TypeSafe client")
+        self.fallbacks = fallbacks(plan)
 
     def _ask(self, calls: list[tuple[str, Call]], state: dict) -> dict[str, tuple[dict, dict]]:
         """Ask every call sharing one input object in a single request."""
@@ -325,7 +380,12 @@ class DecisionProgram(dspy.Module):
         values, answers, calls = {}, {}, {}
         sorter = TopologicalSorter(self.plan.dependencies())
         sorter.prepare()
-        ready, running = [], {}
+        ready, running, settled, stuck = [], {}, set(), False
+
+        def done(key: str) -> None:
+            sorter.done(key)
+            settled.add(key)
+
         with ThreadPoolExecutor(max_workers=self.execution.max_workers) as pool:
             while sorter.is_active():
                 # Drain locally executable nodes before waiting on network work.
@@ -338,15 +398,20 @@ class DecisionProgram(dspy.Module):
                         value = resolve_node(
                             node, state, values, answers, key in self.execution.suppress
                         )
-                        if value is MISSING:
-                            sorter.done(key)
+                        needed = (
+                            "ask" if stuck else demand(self.fallbacks.get(key), values, settled)
+                        )
+                        if value is MISSING or (isinstance(node, Call) and needed == "skip"):
+                            done(key)
                             progressed = True
+                        elif isinstance(node, Call) and needed == "wait":
+                            deferred.append(key)
                         elif isinstance(node, Call):
                             group = json.dumps(value, sort_keys=True)
                             requests.setdefault(group, (value, []))[1].append((key, node))
                         else:
                             values[key] = value
-                            sorter.done(key)
+                            done(key)
                             progressed = True
                     for value, group in requests.values():
                         if len(running) < self.execution.max_workers:
@@ -354,6 +419,8 @@ class DecisionProgram(dspy.Module):
                         else:
                             deferred.extend(key for key, _ in group)
                     ready = deferred
+                # Judgments waiting only on one another would wait for ever; ask them all.
+                stuck = not running and bool(ready)
                 if running:
                     completed, _ = wait(running, return_when=FIRST_COMPLETED)
                     for future in sorted(completed, key=running.get):
@@ -361,7 +428,7 @@ class DecisionProgram(dspy.Module):
                         for key, (answer, usage) in sorted(future.result().items()):
                             answers[key], calls[key] = answer, usage
                             values[key] = answer["value"]
-                            sorter.done(key)
+                            done(key)
 
         outputs, missing = {}, []
         for name, source in self.plan.outputs.items():
