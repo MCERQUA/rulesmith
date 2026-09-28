@@ -30,6 +30,11 @@ retrieval, and tasks where worked examples in the prompt carry the accuracy.
 rulesmith searches over rules and questions, not demonstrations, so it has
 nothing to add there.
 
+The [benchmarks](docs/benchmarks.md) bear this out on five public datasets.
+Where fields carry the signal, rulesmith ties or beats DSPy with far fewer
+model calls. Where the input is a single piece of free text, it adds nothing
+over one direct question, and DSPy's chain of thought wins.
+
 ## Installation
 
 Requires Python 3.12–3.14.
@@ -740,6 +745,7 @@ is a claim about the work listed here, not a survey of the field.
 - [Optimization](docs/optimization.md): search settings, reports, testing, and limits.
 - [Doom](docs/doom.md): task format, observations, scoring, and watching a graph play.
 - [Chess](docs/chess.md): policies, what a graph sees, scoring, and the baseline ladder.
+- [Benchmarks](docs/benchmarks.md): rulesmith against DSPy, TF-IDF and direct calls on public datasets.
 
 ## Development
 

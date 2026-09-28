@@ -1,0 +1,272 @@
+# Benchmarks
+
+rulesmith against the usual baselines on five public classification datasets, plus a chess
+task against Stockfish. The short version:
+
+- **Where a field in the data settles most cases, rulesmith matches the best language-model
+  methods at a small fraction of their calls.** On clothing reviews it ties DSPy (0.928 vs
+  0.918, p = 0.35) while asking the judge on 5% of examples instead of 100%.
+- **Where the signal is spread across structured fields and text, the searched graph beats
+  every language-model baseline by a wide margin**, on job postings 0.781 vs DSPy's 0.693
+  (p = 2.5e-8), but a TF-IDF classifier trained on the same 100 examples does better still
+  (0.857).
+- **Where the task is one judgment over free text, search finds nothing to add** and keeps the
+  single direct question: on TREC and Banking77 it scores exactly what the direct call scores.
+  DSPy's chain of thought beats it on TREC (0.884 vs 0.759).
+- **On news, the dataset held back as a blind check, search scores highest** (0.291 vs 0.253
+  for the direct call and 0.246 for DSPy), but every method there is close to chance.
+- **Chess:** search found no graph that did better against Stockfish than its starting one.
+
+Everything here is reproducible with `benchmarks/overnight.sh`; the raw results, one record per
+method and seed with every test answer, are in [`benchmarks/results`](../benchmarks/results).
+
+## Setup
+
+Each dataset is sampled three times (seeds 0, 1, 2). Each sample has 50 training examples, 50
+validation examples, and 300 test examples drawn from the dataset's own test split, which no
+method sees before it is scored. Accuracy is the mean over the three seeds, with the standard
+deviation across seeds after ±.
+
+| Method | What it is |
+| --- | --- |
+| majority | The most common training label, always. |
+| tfidf | TF-IDF features and logistic regression, trained on the 100 training and validation examples. |
+| direct | One judge question over every label, with the label descriptions as criteria. |
+| handwritten | Rules written by hand before any result, where the dataset has an obvious field to use. |
+| search | `rulesmith optimize` from the direct graph: mined rules, then GEPA proposals, 200 scored calls, a call cost of 0.02 per judge call, and a significance guard at p < 0.1 before replacing the seed. |
+| dspy | DSPy `Predict` optimized with GEPA over the same examples and budget. |
+| dspy-cot | The same with `ChainOfThought`. |
+
+Models, all local except one:
+
+| Role | Model |
+| --- | --- |
+| Judge (direct, handwritten, search) | Ruling, serving one option ordering per question (`RULING_ROTATIONS=1`) |
+| DSPy student | `mlx-community/Qwen3.5-4B-4bit` under `mlx_lm.server`, thinking off, 2,048 reply tokens |
+| Proposer (search) and reflection (DSPy) | Qwen3.8 27B: through LM Studio for early runs, then the same model through OpenRouter with reasoning capped at 2,048 tokens |
+
+The same proposer writes rulesmith's graphs and DSPy's instructions, so neither side gets a
+stronger optimizer. The two differ in the model that answers: rulesmith asks Ruling, a judge
+that returns a probability for each option, and DSPy prompts a 4B generative model. That
+difference is part of what is being compared, not controlled away.
+
+**Columns.** *At 80%* and *At 50%* are accuracy on the 80% and 50% of test examples the method
+was surest of, for methods that report confidence. *Calls* are judge or language-model calls
+per example. *Seconds* are wall time per example with five datasets sharing one machine, so
+compare them within a dataset only. *Invalid* is the share of answers that named no allowed
+label; they count as wrong. The p-values are exact McNemar tests of search against each
+method over the 900 pooled test answers.
+
+## Results
+
+### Clothing reviews: would the shopper recommend it?
+
+[Women's e-commerce clothing reviews](https://huggingface.co/datasets/saattrupdan/womens-clothing-ecommerce-reviews):
+review text, star rating, department. Two labels.
+
+| Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| handwritten | 0.932 ± 0.005 | 0.979 | 0.978 | 0.15 | 40 | 0 | 0.13 | 0.0% | 0.42 |
+| **search** | **0.928 ± 0.005** | 0.938 | 0.953 | **0.05** | 13 | 0 | 0.01 | 0.0% | |
+| direct | 0.921 ± 0.005 | 0.983 | 1.000 | 1.00 | 242 | 0 | 0.73 | 0.0% | 0.47 |
+| dspy | 0.918 ± 0.020 | n/a | n/a | 1.00 | 602 | 14 | 2.78 | 0.0% | 0.35 |
+| dspy-cot | 0.916 ± 0.018 | n/a | n/a | 1.00 | 881 | 160 | 7.04 | 0.1% | 0.22 |
+| tfidf | 0.813 ± 0.012 | 0.875 | 0.949 | 0 | 0 | 0 | 0.00 | 0.0% | 1.3e-13 |
+| majority | 0.813 ± 0.012 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 1.3e-13 |
+
+Search found the rating rule on every seed; on two of three it needed no judge at all:
+
+```text
+read rating in [-3, 9]
+when rating >= 4: recommended
+when rating < 3 or rating == 3: not_recommended
+```
+
+The language-model methods are statistically tied. What separates them is cost: search asks the
+judge on 5% of examples, DSPy prompts its model on all of them.
+
+### Job postings: is it a scam?
+
+[Real or fake job postings](https://huggingface.co/datasets/victor/real-or-fake-fake-jobposting-prediction):
+title, company profile, description, requirements, salary, and flags such as whether the post
+has a company logo. Sampled with both labels equally common, since fewer than 5% are scams.
+
+| Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| tfidf | 0.857 ± 0.015 | 0.921 | 0.976 | 0 | 0 | 0 | 0.00 | 0.0% | 4.8e-6 |
+| **search** | **0.781 ± 0.020** | 0.854 | 0.867 | 0.62 | 379 | 0 | 0.14 | 0.0% | |
+| dspy | 0.693 ± 0.035 | n/a | n/a | 1.00 | 1515 | 15 | 1.29 | 0.0% | 2.5e-8 |
+| dspy-cot | 0.669 ± 0.033 | n/a | n/a | 1.00 | 1901 | 381 | 6.45 | 0.3% | 1.1e-10 |
+| direct | 0.593 ± 0.015 | 0.640 | 0.767 | 1.00 | 551 | 0 | 0.72 | 0.0% | 5.1e-28 |
+| handwritten | 0.588 ± 0.014 | 0.642 | 0.764 | 0.45 | 207 | 0 | 0.31 | 0.0% | 3.8e-28 |
+| majority | 0.500 ± 0.000 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 1.1e-30 |
+
+A graph search found on seed 0:
+
+```text
+read has_company_logo in [0, 1]
+read length of company_profile in [0, 10000]
+when has_company_logo == 0 and length of company_profile == 0: fraudulent
+always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
+```
+
+Search beats every language-model method here by 9 to 19 points. TF-IDF beats search by 8:
+scam postings share vocabulary that a word-level classifier picks up from 100 examples and a
+judge reading one posting at a time does not.
+
+### TREC: what kind of answer does the question ask for?
+
+[TREC question classification](https://huggingface.co/datasets/SetFit/TREC-QC), six coarse
+labels. The input is one short question.
+
+| Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dspy-cot | 0.884 ± 0.041 | n/a | n/a | 1.00 | 647 | 148 | 3.81 | 0.4% | 9.3e-15 |
+| dspy | 0.794 ± 0.033 | n/a | n/a | 1.00 | 616 | 15 | 1.61 | 0.0% | 0.094 |
+| **search** | **0.759 ± 0.016** | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.26 | 0.0% | |
+| direct | 0.759 ± 0.016 | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.72 | 0.0% | 1 |
+| tfidf | 0.444 ± 0.229 | 0.514 | 0.556 | 0 | 0 | 0 | 0.00 | 0.0% | 7.3e-50 |
+| majority | 0.170 ± 0.046 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 2.4e-128 |
+
+With no fields to write rules over, the best graph is the one question. No proposal beat it on
+validation by enough to pass the significance guard, so search kept it and scored exactly what
+the direct call scores. DSPy's chain of thought wins by 12.5 points: reasoning about a question
+before labeling it helps on this task, and a single judge question cannot do that.
+
+### Banking77: which intent does the customer's message express?
+
+[Banking77](https://github.com/PolyAI-LDN/task-specific-datasets), 77 intents, one short
+message each.
+
+| Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dspy | 0.669 ± 0.054 | n/a | n/a | 1.00 | 1853 | 19 | 2.10 | 1.7% | 0.50 |
+| **search** | **0.657 ± 0.018** | 0.722 | 0.842 | 1.00 | 5001 | 0 | 2.47 | 0.0% | |
+| direct | 0.657 ± 0.018 | 0.722 | 0.842 | 1.00 | 5001 | 0 | 2.88 | 0.0% | 1 |
+| tfidf | 0.103 ± 0.022 | 0.119 | 0.171 | 0 | 0 | 0 | 0.00 | 0.0% | 7.4e-121 |
+| majority | 0.016 ± 0.008 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 4.3e-170 |
+
+Again search kept the direct question, which ties DSPy. DSPy's chain of thought was not run
+here: 77 labels make it the slowest dataset for it, and TREC already shows what reasoning adds
+on free text.
+
+### News, the blind check: which channel did the article run in?
+
+[Online News Popularity](https://archive.ics.uci.edu/dataset/332/online+news+popularity) as the
+[multimodal AutoML benchmark](https://github.com/sxjscience/automl_multimodal_benchmark)
+prepared it: a Mashable article's title and sixteen numbers about its text (length, links,
+images, sentiment). Six channels. This dataset was chosen before any method ran on it, and
+nothing in rulesmith was changed after seeing it.
+
+| Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **search** | **0.291 ± 0.045** | 0.307 | 0.349 | 0.68 | 309 | 0 | 0.73 | 0.0% | |
+| direct | 0.253 ± 0.019 | 0.274 | 0.304 | 1.00 | 453 | 0 | 0.85 | 0.0% | 0.0031 |
+| dspy-cot | 0.247 ± 0.030 | n/a | n/a | 1.00 | 1350 | 279 | 4.85 | 1.6% | 0.014 |
+| dspy | 0.246 ± 0.013 | n/a | n/a | 1.00 | 1326 | 14 | 3.03 | 0.2% | 0.011 |
+| majority | 0.237 ± 0.058 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 0.0079 |
+| tfidf | 0.213 ± 0.015 | 0.221 | 0.229 | 0 | 0 | 0 | 0.00 | 0.0% | 5.6e-5 |
+
+Every method is near chance: a title and sixteen summary numbers say little about the channel.
+Search is the best of them on every seed except the first, where DSPy scored 0.26 to its 0.24,
+and beats each method at p < 0.05. Against five methods at once that is weaker than it looks:
+with a Bonferroni correction (p < 0.01) only its wins over direct and majority hold. What
+search found on seed 1, mined rules over the numbers ahead of the judge question:
+
+```text
+when num_imgs >= 16: entertainment
+when global_rate_positive_words < 0.0186335403727: world
+when n_unique_tokens < 0.487351190114 and average_token_length >= 4.57673267327: world
+when n_tokens_content >= 303 and num_self_hrefs >= 6: tech
+```
+
+So the direction held on data rulesmith was not tuned on: rules over the structured fields
+help where the fields carry signal. The size of the effect here is small, and the absolute
+accuracy is too low for anyone to use.
+
+## Chess against Stockfish
+
+The chess task (`examples/chess/stockfish.json`) plays graphs as White against Stockfish at
+skill level 0 (about 1320 Elo), scoring each game by how long the graph survives and how much
+material it keeps. Before training, 40 games per graph from the example graphs:
+
+| Graph | Won | Drew | Lost | Mean material | Mean plies |
+| --- | --- | --- | --- | --- | --- |
+| league-best | 1 | 0 | 39 | -10.9 | 55.7 |
+| greedy | 0 | 1 | 39 | -7.1 | 65.1 |
+| hunter | 0 | 0 | 40 | -7.9 | 58.6 |
+| always-capture | 0 | 0 | 40 | -6.8 | 46.4 |
+| searched | 0 | 0 | 40 | -9.9 | 53.5 |
+| developer | 0 | 0 | 40 | -13.3 | 52.5 |
+| always-quiet | 0 | 0 | 40 | -13.5 | 43.3 |
+| always-check | 0 | 0 | 40 | -16.5 | 44.7 |
+
+Search from `greedy`, with a budget of 200 scored games and nine proposals, kept a graph identical to `greedy`:
+no proposal scored better on validation. On the 40 test games the two scored 0.215 and 0.218
+(no wins, one draw for the second), which is the same graph playing different games. A rules
+graph that picks one move type per position is far below even the weakest Stockfish, and
+nothing the proposer tried changed that.
+
+## Caveats
+
+**Order of events.** The benchmark was not frozen before the library was tuned against it.
+The first job-postings run lost to TF-IDF and DSPy; after seeing that, rule mining gained
+tests on the length of text fields and on pairs of fields, the change that finds the logo and
+empty-profile rule above. The job-postings numbers here come from the code after that change.
+**The news dataset was chosen afterward, before any method was run on it, and nothing was
+changed on its account:** it is the check on whether those changes generalize.
+
+**Scale.** 100 training and validation examples and 300 test examples per seed, three seeds.
+This is the few-shot setting rulesmith is built for; with thousands of labeled examples a
+trained classifier would be the baseline to beat, and would be harder to beat than TF-IDF on
+100.
+
+**One of each model.** One judge, one DSPy student, one proposer. Ruling ran with one option
+ordering per question to fit the run on one machine overnight; with more orderings it is
+slower and usually more accurate, which would move direct, handwritten and search together.
+DSPy with a larger student would score higher; so would rulesmith with a stronger judge.
+
+**Proposer served two ways.** Early runs got the proposer from LM Studio; after it fell behind,
+the rest got the same model from OpenRouter with its reasoning capped. The results files do not
+record which run used which: the harness wrote model names once, when each file was created,
+so every file names the LM Studio model. Each result now records its own models.
+
+**Failures count as wrong.** A DSPy example whose model call failed during GEPA scored 0 rather
+than ending the run, and a test answer naming no allowed label is invalid and wrong.
+
+**Timing.** Five datasets and chess shared one Mac, two judge servers and three student servers,
+so seconds per example are loaded-machine numbers.
+
+**Run history.** The overnight run was restarted a number of times after fixes: judge and
+student timeouts, a mining crash on blank fields, proposer replies cut off, and the student
+server running out of GPU memory. Results already recorded were kept across restarts, each
+fix is its own commit, and none changed how a finished method was scored.
+
+## Reproducing
+
+```sh
+uv sync --all-extras
+OPENROUTER_API_KEY=... \
+JUDGES="http://127.0.0.1:8010 http://127.0.0.1:8012" STUDENT_PORTS="8081 8082 8083" \
+PROPOSER_MODEL=openrouter/qwen/qwen3.8-27b PROPOSER_URL= \
+PROPOSER_OPTIONS='{"reasoning": {"max_tokens": 2048}}' \
+benchmarks/overnight.sh
+```
+
+The driver starts Ruling and the student servers if they are down, resumes from whatever is in
+`benchmarks/results`, stops at `HOURS` (default 10), and writes the tables to
+`runs/overnight/report.md`. One dataset at a time, with the models above:
+
+```sh
+uv run python3 -m rulesmith.bench run clothing --seeds 0 1 2 \
+  --methods majority tfidf direct handwritten search dspy dspy-cot \
+  --train 50 --validation 50 --test 300 --budget 200 \
+  --judge-base-url http://127.0.0.1:8010 \
+  --proposer-model openrouter/qwen/qwen3.8-27b \
+  --proposer-options '{"reasoning": {"max_tokens": 2048}}' \
+  --student-model openai/mlx-community/Qwen3.5-4B-4bit \
+  --student-base-url http://127.0.0.1:8081/v1 \
+  --student-options '{"chat_template_kwargs": {"enable_thinking": false}}' \
+  --output benchmarks/results/clothing.json
+uv run python3 -m rulesmith.bench report benchmarks/results/clothing.json
+```
