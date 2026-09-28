@@ -26,7 +26,9 @@ def test_a_length_is_the_number_of_characters(profile):
 
 
 def test_a_list_has_a_length_and_a_number_does_not():
-    plan = compile_rules("read length of tags in [0, 99]\nwhen length of tags >= 2: many\nalways: few")
+    plan = compile_rules(
+        "read length of tags in [0, 99]\nwhen length of tags >= 2: many\nalways: few"
+    )
     assert label(plan, {"tags": ["a", "b"]}) == "many"
     # A number has no length, so the reading is missing and the rule does not fire.
     assert label(plan, {"tags": 7}) == "few"
@@ -45,4 +47,4 @@ def test_a_length_reads_back_as_written_and_can_be_named():
 
 def test_a_length_is_a_number_with_bounds():
     with pytest.raises(RuleError):
-        compile_rules("read length of name one of [a, b]\nwhen length of name == \"a\": x\nalways: y")
+        compile_rules('read length of name one of [a, b]\nwhen length of name == "a": x\nalways: y')
