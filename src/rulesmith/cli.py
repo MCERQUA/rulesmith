@@ -1,6 +1,7 @@
 """Validate, execute, evaluate, and evolve a saved decision graph."""
 
 import argparse
+import importlib
 import json
 import os
 import signal
@@ -9,19 +10,15 @@ from collections import Counter
 from contextlib import ExitStack, nullcontext, redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 import dspy
-import imageio_ffmpeg
-import vizdoom as vzd
-from PIL import Image
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from rulesmith.ablate import effects
-from rulesmith.arena import Duels, Entrant, duel, tournament
 from rulesmith.calibrate import calibrate
-from rulesmith.chess import ChessTask, Engine, Games
 from rulesmith.diagram import mermaid
-from rulesmith.doom import DoomEnvironment, DoomTask, Episodes
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Call, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
@@ -35,6 +32,12 @@ from rulesmith.optimize import (
 )
 from rulesmith.rules import compile_rules, render_rules
 from rulesmith.runtime import DecisionProgram, ExecutionConfig
+
+# The games load only for a task that plays one (see game), so a core install without their
+# packages still validates and runs every other graph.
+if TYPE_CHECKING:
+    from rulesmith.chess import ChessTask
+    from rulesmith.doom import DoomTask
 
 
 @dataclass(frozen=True)
@@ -273,8 +276,10 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
 
 def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     task = load_task(cli, args.task)
-    if not isinstance(task, DoomTask) or not task.deathmatch:
+    if not plays(task, "doom") or not task.deathmatch:
         cli.error("arena requires a Doom task with deathmatch set")
+    from rulesmith.arena import Entrant, tournament
+
     if args.output.exists():
         cli.error(f"output already exists: {args.output}")
     plans = {}
@@ -332,6 +337,8 @@ def draft_labels(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None
 
 def save_video(frames: list, fps: int, path: Path) -> None:
     if path.suffix == ".mp4":
+        import imageio_ffmpeg
+
         height, width, _ = frames[0].shape
         writer = imageio_ffmpeg.write_frames(str(path), (width, height), fps=fps)
         writer.send(None)
@@ -339,6 +346,8 @@ def save_video(frames: list, fps: int, path: Path) -> None:
             writer.send(frame)
         writer.close()
         return
+    from PIL import Image
+
     first, *rest = (Image.fromarray(frame) for frame in frames)
     # GIF delays are whole centiseconds, so round to 10 ms rather than truncate.
     delay = round(100 / fps) * 10
@@ -393,7 +402,7 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
 
 
 def read_plan(
-    cli: argparse.ArgumentParser, path: Path, task: Task | DoomTask | ChessTask | None = None
+    cli: argparse.ArgumentParser, path: Path, task: "Task | DoomTask | ChessTask | None" = None
 ) -> Plan:
     """A graph from its JSON, or from the rules it is written as, which may ask over the labels
     of the task the command names. A file that does not hold one is a mistake in the command,
@@ -407,12 +416,29 @@ def read_plan(
         cli.error(f"{path}: {error}")
 
 
-def load_task(cli: argparse.ArgumentParser, path: Path) -> Task | DoomTask | ChessTask:
+def game(cli: argparse.ArgumentParser, name: str) -> ModuleType:
+    """A game's module. Its packages come with the extra of the same name, which a core install
+    leaves out, so a missing one is a matter of installing rather than a crash."""
+    try:
+        return importlib.import_module(f"rulesmith.{name}")
+    except ModuleNotFoundError as error:
+        cli.error(f"a {name} task needs {error.name}: pip install 'rulesmith[{name}]'")
+
+
+def plays(task, name: str) -> bool:
+    """Whether a task is one of a game's, asked without importing a game that may be missing."""
+    return type(task).__module__ == f"rulesmith.{name}"
+
+
+def load_task(cli: argparse.ArgumentParser, path: Path) -> "Task | DoomTask | ChessTask":
     try:
         data = json.loads(path.read_text())
-        kind = (
-            ChessTask if data.get("game") == "chess" else DoomTask if "scenario" in data else Task
-        )
+        if data.get("game") == "chess":
+            kind = game(cli, "chess").ChessTask
+        elif "scenario" in data:
+            kind = game(cli, "doom").DoomTask
+        else:
+            kind = Task
         return kind.model_validate(data)
     except ValueError as error:
         cli.error(f"{path}: {error}")
@@ -446,15 +472,15 @@ def main() -> None:
     if args.command == "validate":
         print(dump({"nodes": len(plan.nodes), "labels": task.labels}), end="")
         return
-    if getattr(args, "visible", False) and not isinstance(task, DoomTask):
+    if getattr(args, "visible", False) and not plays(task, "doom"):
         cli.error("--visible requires a Doom task")
-    deathmatch = args.command != "run" and isinstance(task, DoomTask) and task.deathmatch
-    played = deathmatch or (args.command != "run" and isinstance(task, ChessTask))
+    deathmatch = args.command != "run" and plays(task, "doom") and task.deathmatch
+    played = deathmatch or (args.command != "run" and plays(task, "chess"))
     engine = getattr(args, "engine", None)
     tuned = [flag for flag in ("engine_skill", "engine_seconds") if getattr(args, flag, None)]
     if tuned and not engine:
         cli.error("--engine-skill and --engine-seconds set the strength of an --engine")
-    if engine and not isinstance(task, ChessTask):
+    if engine and not plays(task, "chess"):
         cli.error("--engine plays a chess task; other games are played against a graph")
     if engine and args.opponent:
         cli.error("a chess task is played against --opponent or --engine, not both")
@@ -465,9 +491,9 @@ def main() -> None:
     if played and not engine:
         opponent = read_plan(cli, args.opponent, task)
         opponent.check(task.labels, args.max_nodes, args.max_depth)
-    if getattr(args, "parallel_examples", 1) > 1 and isinstance(task, DoomTask) and not deathmatch:
+    if getattr(args, "parallel_examples", 1) > 1 and plays(task, "doom") and not deathmatch:
         cli.error("--parallel-examples needs a deathmatch task; other Doom episodes share one game")
-    if args.command == "record" and not isinstance(task, DoomTask):
+    if args.command == "record" and not plays(task, "doom"):
         cli.error("record requires a Doom task")
     if args.command == "record" and args.output.suffix not in (".gif", ".mp4"):
         cli.error("record writes .gif or .mp4")
@@ -533,14 +559,20 @@ def main() -> None:
         client = stack.enter_context(judge_client)
         score = scorer(args, task) if args.command in ("evaluate", "optimize") else None
         if deathmatch:
+            from rulesmith.arena import Duels
+
             score = Duels(task, DecisionProgram(opponent, client, model, execution))
-        elif engine:
-            skill = args.engine_skill or 0
-            rival = Engine(engine, skill, args.engine_seconds or 0.05)
-            score = Games(task, stack.enter_context(rival))
-        elif args.command != "run" and isinstance(task, ChessTask):
-            score = Games(task, DecisionProgram(opponent, client, model, execution))
-        elif args.command != "run" and isinstance(task, DoomTask):
+        elif args.command != "run" and plays(task, "chess"):
+            from rulesmith.chess import Engine, Games
+
+            if engine:
+                rival = Engine(engine, args.engine_skill or 0, args.engine_seconds or 0.05)
+                score = Games(task, stack.enter_context(rival))
+            else:
+                score = Games(task, DecisionProgram(opponent, client, model, execution))
+        elif args.command != "run" and plays(task, "doom"):
+            from rulesmith.doom import DoomEnvironment, Episodes
+
             env = DoomEnvironment(
                 task, visible=getattr(args, "visible", False), record=args.command == "record"
             )
@@ -551,6 +583,10 @@ def main() -> None:
             )
             print(dump(dict(prediction)), end="")
         elif args.command == "record":
+            from vizdoom import DEFAULT_TICRATE
+
+            from rulesmith.arena import duel
+
             program = DecisionProgram(plan, client, model, execution)
             frames, episodes = [], []
             for seed in args.seed:
@@ -560,7 +596,7 @@ def main() -> None:
                 else:
                     episodes.append(score(program, seed).record)
                     frames += env.frames
-            save_video(frames, vzd.DEFAULT_TICRATE, args.output)
+            save_video(frames, DEFAULT_TICRATE, args.output)
             print(dump({"episodes": episodes, "output": str(args.output)}), end="")
         elif args.command == "evaluate":
             report = evaluate_plan(

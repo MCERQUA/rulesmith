@@ -3,6 +3,7 @@
 A graph plays chess by naming a policy, not a move. There are thousands of moves
 and which ones are legal changes every ply, so the label says what kind of move
 to make and the board picks it.
+Install the `chess` extra first: `pip install 'rulesmith[chess]'`.
 
 ## Policies
 
