@@ -34,10 +34,10 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 | --- | --- |
 | `call` | Ask a `choice`, `score`, or `noul` question about mapped `inputs`. An optional `temperature` (default 1, fitted by `rulesmith calibrate`) divides the judge's log-odds before they are read: above 1 tempers an overconfident judge, below 1 sharpens a timid one, and the answer itself never changes. |
 | `switch` | Map a categorical `source` value through exhaustive string `cases`. |
-| `threshold` | Return `below` or `above`; a value `>= cutoff` selects `above`. |
+| `threshold` | Return `below` or `above`; a value `>= cutoff` selects `above`. Takes an optional `measured`, as `value` does. |
 | `merge` | Build an object from mapped `inputs`, with no model call. |
 | `coalesce` | After all `sources` settle, return the first available one in listed order. |
-| `value` | Return a literal JSON `value`. |
+| `value` | Return a literal JSON `value`. An optional `measured` (`{"right", "decided", "examples"}`, set by `rulesmith calibrate`) records how many labeled examples the rule decided and how many rightly; a decision it makes is then as sure as `(right + 1) / (decided + 2)`. Written in rules as `when rating >= 4: yes calibrated 37/40 of 100`. |
 | `read` | Take one value from the original input by `path`, declaring `bounds` (numbers) or `categories` (strings). A missing path, or a value outside the declared domain, skips the node. |
 | `confidence` | How sure the `choice` or `score` call named in `source` was, from 0 to 1. A `noul` answers with the probability itself, so it has no separate confidence, and validation refuses a `confidence` of one (or of anything but a call). |
 | `sum` | A weighted sum of numeric `terms` (each `{"node", "weight"}`, weight 1 by default) plus a `constant`. Skipped when any term is skipped. Its range follows from its terms, so thresholds on it are checked like any other. |

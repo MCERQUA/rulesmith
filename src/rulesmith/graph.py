@@ -170,6 +170,40 @@ class Guarded(StrictModel):
     when: Condition | None = None
 
 
+class Measured(StrictModel):
+    """How a rule did on labeled examples: how many it decided, and how many of those rightly.
+    Measured by rulesmith calibrate, it says how sure the rule's decisions are and whether new
+    inputs still reach it about as often as the ones it was measured on."""
+
+    right: int = Field(ge=0)
+    decided: int = Field(ge=0)
+    examples: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def nested(self) -> Self:
+        if not self.right <= self.decided <= self.examples:
+            raise ValueError(
+                "a rule is right at most as often as it decides, and decides at most every example"
+            )
+        return self
+
+    @property
+    def precision(self) -> float:
+        """How often the rule is right when it decides, smoothed toward even odds by Laplace's
+        rule of succession, so a rule seen deciding twice does not claim certainty."""
+        return (self.right + 1) / (self.decided + 2)
+
+    @property
+    def share(self) -> float:
+        return self.decided / self.examples
+
+
+class Decides(Guarded):
+    """A node a rule list can end on, the way a rule answers without asking."""
+
+    measured: Measured | None = None
+
+
 class Call(Guarded):
     type: Literal["call"] = "call"
     question: Question
@@ -188,7 +222,7 @@ class Switch(Guarded):
     cases: dict[Text, Text] = Field(min_length=1)
 
 
-class Threshold(Guarded):
+class Threshold(Decides):
     type: Literal["threshold"] = "threshold"
     source: Text
     cutoff: float
@@ -206,7 +240,7 @@ class Coalesce(Guarded):
     sources: list[Text] = Field(min_length=1)
 
 
-class Value(Guarded):
+class Value(Decides):
     type: Literal["value"] = "value"
     value: JsonValue
 

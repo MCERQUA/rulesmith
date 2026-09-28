@@ -338,6 +338,26 @@ def demand(ahead: list[list[str]] | None, values: dict, settled: set[str]) -> st
     return "wait" if waiting else "skip"
 
 
+def decider(plan: Plan, name: str, values: dict) -> str:
+    """The node whose value an output took, followed through each list of fallbacks to the rule
+    that answered."""
+    node = plan.nodes[name]
+    while isinstance(node, Coalesce):
+        name = next(source for source in node.sources if source in values)
+        node = plan.nodes[name]
+    return name
+
+
+def sureness(answer: dict) -> float:
+    """How sure one judgment was of its answer: the probability of the option it chose, its
+    own confidence for a score, and for a probability, the likelier of true and false."""
+    if answer["type"] == "choice":
+        return answer["probabilities"][answer["value"]]
+    if answer["type"] == "score":
+        return answer["confidence"]
+    return max(answer["value"], 1 - answer["value"])
+
+
 class DecisionProgram(dspy.Module):
     def __init__(
         self,
@@ -450,6 +470,16 @@ class DecisionProgram(dspy.Module):
         )
         if "label" in outputs:
             result["label"] = outputs["label"]
+            source = self.plan.outputs["label"]
+            decided = (
+                decider(self.plan, source.node, values) if isinstance(source, NodeInput) else None
+            )
+            result["decided_by"] = decided
+            measured = getattr(self.plan.nodes.get(decided), "measured", None)
+            sure = [sureness(answer) for answer in result["answers"].values()]
+            result["confidence"] = min(
+                sure + ([measured.precision] if measured else []), default=1.0
+            )
         prediction = dspy.Prediction(**result)
         if missing:
             raise GraphExecutionError(f"required graph outputs were skipped: {missing}", prediction)

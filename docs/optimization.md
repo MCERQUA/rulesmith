@@ -52,6 +52,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--mine` | off | Before any proposal, mine rules that one field, or two together, settle (a star rating, a flag, an empty text by its length) from the training data, put them ahead of the starting graph so its judgments are asked only about what they leave, and start search there if that scores better on validation |
 | `--significance` | off | Keep the starting graph unless the winner's gain on validation passes a one-sided sign test at this level, so a candidate that was only lucky on a small validation set does not replace it |
 | `--call-cost` | 0 | Score taken off an example for each judge question it asks, so search prefers the graph that asks less when two answer alike |
+| `--keep-judge` | off | Keep only a graph whose rules, wherever they answer without asking the judge, are right at least this often on the labeled training and validation examples (Laplace-smoothed, so a rule needs about 100 right answers in a row to reach 0.99). Search falls back to the next best candidate, then to the starting graph, and fails if none qualifies. Use it where a rule over a field anyone can set would be a way around the judge, such as fraud |
 | `--merges` | 5 | Times search may combine two candidates, taking each part from whichever graph scored better |
 | `--max-nodes` / `--max-depth` | 16 / 8 | Limits on generated graphs |
 | `--seed` | 0 | Search seed |
@@ -82,10 +83,15 @@ that already exist are refused before any request is sent.
 | `metric_calls` | Example evaluations used |
 | `mined` | With `--mine`: how many rules were mined, their validation score, and whether search started from them |
 | `improvement_p`, `kept_seed` | The sign test of the winner against the seed, and whether `--significance` kept the seed |
+| `keep_judge_passed_over` | With `--keep-judge`: better-scoring candidates refused because a rule answered alone too often wrongly |
 | `scored_by` | `labels`, `grader <model>`, or `games`: a graded score is not accuracy |
 
 Reports also record resolved model IDs, dependency versions, settings, and
 task/seed hashes.
+
+Search drops any rule counts the starting graph carries (see
+[measuring rules](../README.md#how-sure-a-rule-is)), since they describe that
+graph and not its rewrites. Run `rulesmith calibrate` on the graph search returns.
 
 ## From Python
 

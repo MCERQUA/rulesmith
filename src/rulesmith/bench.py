@@ -27,6 +27,7 @@ import pyarrow.parquet as parquet  # isort: skip
 import dspy
 from dspy.utils.exceptions import AdapterParseError
 
+from rulesmith import calibrate
 from rulesmith.graph import Plan, State, Task
 from rulesmith.optimize import (
     GraphProposer,
@@ -146,28 +147,12 @@ class Answer:
     invalid: bool = False
 
 
-def confidence(record: dict) -> float:
-    """How sure a graph was of an answer: the least sure of the judgments it rests on. An answer
-    the rules settled without asking rests on none and counts as sure, which is the point of
-    writing the rule; a graph that failed to answer is not sure at all."""
-    if record.get("error"):
-        return 0.0
-    sure = []
-    for answer in record.get("answers", {}).values():
-        if answer["type"] == "choice":
-            sure.append(answer["probabilities"][answer["value"]])
-        elif answer["type"] == "score":
-            sure.append(answer["confidence"])
-        else:
-            sure.append(max(answer["value"], 1 - answer["value"]))
-    return min(sure, default=1.0)
-
-
 def graph_answers(records: list[dict]) -> list[Answer]:
     return [
         Answer(
             correct=bool(record["correct"]),
-            confidence=confidence(record),
+            # A graph that failed to answer is not sure at all.
+            confidence=0.0 if record.get("error") else record["confidence"],
             calls=len(record.get("calls", {})),
             input_tokens=record.get("input_tokens", 0),
             output_tokens=record.get("output_tokens", 0),
@@ -263,6 +248,9 @@ def search(
         mine=True,
     )
     best, report = optimize_plan(task, direct_plan(task), client, model, proposer, config)
+    # Measured, its rules are as sure as they were right on the examples search saw, rather than
+    # certain, which is what ranking answers by confidence needs.
+    best = calibrate.measure(best, task, client, model)
     return record(
         "search",
         seed,
@@ -511,7 +499,12 @@ def measure(method: str, seed: int, task: Task, dataset: Dataset, resources: Mod
         plan = direct_plan(task)
         return record("direct", seed, task, plan, resources.client, resources.judge)
     if method == "handwritten":
-        plan = compile_rules(dataset.handwritten, task.criteria())
+        plan = calibrate.measure(
+            compile_rules(dataset.handwritten, task.criteria()),
+            task,
+            resources.client,
+            resources.judge,
+        )
         return record("handwritten", seed, task, plan, resources.client, resources.judge)
     if method == "search":
         return search(

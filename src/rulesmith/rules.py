@@ -52,6 +52,8 @@ LEVEL = re.compile(r"\[([^:\]\[]+)\]")
 # A choice over every label the task has, as the task describes them: a task of dozens of labels
 # would otherwise have its whole list restated each time a proposer touches the question.
 TASK_LABELS = "[task labels]"
+# How often a rule was right among the examples it decided, of how many it was run on.
+MEASURED = re.compile(r"\s+calibrated\s+(\d+)/(\d+)\s+of\s+(\d+)\s*$")
 # How a rule reads the length of a text or list rather than the value itself.
 LENGTH = "length of "
 # The output a task scores, and the one rules decide unless a section names another.
@@ -123,6 +125,8 @@ def label_text(value) -> str:
         raise RuleError(f"the value {value!r} has no rule form")
     if value.startswith("ask ") or ("?" in value and ":" in value):
         raise RuleError(f"the label {value!r} would read back as an action")
+    if MEASURED.search(value):
+        raise RuleError(f"the label {value!r} would read back as a measured rule")
     return value
 
 
@@ -293,12 +297,8 @@ def ordered(plan: Plan, top: str, guard: Condition | None = None) -> list[tuple[
 
 
 def render_action(node, reads: dict[str, Read], plan: Plan, labels: dict[str, str] | None) -> str:
-    if isinstance(node, Value):
-        return label_text(node.value)
-    if isinstance(node, Threshold):
-        source = name_of(node.source, reads, plan)
-        above, below = (label_text(arm) for arm in (node.above, node.below))
-        return f"{source} >= {number(node.cutoff)} ? {above} : {below}"
+    if isinstance(node, (Value, Threshold)):
+        return render_decision(node, reads, plan) + render_measured(node)
     question = node.question
     asked = f"ask {quoted(question.instructions)}"
     if question.type == "score":
@@ -313,6 +313,21 @@ def render_action(node, reads: dict[str, Read], plan: Plan, labels: dict[str, st
     if node.temperature != 1:
         asked += f" calibrated {number(node.temperature)}"
     return asked + render_given(node, reads, plan)
+
+
+def render_decision(node: Value | Threshold, reads: dict[str, Read], plan: Plan) -> str:
+    if isinstance(node, Value):
+        return label_text(node.value)
+    source = name_of(node.source, reads, plan)
+    above, below = (label_text(arm) for arm in (node.above, node.below))
+    return f"{source} >= {number(node.cutoff)} ? {above} : {below}"
+
+
+def render_measured(node: Value | Threshold) -> str:
+    measured = node.measured
+    if measured is None:
+        return ""
+    return f" calibrated {measured.right}/{measured.decided} of {measured.examples}"
 
 
 def render_given(node: Call, reads: dict[str, Read], plan: Plan) -> str:
@@ -702,6 +717,12 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
         else:
             question |= {"type": "noul"}
         return {"type": "call", "question": question, "inputs": inputs, **temperature}
+    counted = MEASURED.search(text)
+    measured = {}
+    if counted:
+        text = text[: counted.start()]
+        right, decided, examples = map(int, counted.groups())
+        measured = {"measured": {"right": right, "decided": decided, "examples": examples}}
     if "?" in text and ":" in text:
         test, _, arms = text.partition("?")
         above, _, below = arms.partition(":")
@@ -712,5 +733,5 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
             "cutoff": float(cutoff),
             "above": above.strip(),
             "below": below.strip(),
-        }
-    return {"type": "value", "value": text}
+        } | measured
+    return {"type": "value", "value": text} | measured

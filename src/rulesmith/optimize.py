@@ -17,7 +17,8 @@ from gepa.core.adapter import EvaluationBatch, GEPAAdapter
 from pydantic import Field, ValidationError
 from typesafe_sdk import TypeSafeClient
 
-from rulesmith.graph import Example, Plan, StrictModel, Task
+from rulesmith.calibrate import tally, unmeasured
+from rulesmith.graph import Example, Measured, Plan, StrictModel, Task
 from rulesmith.mine import fields, mine
 from rulesmith.rules import RuleError, parts, whole
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError, Remembered
@@ -202,6 +203,14 @@ class SearchConfig(StrictModel):
         description="Score taken off an example per judge question asked, so that of two "
         "graphs that answer alike, search keeps the one that asks less",
     )
+    keep_judge: float | None = Field(
+        default=None,
+        gt=0,
+        lt=1,
+        description="Keep only a graph whose rules, where they answer without asking the judge, "
+        "are right at least this often on the labeled training and validation examples, smoothed "
+        "by Laplace's rule; a rule over a field anyone can set is otherwise a way around it",
+    )
 
 
 def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, parallel: int) -> list:
@@ -340,6 +349,17 @@ def abstaining(task: SearchTask) -> str:
     )
 
 
+def keeping(config: SearchConfig) -> str:
+    """What the proposer must know when rules may answer alone only where they are that sure."""
+    if config.keep_judge is None:
+        return ""
+    return (
+        f"A rule that answers without asking the judge must be right at least "
+        f"{config.keep_judge:.0%} of the time, or the program is refused; where no reading is "
+        "that sure, keep the judge in the path.\n"
+    )
+
+
 def field_summary(task: SearchTask) -> str:
     """What the fields of the inputs hold, so a proposer can see which a rule could read."""
     examples = [example for example in task.train if hasattr(example, "state")]
@@ -424,6 +444,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
         f"{field_summary(task)}"
         f"{abstaining(task)}"
+        f"{keeping(config)}"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
         # The schema is twelve thousand characters and rules need none of it; a proposal
         # that falls back to whole-graph JSON is rare enough to ask for the schema then.
@@ -502,11 +523,17 @@ def optimize_plan(
     score: Scorer | None = None,
 ) -> tuple[Plan, dict]:
     initial.check(task.labels, config.max_nodes, config.max_depth)
+    seed_sha256 = hashlib.sha256(initial.model_dump_json().encode()).hexdigest()
+    # A rule's counts describe the graph they were taken on; a proposer would carry them onto
+    # rewrites they no longer describe.
+    initial = unmeasured(initial)
     batch_size = min(config.reflection_batch, len(task.train))
     minimum_budget = 2 * (len(task.validation) + batch_size)
     if config.max_metric_calls < minimum_budget:
         raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
     adapter = GraphAdapter(task, client, model, config, execution, score)
+    if config.keep_judge is not None and not isinstance(adapter.score, Labels):
+        raise ValueError("keep_judge counts how often rules are right, which needs labels")
     start, mined_report = initial, None
     mined = mine(task, initial) if config.mine and isinstance(task, Task) else None
     if mined is not None:
@@ -605,30 +632,62 @@ def optimize_plan(
     )
     if adapter.failure is not None:
         raise adapter.failure
+
+    def gain_p(index: int) -> float:
+        seed_scores, scores = result.val_subscores[0], result.val_subscores[index]
+        shared = seed_scores.keys() & scores.keys()
+        return improvement_p(
+            sum(scores[i] > seed_scores[i] for i in shared),
+            sum(scores[i] < seed_scores[i] for i in shared),
+        )
+
+    def admissible(index: int) -> bool:
+        return index == 0 or config.significance is None or gain_p(index) <= config.significance
+
     chosen = result.best_idx
-    seed_scores, best_scores = result.val_subscores[0], result.val_subscores[chosen]
-    shared = seed_scores.keys() & best_scores.keys()
-    p = improvement_p(
-        sum(best_scores[i] > seed_scores[i] for i in shared),
-        sum(best_scores[i] < seed_scores[i] for i in shared),
-    )
-    kept_seed = config.significance is not None and chosen != 0 and p > config.significance
+    p = gain_p(chosen)
+    kept_seed = not admissible(chosen)
     if kept_seed:
         chosen = 0
     best = adapter.parse(result.candidates[chosen])
+    validation_score = result.val_aggregate_scores[chosen]
+    passed_over = 0
+    if config.keep_judge is not None:
+        ranked = sorted(
+            range(len(result.candidates)), key=lambda i: -result.val_aggregate_scores[i]
+        )
+        keep = [chosen] + [i for i in ranked if i != chosen and admissible(i)]
+        found = next(
+            (i for i in keep if judged(adapter, adapter.parse(result.candidates[i]), task)), None
+        )
+        passed_over = keep.index(found) if found is not None else len(keep)
+        if found is not None:
+            chosen, best = found, adapter.parse(result.candidates[found])
+            validation_score = result.val_aggregate_scores[found]
+        elif judged(adapter, initial, task):
+            best = initial
+            validation_score = mean(
+                adapter.evaluate(task.validation, components(initial, adapter.labels)).scores
+            )
+        else:
+            raise ValueError(
+                f"no graph search found, nor the one it started from, keeps rules that answer "
+                f"without the judge right at least {config.keep_judge:g} of the time"
+            )
     report = {
         "model": model,
         "resolved_models": sorted(adapter.resolved_models),
         "task_sha256": hashlib.sha256(task.model_dump_json().encode()).hexdigest(),
-        "seed_sha256": hashlib.sha256(initial.model_dump_json().encode()).hexdigest(),
+        "seed_sha256": seed_sha256,
         "mined": mined_report,
         "versions": {name: version(name) for name in ("dspy", "gepa", "typesafe-sdk")},
         "search": config.model_dump(),
         "execution": adapter.execution.model_dump(),
         "seed_validation_score": result.val_aggregate_scores[0],
-        "validation_score": result.val_aggregate_scores[chosen],
+        "validation_score": validation_score,
         "improvement_p": p,
         "kept_seed": kept_seed,
+        "keep_judge_passed_over": passed_over,
         "validation_scores": result.val_aggregate_scores,
         "candidates": len(result.candidates),
         "reflection_calls": reflection_calls,
@@ -637,6 +696,21 @@ def optimize_plan(
         "metric_calls": result.total_metric_calls,
     }
     return best, report
+
+
+def judged(adapter: GraphAdapter, plan: Plan, task: SearchTask) -> bool:
+    """Whether every rule that answers some labeled example without asking the judge is right
+    as often as search was told to keep: counted on training and validation examples alike,
+    since a rule settles few of either."""
+    examples = [*task.train, *task.validation]
+    program = DecisionProgram(plan, adapter.client, adapter.model, adapter.execution)
+    records = [outcome.record for outcome in adapter.remember(plan, program, examples)]
+    alone = [record for record in records if not record.get("calls")]
+    return all(
+        Measured(right=right, decided=decided, examples=len(records)).precision
+        >= adapter.config.keep_judge
+        for right, decided in tally(alone).values()
+    )
 
 
 def improvement_p(wins: int, losses: int) -> float:

@@ -17,7 +17,7 @@ import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from rulesmith.ablate import effects
-from rulesmith.calibrate import calibrate
+from rulesmith.calibrate import calibrate, drift, measure
 from rulesmith.diagram import mermaid
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Call, Plan, Task
@@ -31,7 +31,7 @@ from rulesmith.optimize import (
     optimize_plan,
 )
 from rulesmith.rules import compile_rules, render_rules
-from rulesmith.runtime import DecisionProgram, ExecutionConfig
+from rulesmith.runtime import DecisionProgram, ExecutionConfig, Remembered
 
 # The games load only for a task that plays one (see game), so a core install without their
 # packages still validates and runs every other graph.
@@ -126,6 +126,12 @@ def parser() -> argparse.ArgumentParser:
         elif name == "evaluate":
             command.add_argument("--split", choices=("train", "validation", "test"), default="test")
             command.add_argument(
+                "--drift",
+                type=float,
+                default=0.01,
+                help="Flag a calibrated rule that decides at a rate this unlikely for it",
+            )
+            command.add_argument(
                 "--visible", action="store_true", help="Show the game window for a Doom task"
             )
         else:
@@ -170,6 +176,12 @@ def parser() -> argparse.ArgumentParser:
                 type=float,
                 default=SearchConfig().call_cost,
                 help="Score off an example per judge question, to prefer graphs that ask less",
+            )
+            command.add_argument(
+                "--keep-judge",
+                type=float,
+                help="Let rules answer without the judge only where they are right at least this "
+                "often on the labeled examples, such as 0.99",
             )
             command.add_argument("--seed", type=int, default=SearchConfig().seed)
     draft = commands.add_parser("draft-labels", help="Label raw inputs for review as a task")
@@ -396,7 +408,10 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     plan = read_plan(cli, args.plan, task)
     model, judge_client = judge(args, True)
     with judge_client as client:
-        fitted, temperatures = calibrate(plan, task, client, model)
+        # Both passes ask the same questions; the second rereads the first's answers.
+        remembered = Remembered(client)
+        fitted, temperatures = calibrate(plan, task, remembered, model)
+        fitted = measure(fitted, task, remembered, model)
     written = (
         render_rules(fitted, task.criteria())
         if args.output.suffix == ".rules"
@@ -404,7 +419,14 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(written + "\n")
-    print(dump({"temperatures": temperatures, "output": str(args.output)}), end="")
+    counted = {
+        name: node.measured.model_dump()
+        for name, node in fitted.nodes.items()
+        if getattr(node, "measured", None) is not None
+    }
+    print(
+        dump({"temperatures": temperatures, "rules": counted, "output": str(args.output)}), end=""
+    )
 
 
 def read_plan(
@@ -513,6 +535,9 @@ def main() -> None:
         cli.error("--grader-model is the judge the graph asks; grade with a different model")
     if getattr(args, "visible", False) and deathmatch:
         cli.error("--visible shows a single-player Doom game; a deathmatch has no one window")
+    keeping = getattr(args, "keep_judge", None) is not None
+    if keeping and (grading or not isinstance(task, Task)):
+        cli.error("--keep-judge measures rules against a labeled task's labels")
     if args.command in ("evaluate", "optimize") and isinstance(task, Task) and not grading:
         splits = ("train", "validation") if args.command == "optimize" else (args.split,)
         unlabeled = [e.id for split in splits for e in getattr(task, split) if e.label is None]
@@ -535,6 +560,7 @@ def main() -> None:
             call_cost=args.call_cost,
             significance=args.significance,
             mine=args.mine,
+            keep_judge=args.keep_judge,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:
@@ -621,8 +647,19 @@ def main() -> None:
             report["model"] = model
             report["scored_by"] = scored_by(args, task)
             report["opponent"] = opponent_of(args)
+            summary = {"score": report["score"], "output": str(args.output)}
+            if isinstance(task, Task):
+                report["drift"] = summary["drift"] = drift(plan, report["examples"], args.drift)
+                for moved in report["drift"]:
+                    print(
+                        f"warning: {moved['rule']} decided {moved['share']:.0%} of these "
+                        f"examples against {moved['measured_share']:.0%} when calibrated "
+                        f"(p = {moved['p']:.2g}); the inputs have moved from the ones it was "
+                        "measured on",
+                        file=sys.stderr,
+                    )
             args.output.write_text(dump(report))
-            print(dump({"score": report["score"], "output": str(args.output)}), end="")
+            print(dump(summary), end="")
         else:
             with redirect_stdout(sys.stderr):
                 best, report = optimize_plan(

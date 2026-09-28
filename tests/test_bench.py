@@ -98,17 +98,13 @@ def test_a_graph_answer_carries_its_cost_and_how_sure_it_was():
         "correct": True,
         "calls": {"a": {}, "b": {}},
         "input_tokens": 10,
-        "answers": {
-            "a": {"type": "choice", "value": "x", "probabilities": {"x": 0.7, "y": 0.3}},
-            "b": {"type": "noul", "value": 0.2},
-        },
+        "confidence": 0.7,
     }
-    settled = {"correct": False, "calls": {}, "input_tokens": 0, "answers": {}}
-    failed = {"correct": False, "error": "skipped", "answers": {}}
-    first, second, third = graph_answers([asked, settled, failed])
-    # The least sure judgment decides; rules alone count as sure; a failure as not sure at all.
+    failed = {"correct": False, "error": "skipped"}
+    first, second = graph_answers([asked, failed])
+    # How sure the graph was comes with its answer; a failure is not sure at all.
     assert (first.calls, first.input_tokens, first.confidence) == (2, 10, 0.7)
-    assert second.confidence == 1.0 and third.confidence == 0.0 and third.invalid
+    assert second.confidence == 0.0 and second.invalid
 
 
 @given(st.lists(st.tuples(st.booleans(), st.floats(0, 1)), min_size=1, max_size=50))

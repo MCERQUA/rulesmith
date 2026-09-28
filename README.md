@@ -316,7 +316,9 @@ Output (trimmed):
   ...
   "input_tokens": 166,
   "output_tokens": 0,
-  "label": "billing"
+  "label": "billing",
+  "decided_by": "rule_1",
+  "confidence": 0.991
 }
 ```
 
@@ -537,6 +539,36 @@ temperature per choice question over the task's labels, from its answers on the
 training examples, and writes it into the question (`... [ATTACK: "..."]
 calibrated 1.8`). The answers stay the same; how sure they read changes.
 
+#### How sure a rule is
+
+Every decision reports `decided_by`, the rule or judgment that settled it, and a
+`confidence`: the least sure of the judgments asked and, once the rule is
+measured, how often that rule is right. Until then a rule claims nothing, and a
+decision it settles without asking reads as 1.0. `calibrate` also measures
+every rule on the labeled training and validation examples and writes the count
+after it:
+
+```
+when rating >= 4: recommended calibrated 37/40 of 100
+```
+
+That rule decided 40 of 100 examples and was right on 37, so its decisions read
+as (37 + 1) / (40 + 2) = 0.90 sure. The smoothing keeps a rule seen twice from
+claiming certainty. These are examples search saw, so the counts flatter a
+searched graph; calibrate against a task of fresh examples for an honest figure.
+
+`evaluate` checks the counts against the inputs it scores. A rule that decides
+far more or less often than it did when measured (at `--drift`, default 0.01,
+by an exact binomial test) is reported under `drift` in the output and warned
+about. The inputs have moved, and so may how often the rule is right: a
+scam-posting rule measured on balanced data decides 40% of postings, and at the
+real scam rate 14%.
+
+Where a rule over a field anyone can set is a way around the judge, as in fraud,
+`optimize --keep-judge 0.99` keeps only graphs whose rules, wherever they answer
+without the judge, are right at least that often; see
+[optimization settings](docs/optimization.md#settings).
+
 **What several of them agree on.** A vote settles two or more judgments into
 one value: `agree` reports whether they all said the same, which is how a second
 opinion verifies the first, and `majority` takes the answer most of them gave.
@@ -745,7 +777,7 @@ cannot matter are rules the proposer wastes proposals on.
 | `optimize` | Search for a better graph, writing `plan.json` and `report.json` |
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
-| `calibrate` | Fit how sure each judgment should read, from the training examples |
+| `calibrate` | Fit how sure each judgment should read, and count how often each rule is right, from the labeled examples |
 | `draw` | Write a graph as a Mermaid flowchart |
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
@@ -784,7 +816,9 @@ Output (trimmed):
   },
   "skipped": ["rule_2"],
   ...
-  "label": "billing"
+  "label": "billing",
+  "decided_by": "rule_1",
+  "confidence": 0.997
 }
 ```
 

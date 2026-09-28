@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from rulesmith.graph import Plan
-from rulesmith.rules import RuleError, compile_rules, parts, render_rules, whole
+from rulesmith.rules import MEASURED, RuleError, compile_rules, parts, render_rules, whole
 from rulesmith.runtime import DecisionProgram
 
 
@@ -33,7 +33,7 @@ def test_a_sum_of_any_shape_stays_a_number(value):
 @given(st.text(min_size=1).map(str.strip).filter(bool))
 def test_any_label_text_comes_back_as_written(label):
     # A label is the task's own vocabulary, and escaping it changes what the graph answers.
-    unwritable = len(label.splitlines()) != 1 or label.startswith("ask ")
+    unwritable = len(label.splitlines()) != 1 or label.startswith("ask ") or MEASURED.search(label)
     if unwritable or any(mark in label for mark in ":?#`") or "readings" in label:
         return
     plan = compile_rules(f"read x in [0, 9]\nwhen x >= 3: {label}\nalways: other")
