@@ -613,6 +613,13 @@ def main() -> None:
         help="Per reply; a proposal restating 77 labels with its reasoning needs room",
     )
     bench.add_argument(
+        "--student-max-tokens",
+        type=int,
+        default=2048,
+        help="Per DSPy reply: a label with its reasoning fits, and a local server reserves "
+        "memory for this many tokens in every reply it is generating at once",
+    )
+    bench.add_argument(
         "--note", help="How the judge was served, e.g. RULING_ROTATIONS=1, kept with the results"
     )
     bench.add_argument(
@@ -661,7 +668,7 @@ def main() -> None:
             getattr(args, f"{role}_model"),
             getattr(args, f"{role}_base_url"),
             getattr(args, f"{role}_options"),
-            args.max_tokens,
+            args.student_max_tokens if role == "student" else args.max_tokens,
             args.timeout,
             args.retries,
         )
