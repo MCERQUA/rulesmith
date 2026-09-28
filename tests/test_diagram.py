@@ -73,3 +73,30 @@ def test_a_node_named_like_an_output_is_drawn_apart_from_it():
     for source, target in edges:
         graph.setdefault(target, set()).add(source)
     tuple(TopologicalSorter(graph).static_order())
+
+
+def test_every_judge_is_marked_and_named_as_the_rules_test_it():
+    # The arrows read 'team == "billing"'; a reader must find the box that is 'team' and see
+    # that it is the one place the model is asked.
+    plan = compile_rules(
+        (Path(__file__).resolve().parents[1] / "examples/rules/routing.rules").read_text()
+    )
+    drawn = mermaid(plan)
+    ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
+    marked = {
+        id_
+        for listed in re.findall(r"^\s*class (\S+) judge$", drawn, re.MULTILINE)
+        for id_ in listed.split(",")
+    }
+    calls = {name for name, node in plan.nodes.items() if node.type == "call"}
+    assert calls and marked == {ids[name] for name in calls}
+    assert all(name in boxes(drawn)[ids[name]] for name in calls)
+
+
+def test_the_arrows_into_a_list_of_rules_are_numbered_in_the_order_they_are_tried():
+    # Drawn in any other order, a judge last in line would look as if it were always asked.
+    plan = compile_rules("read x in [0, 9]\nwhen x >= 5: zulu\nwhen x >= 2: alpha\nalways: mike")
+    drawn = mermaid(plan)
+    ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
+    ranked = dict(re.findall(r'^\s*(\w+) -->\|"(\d+)"\| ', drawn, re.MULTILINE))
+    assert [ranked[ids[source]] for source in plan.nodes["decision"].sources] == ["1", "2", "3"]

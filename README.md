@@ -82,6 +82,8 @@ flowchart LR
   R --> O["optimize"]
   O --> P["plan.json<br/>your graph"]
   P --> RUN["run / evaluate"]
+  P -.->|"optional"| CAL["calibrate<br/>measure rules and judge"]
+  CAL -.-> RUN
 ```
 
 **1. Pick a judge.** The judge answers the graph's typed questions. Use
@@ -404,13 +406,41 @@ model's opinion, not accuracy against labels.
 
 ```mermaid
 flowchart LR
-  T["task.json<br/>labels + examples"] --> S["Starting graph<br/>majority label"]
+  T["task.json<br/>labels + examples"] --> S["Starting graph<br/>yours, or the majority label"]
   S --> E["Run on training examples<br/>via Ruling or Jev"]
   E -->|"errors + expected labels"| P["DSPy proposer<br/>revises one graph component"]
   P -->|"assemble + schema check"| E
   E -->|"better on the batch"| V["Score on validation examples"]
   V --> B["Best graph<br/>plan.json"]
 ```
+
+A graph search found for the [job-postings benchmark](docs/benchmarks.md), drawn
+with `rulesmith draw`:
+
+```mermaid
+flowchart TD
+    n0[/"read has_company_logo"/]
+    n1[/"read length of company_profile"/]
+    n2(("fraudulent"))
+    n3{{"judge<br/>choice: Is this job posting a scam?"}}
+    n4(["decision<br/>first that answers"])
+    n0 -.->|"has_company_logo == 0 and length of company_profile == 0"| n2
+    n1 -.->|"has_company_logo == 0 and length of company_profile == 0"| n2
+    n2 -->|"1"| n4
+    n3 -->|"2"| n4
+    o0(("label"))
+    n4 --> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n3 judge
+    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
+    class n0,n1 read
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n2 rule
+```
+
+Rule 1 reads two fields and, when the posting has no logo and an empty company
+profile, answers `fraudulent` without calling any model. Only when it declines
+does rule 2 ask the judge (Jev or Ruling), which it did on 60% of test postings.
 
 The proposer sees where the graph answered wrong and revises one part: the
 readings it may look at, or the rules that decide. The revision is compiled with
@@ -424,15 +454,18 @@ runs only the specialist that matches:
 
 ```mermaid
 flowchart LR
-  IN(["ticket"]) --> D["department<br/>choice"]
-  IN --> U["urgency<br/>score"]
+  IN(["ticket"]) --> D{{"judge: department<br/>choice"}}
+  IN --> U{{"judge: urgency<br/>score"}}
   D --> C["context<br/>merge"]
   U --> C
   IN --> C
-  C -.->|"if billing"| B["billing_review"]
-  C -.->|"if technical"| T["technical_review"]
-  C -.->|"if sales"| S["sales_review"]
-  B --> CO["specialist_result<br/>coalesce"]
+  C --> B{{"judge: billing_review<br/>noul"}}
+  C --> T{{"judge: technical_review<br/>noul"}}
+  C --> S{{"judge: sales_review<br/>noul"}}
+  D -.->|"department == billing"| B
+  D -.->|"department == technical"| T
+  D -.->|"department == sales"| S
+  B --> CO(["specialist_result<br/>first that answers"])
   T --> CO
   S --> CO
   D --> A["assessment<br/>merge"]
@@ -440,7 +473,14 @@ flowchart LR
   CO --> A
   D ==> LBL(["label"])
   A ==> AS(["assessment"])
+  classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+  class D,U,B,T,S judge
 ```
+
+The amber hexagons are judge calls, each a question to Jev or Ruling; the rest
+runs without a model. Solid arrows carry values and dashed ones gate: each
+review is shown the merged `context`, and asked only when `department` answered
+its team. Thick arrows are the graph's two outputs.
 
 Search does not write that JSON. It writes rules, which compile to it:
 
@@ -700,23 +740,36 @@ each dashed arrow says the condition it carries.
 uv run rulesmith draw examples/rules/routing.rules
 ```
 
-Output:
+Output, as GitHub renders it:
 
 ```mermaid
 flowchart TD
-    n0{{"ask choice: Which team should answer this ticket?"}}
+    n0{{"judge: team<br/>choice: Which team should answer this ticket?"}}
     n1(("billing"))
     n2(("technical"))
     n3(("sales"))
-    n4(["decision"])
+    n4(["decision<br/>first that answers"])
     n0 -.->|"team == billing"| n1
     n0 -.->|"team == technical"| n2
-    n1 --> n4
-    n2 --> n4
-    n3 --> n4
+    n1 -->|"1"| n4
+    n2 -->|"2"| n4
+    n3 -->|"3"| n4
     o0(("label"))
     n4 --> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n0 judge
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n1,n2,n3 rule
 ```
+
+The amber hexagon is the **judge**: the one step that calls a model, Jev or
+Ruling, whichever `--backend` runs the graph. The graph itself names no
+backend. Its box shows the name the rules test it by, `team`, so the dashed
+arrow `team == billing` reads as "the judge answered billing". Blue slanted
+boxes read a field of the input for free, green circles are the answers rules
+give, and the numbers on the arrows into `decision` are the order the rules are
+tried in. The first that answers decides; `sales` has no condition, so it
+answers whenever the two before it do not.
 
 **`ablate`** answers what each reading, judgment and name is worth. It replays the
 decisions the graph already made with one input switched off and counts how many

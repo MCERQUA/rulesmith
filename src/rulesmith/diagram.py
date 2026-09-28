@@ -1,5 +1,7 @@
 """A plan as a Mermaid flowchart, for looking at a graph rules cannot express."""
 
+from textwrap import shorten
+
 from rulesmith.graph import (
     Call,
     Coalesce,
@@ -15,7 +17,7 @@ from rulesmith.graph import (
     Vote,
     tested,
 )
-from rulesmith.rules import number, path_of, render_condition
+from rulesmith.rules import GENERATED, number, path_of, render_condition
 
 SHAPES = {
     Read: ("[/", "/]"),
@@ -29,6 +31,18 @@ SHAPES = {
     Sum: ("[", "]"),
     Value: ("((", "))"),
 }
+# Colors by what a node costs to run, with dark text so each reads on a light or dark page: the
+# judge is the one place a model is asked, whichever backend runs the graph.
+KINDS = {
+    "judge": (Call,),
+    "read": (Read,),
+    "rule": (Value, Threshold),
+}
+STYLES = {
+    "judge": "fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917",
+    "read": "fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917",
+    "rule": "fill:#bbf7d0,stroke:#15803d,color:#1c1917",
+}
 
 
 def label(name: str, node) -> str:
@@ -36,7 +50,10 @@ def label(name: str, node) -> str:
     if isinstance(node, Read):
         return f"read {path_of(node)}"
     if isinstance(node, Call):
-        return f"ask {node.question.type}: {node.question.instructions[:40]}"
+        # Named as the rules test it, and marked as the model call it is.
+        named = "judge" if GENERATED.fullmatch(name) else f"judge: {name}"
+        question = shorten(node.question.instructions, 48, placeholder="...")
+        return f"{named}<br/>{node.question.type}: {question}"
     if isinstance(node, Threshold):
         return f"{name}: >= {number(node.cutoff)} ? {node.above} : {node.below}"
     if isinstance(node, Value):
@@ -46,6 +63,8 @@ def label(name: str, node) -> str:
         return f"{name}: switch on {node.source}"
     if isinstance(node, Vote):
         return f"{name}: {node.rule} of {len(node.sources)}"
+    if isinstance(node, Coalesce):
+        return f"{name}<br/>first that answers"
     if isinstance(node, Confidence):
         return f"how sure {node.source} was"
     if isinstance(node, Sum):
@@ -74,6 +93,12 @@ def mermaid(plan: Plan) -> str:
         open_shape, close_shape = SHAPES[type(node)]
         lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')
     for name, node in plan.nodes.items():
+        if isinstance(node, Coalesce):
+            # Tried in order, so the order is the point: a judge last is asked only when every
+            # rule ahead of it declined.
+            for rank, source in enumerate(node.sources, start=1):
+                lines.append(f'    {ids[source]} -->|"{rank}"| {ids[name]}')
+            continue
         for source in sorted(feeds(node)):
             lines.append(f"    {ids[source]} --> {ids[name]}")
         # A rule is often a bare value with a condition on it, so the guard has no data edge to
@@ -86,6 +111,11 @@ def mermaid(plan: Plan) -> str:
         lines.append(f'    o{index}(("{safe(output)}"))')
         if isinstance(source, NodeInput):
             lines.append(f"    {ids[source.node]} --> o{index}")
+    for kind, types in KINDS.items():
+        members = [ids[name] for name, node in plan.nodes.items() if isinstance(node, types)]
+        if members:
+            lines.append(f"    classDef {kind} {STYLES[kind]}")
+            lines.append(f"    class {','.join(members)} {kind}")
     return "\n".join(lines)
 
 
