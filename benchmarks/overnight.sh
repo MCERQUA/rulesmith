@@ -5,6 +5,9 @@
 #   benchmarks/overnight.sh                # 10 hours, proposer served by LM Studio
 #   HOURS=4 benchmarks/overnight.sh
 #   PROPOSER_MODEL=openrouter/qwen/qwen3.8-27b PROPOSER_URL= benchmarks/overnight.sh
+#   JUDGES="http://127.0.0.1:8010 http://127.0.0.1:8012" benchmarks/overnight.sh
+#
+# One Ruling answers one request at a time, so a second on another port shares the datasets.
 #
 # Needs: the proposer (LM Studio at $PROPOSER_URL, or a hosted model with its key in the
 # environment when PROPOSER_URL is empty), a checkout of Ruling at $RULING_DIR, and Stockfish at
@@ -16,6 +19,7 @@ ROOT=$PWD
 HOURS=${HOURS:-10}
 RULING_DIR=${RULING_DIR:-../ruling}
 STOCKFISH=${STOCKFISH:-$HOME/.local/bin/stockfish}
+JUDGES=(${=JUDGES:-http://127.0.0.1:8010})
 PROPOSER_MODEL=${PROPOSER_MODEL:-openai/qwen3.8-27b-mlx}
 PROPOSER_URL=${PROPOSER_URL-http://127.0.0.1:1234/v1}
 proposer=(--proposer-model $PROPOSER_MODEL)
@@ -43,16 +47,21 @@ ready() {
 # The Mac must not sleep, or every model and game stops at the first idle timeout.
 caffeinate -dimsu -w $$ &
 
-if ! up http://127.0.0.1:8010/v1/models; then
-  note "starting Ruling (one option ordering per question)"
-  (cd $RULING_DIR && RULING_ROTATIONS=1 nohup uv run ruling serve >$ROOT/$LOGS/ruling.log 2>&1 &)
-fi
+for judge in $JUDGES; do
+  if ! up $judge/v1/models; then
+    note "starting Ruling at $judge (one option ordering per question)"
+    (cd $RULING_DIR && RULING_ROTATIONS=1 RULING_PORT=${judge##*:} nohup uv run ruling serve \
+      >$ROOT/$LOGS/ruling-${judge##*:}.log 2>&1 &)
+  fi
+done
 if ! up http://127.0.0.1:$STUDENT_PORT/v1/models; then
   note "starting the DSPy student $STUDENT"
   (cd $RULING_DIR && nohup uv run mlx_lm.server --model $STUDENT --port $STUDENT_PORT \
     >$ROOT/$LOGS/student.log 2>&1 &)
 fi
-ready http://127.0.0.1:8010/v1/models || { note "Ruling did not start; see $LOGS/ruling.log"; exit 1; }
+for judge in $JUDGES; do
+  ready $judge/v1/models || { note "Ruling did not start at $judge; see $LOGS"; exit 1; }
+done
 ready http://127.0.0.1:$STUDENT_PORT/v1/models || { note "student did not start"; exit 1; }
 if [[ -n $PROPOSER_URL ]] && ! curl -s -m 10 $PROPOSER_URL/models | grep -q "\"${PROPOSER_MODEL#openai/}\""; then
   note "nothing serves $PROPOSER_MODEL at $PROPOSER_URL; load it and run again"
@@ -60,14 +69,14 @@ if [[ -n $PROPOSER_URL ]] && ! curl -s -m 10 $PROPOSER_URL/models | grep -q "\"$
 fi
 
 bench() {
-  local dataset=$1; shift
+  local dataset=$1 judge=$2; shift 2
   # A crash loses only the step it was on, so try again while there is time left.
   for attempt in 1 2 3; do
     local left=$(( (deadline - $(date +%s)) / 3600.0 ))
     (( left > 0 )) || return
     note "$dataset: attempt $attempt, ${left}h left"
     uv run python3 -m rulesmith.bench run $dataset --seeds 0 1 2 --methods "$@" \
-      --train 50 --validation 50 --test 300 --budget $BUDGET --hours $left \
+      --train 50 --validation 50 --test 300 --budget $BUDGET --hours $left --judge-base-url $judge \
       $proposer \
       --student-model openai/$STUDENT --student-base-url http://127.0.0.1:$STUDENT_PORT/v1 \
       --student-options '{"chat_template_kwargs": {"enable_thinking": false}}' \
@@ -96,13 +105,16 @@ chess() {
 # The cheap methods first, then the ones that need the proposer. Banking77 skips DSPy's
 # chain of thought: seventy-seven labels make it the slowest place to run it and the least
 # telling.
+# Banking77's seventy-seven options make it the heaviest on a judge, so it and news take the
+# second judge when there is one.
+first=$JUDGES[1] second=${JUDGES[2]:-$JUDGES[1]}
 runs=()
-bench trec majority tfidf direct search dspy dspy-cot & runs+=($!)
-bench clothing majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
-bench jobs majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
-bench banking77 majority tfidf direct search dspy & runs+=($!)
+bench trec $first majority tfidf direct search dspy dspy-cot & runs+=($!)
+bench clothing $first majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
+bench jobs $first majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
+bench banking77 $second majority tfidf direct search dspy & runs+=($!)
 # Chosen before any result and used for nothing while building: the check on the rest.
-bench news majority tfidf direct search dspy dspy-cot & runs+=($!)
+bench news $second majority tfidf direct search dspy dspy-cot & runs+=($!)
 chess & runs+=($!)
 
 # The hard stop: whatever is still running at the deadline ends, and what finished is kept.
