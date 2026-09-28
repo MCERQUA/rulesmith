@@ -246,11 +246,18 @@ def tfidf(seed: int, task: Task) -> dict:
 
 
 def search(
-    seed: int, task: Task, labels: dict[str, str], client, model: str, proposer, budget: int
+    seed: int,
+    task: Task,
+    labels: dict[str, str],
+    client,
+    model: str,
+    proposer,
+    budget: int,
+    call_cost: float,
 ) -> dict:
     """rulesmith's search, seeded with the direct call, so the comparison that matters is
     whether a graph improves on asking the judge once."""
-    config = SearchConfig(max_metric_calls=budget, seed=seed)
+    config = SearchConfig(max_metric_calls=budget, seed=seed, call_cost=call_cost)
     best, report = optimize_plan(task, direct_plan(task, labels), client, model, proposer, config)
     return record(
         "search",
@@ -424,6 +431,7 @@ class Models:
     student: dspy.LM | None = None
     reflection: dspy.LM | None = None
     budget: int = 0
+    call_cost: float = 0
 
 
 def run(
@@ -479,6 +487,7 @@ def measure(method: str, seed: int, task: Task, dataset: Dataset, resources: Mod
             resources.judge,
             resources.proposer,
             resources.budget,
+            resources.call_cost,
         )
     return dspy_baseline(
         seed,
@@ -568,6 +577,12 @@ def main() -> None:
     for split, default in (("train", 50), ("validation", 50), ("test", 300)):
         bench.add_argument(f"--{split}", type=int, default=default)
     bench.add_argument("--budget", type=int, default=150, help="Metric calls per search")
+    bench.add_argument(
+        "--call-cost",
+        type=float,
+        default=0.02,
+        help="Score search takes off per judge question: a whole call is worth two points",
+    )
     bench.add_argument("--judge-base-url", default="http://127.0.0.1:8010")
     bench.add_argument("--judge-model", default="default")
     for role in ("proposer", "student", "reflection"):
@@ -639,7 +654,7 @@ def main() -> None:
     if "handwritten" in args.methods and dataset.handwritten is None:
         root.error(f"{dataset.name} has no hand-written rules to run")
     sizes = {split: getattr(args, split) for split in ("train", "validation", "test")}
-    models = {"judge": args.judge_model, "note": args.note or ""} | {
+    models = {"judge": args.judge_model, "note": args.note or "", "call_cost": args.call_cost} | {
         role: getattr(args, f"{role}_model") for role in lms if getattr(args, f"{role}_model")
     }
     with TypeSafeClient(base_url=args.judge_base_url, api_key="local-no-auth") as client:
@@ -650,6 +665,7 @@ def main() -> None:
             student=lms["student"],
             reflection=lms["reflection"] or lms["proposer"],
             budget=args.budget,
+            call_cost=args.call_cost,
         )
         deadline = time.time() + args.hours * 3600 if args.hours else math.inf
         run(dataset, args.seeds, args.methods, sizes, args.output, models, resources, deadline)

@@ -144,6 +144,12 @@ def parser() -> argparse.ArgumentParser:
                 "--repair-attempts", type=int, default=SearchConfig().repair_attempts
             )
             command.add_argument("--merges", type=int, default=SearchConfig().merges)
+            command.add_argument(
+                "--call-cost",
+                type=float,
+                default=SearchConfig().call_cost,
+                help="Score off an example per judge question, to prefer graphs that ask less",
+            )
             command.add_argument("--seed", type=int, default=SearchConfig().seed)
     draft = commands.add_parser("draft-labels", help="Label raw inputs for review as a task")
     draft.add_argument("inputs", type=Path, help="JSON with description, labels, and inputs")
@@ -447,6 +453,7 @@ def main() -> None:
             seed=args.seed,
             parallel_examples=args.parallel_examples,
             merges=args.merges,
+            call_cost=args.call_cost,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:

@@ -167,6 +167,13 @@ class SearchConfig(StrictModel):
     merges: int = Field(
         default=5, ge=0, description="Times search may combine two candidates' parts"
     )
+    call_cost: float = Field(
+        default=0,
+        ge=0,
+        le=1,
+        description="Score taken off an example per judge question asked, so that of two "
+        "graphs that answer alike, search keeps the one that asks less",
+    )
 
 
 def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, parallel: int) -> list:
@@ -253,9 +260,24 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         for outcome in outcomes:
             self.resolved_models.update(outcome.models)
             outputs.append(outcome.record)
-            scores.append(outcome.score)
-            records.append(outcome.trace)
+            score, trace = self.charged(outcome)
+            scores.append(score)
+            records.append(trace)
         return self.batch(candidate, outputs, scores, records if capture_traces else None)
+
+    def charged(self, outcome: Outcome) -> tuple[float, dict]:
+        """An example's score less the price of the judge questions it asked, and feedback that
+        says so, since a proposer cannot lower a cost it is not told about."""
+        asked = len(outcome.record.get("calls", {}))
+        price = self.config.call_cost * asked
+        if not price:
+            return outcome.score, outcome.trace
+        told = (
+            f" It asked the judge {asked} question(s) at {self.config.call_cost:g} each, so it "
+            f"scores {max(0.0, outcome.score - price):g}; answer from readings where they suffice."
+        )
+        trace = outcome.trace | {"Feedback": outcome.trace.get("Feedback", "") + told}
+        return max(0.0, outcome.score - price), trace
 
     def batch(self, candidate, outputs, scores, trajectories) -> EvaluationBatch:
         if trajectories is not None and self.proposed in candidate.values():

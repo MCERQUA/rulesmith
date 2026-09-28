@@ -968,3 +968,20 @@ def test_candidates_that_ask_the_same_question_pay_for_it_once(provider, client)
         adapter.evaluate(task.train, components(Plan.model_validate(rule_plan(cutoff))))
     asked = [path for path, _ in provider.requests if path == "/v1/systemone"]
     assert len(asked) == len(task.train)
+
+
+def test_with_a_price_on_calls_the_cheaper_of_two_equal_graphs_scores_higher(provider, client):
+    # Both answer every example right; one asks the judge first. Only the price tells them apart.
+    data = task_data()
+    data["train"] = [{"id": "a", "state": "request A", "label": "accept"}]
+    task = Task.model_validate(data)
+    provider.body["answers"] = {"eligible": {"type": "noul", "noul": 0.9}}
+    asking = components(Plan.model_validate(rule_plan(0.5)))
+    silent = components(Plan.model_validate(constant_plan("accept")))
+    free = GraphAdapter(task, client, "fixture", SearchConfig())
+    assert free.evaluate(task.train, asking).scores == free.evaluate(task.train, silent).scores
+    priced = GraphAdapter(task, client, "fixture", SearchConfig(call_cost=0.1))
+    batch = priced.evaluate(task.train, asking, capture_traces=True)
+    assert batch.scores == [pytest.approx(0.9)]
+    assert priced.evaluate(task.train, silent).scores == [1.0]
+    assert "0.1" in batch.trajectories[0]["Feedback"]
