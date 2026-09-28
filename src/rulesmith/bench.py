@@ -7,6 +7,7 @@ run has already recorded is skipped, so an interrupted benchmark resumes where i
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import os
@@ -675,14 +676,18 @@ def main() -> None:
     print(report(json.loads(args.output.read_text())))
 
 
-def cached(url: str, name: str) -> Path:
+def cached(url: str, name: str, sha1: str | None = None) -> Path:
     """A downloaded file, fetched once. Datasets stay out of the repo; their licenses allow
-    use, and fetching from the source keeps attribution where the publisher put it."""
+    use, and fetching from the source keeps attribution where the publisher put it. With a
+    published checksum, a file that differs is refused rather than measured."""
     path = Path(os.environ.get("RULESMITH_CACHE", Path.home() / ".cache" / "rulesmith")) / name
     if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
         with urllib.request.urlopen(url, timeout=60) as response:
-            path.write_bytes(response.read())
+            data = response.read()
+        if sha1 is not None and hashlib.sha1(data).hexdigest() != sha1:
+            raise ValueError(f"{url} does not match its published checksum {sha1}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
     return path
 
 
@@ -773,6 +778,31 @@ def jobs() -> Rows:
     return rows
 
 
+def news() -> Rows:
+    """Which channel a Mashable article ran in, from its title and sixteen numbers about its text
+    (length, links, images, sentiment): UCI's Online News Popularity (CC BY 4.0) as the
+    multimodal AutoML benchmark of Shi et al. (2021) prepared it. Chosen before any result, and
+    used for nothing while rulesmith was built, as a check on the other datasets."""
+    base = "https://automl-mm-bench.s3.amazonaws.com/news_channel"
+    rows = {}
+    for split, digest in NEWS_SHA1.items():
+        path = cached(f"{base}/{split}.csv", f"news_channel/{split}.csv", digest)
+        with path.open(newline="") as file:
+            table = [
+                {key.strip(): value.strip() for key, value in row.items()}
+                for row in csv.DictReader(file)
+            ]
+        rows[split] = [
+            (
+                {"title": row.pop("article_title")}
+                | {key: float(value) for key, value in row.items() if key != "channel"},
+                CHANNELS[row["channel"].removeprefix("data_channel_is_")],
+            )
+            for row in table
+        ]
+    return rows
+
+
 def spelled(label: str) -> str:
     """A label described by its own words, the most a direct question gets for free."""
     return label.replace("_", " ")
@@ -783,6 +813,18 @@ TREC_REVISION = "0a34640b3cac3affef6f0abdfb81e3d0ecffcf92"
 JOBS_REPO = "victor/real-or-fake-fake-jobposting-prediction"
 JOBS_REVISION = "a751f55136a26da3c36e26aa207a9e187ca24b45"
 SIGNIFICANCE = 0.1
+NEWS_SHA1 = {
+    "train": "ab226210b6a878b449d01f33a195014c65c22311",
+    "test": "a71516784ce6e168bd9933e9ec50080f65cb05fd",
+}
+CHANNELS = {
+    "bus": "business",
+    "entertainment": "entertainment",
+    "lifestyle": "lifestyle",
+    "socmed": "social_media",
+    "tech": "tech",
+    "world": "world",
+}
 METHODS = ("majority", "tfidf", "direct", "handwritten", "search", "dspy", "dspy-cot")
 DATASETS: dict[str, Dataset] = {
     "banking77": Dataset(
@@ -822,6 +864,7 @@ DATASETS: dict[str, Dataset] = {
             ]
         ),
     ),
+    "news": Dataset("news", "Which channel did this article run in?", news, spelled),
     "trec": Dataset("trec", "What kind of answer does this question ask for?", trec, spelled),
 }
 

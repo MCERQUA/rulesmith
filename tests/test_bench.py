@@ -238,3 +238,19 @@ def test_nothing_new_starts_after_the_deadline(tmp_path):
     assert runs == [] and not output.exists()
     runs = run(toy(), [0], ["majority"], sizes, output, {}, deadline=time.time() + 3600)
     assert [r["method"] for r in runs] == ["majority"]
+
+
+def test_a_download_that_is_not_the_published_file_is_refused(tmp_path, monkeypatch):
+    # A mirror that changed its data would change every number measured on it, silently.
+    from rulesmith.bench import cached
+
+    source = tmp_path / "data.csv"
+    source.write_text("a,b\n1,2\n")
+    monkeypatch.setenv("RULESMITH_CACHE", str(tmp_path / "cache"))
+    with pytest.raises(ValueError, match="checksum"):
+        cached(source.as_uri(), "data.csv", sha1="0" * 40)
+    assert not (tmp_path / "cache" / "data.csv").exists()
+    import hashlib
+
+    digest = hashlib.sha1(source.read_bytes()).hexdigest()
+    assert cached(source.as_uri(), "data.csv", sha1=digest).read_text() == "a,b\n1,2\n"
