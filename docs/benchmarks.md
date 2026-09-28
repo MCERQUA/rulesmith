@@ -41,14 +41,16 @@ Models, all local except one:
 
 | Role | Model |
 | --- | --- |
-| Judge (direct, handwritten, search) | Ruling, serving one option ordering per question (`RULING_ROTATIONS=1`) |
+| Judge (direct, handwritten, search) | `mlx-community/Qwen3.5-4B-4bit` under Ruling, one option ordering per question (`RULING_ROTATIONS=1`) |
 | DSPy student | `mlx-community/Qwen3.5-4B-4bit` under `mlx_lm.server`, thinking off, 2,048 reply tokens |
 | Proposer (search) and reflection (DSPy) | Qwen3.8 27B: through LM Studio for early runs, then the same model through OpenRouter with reasoning capped at 2,048 tokens |
 
 The same proposer writes rulesmith's graphs and DSPy's instructions, so neither side gets a
-stronger optimizer. The two differ in the model that answers: rulesmith asks Ruling, a judge
-that returns a probability for each option, and DSPy prompts a 4B generative model. That
-difference is part of what is being compared, not controlled away.
+stronger optimizer. Both answer with the same weights, `Qwen3.5-4B-4bit`, and differ in how
+it is asked: Ruling scores each allowed label and returns probabilities, while DSPy has the
+model write a reply and parses a label from it. The direct question shows the interface alone
+is no advantage: on the same model it scores below DSPy on jobs and TREC. What search adds
+over it is the rules.
 
 **Columns.** *At 80%* and *At 50%* are accuracy on the 80% and 50% of test examples the method
 was surest of, for methods that report confidence. *Calls* are judge or language-model calls
@@ -224,7 +226,7 @@ trained classifier would be the baseline to beat, and would be harder to beat th
 **One of each model.** One judge, one DSPy student, one proposer. Ruling ran with one option
 ordering per question to fit the run on one machine overnight; with more orderings it is
 slower and usually more accurate, which would move direct, handwritten and search together.
-DSPy with a larger student would score higher; so would rulesmith with a stronger judge.
+A larger model would lift both sides; whether the gaps hold there is untested.
 
 **Proposer served two ways.** Early runs got the proposer from LM Studio; after it fell behind,
 the rest got the same model from OpenRouter with its reasoning capped. The results files do not
