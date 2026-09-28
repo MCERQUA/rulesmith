@@ -3,11 +3,14 @@
 ![rulesmith: rules that ask a local model for typed decisions](image.png)
 
 **rulesmith lets DSPy build decision graphs for you.** Give it a
-classification task and labeled examples. A generative model proposes graphs of
-small typed judgments (Choice, Score, and Noul, a probability that a statement
-is true), [GEPA](https://github.com/gepa-ai/gepa) scores them against a local
-Ruling or hosted Jev judge, and the best graph is saved as plain JSON you can
-run, inspect, and edit.
+classification task and examples, labeled or graded by a stronger model. It
+searches for a small program of rules: cheap tests on the input's fields settle
+the cases they can, and a local Ruling or hosted Jev judge is asked typed
+questions (Choice, Score, and Noul, a probability that a statement is true)
+about the rest. A generative model proposes each revision,
+[GEPA](https://github.com/gepa-ai/gepa) decides which to keep by how they score
+on your examples, and the best program is saved as rules or JSON you can run,
+read, and edit.
 
 This is an independent research prototype, not affiliated with TypeSafe. Jev is
 TypeSafe's hosted judge, selected with `--backend typesafe`. rulesmith optimizes
@@ -31,9 +34,10 @@ rulesmith searches over rules and questions, not demonstrations, so it has
 nothing to add there.
 
 The [benchmarks](docs/benchmarks.md) bear this out on five public datasets.
-Where fields carry the signal, rulesmith ties or beats DSPy with far fewer
-model calls. Where the input is a single piece of free text, it adds nothing
-over one direct question, and DSPy's chain of thought wins.
+Where fields carry the signal, rulesmith ties or beats DSPy with 5% to 68% of
+its model calls. Where the input is a single piece of free text, it adds nothing
+over one direct question: it ties DSPy on Banking77, and DSPy's chain of thought
+beats it on TREC.
 
 ## Installation
 
@@ -944,7 +948,7 @@ is a claim about the work listed here, not a survey of the field.
 ## Development
 
 `uv sync` installs the project with every extra, so the whole suite runs. CI runs
-the same checks on Python 3.12 and 3.13.
+the same checks on Python 3.12, 3.13 and 3.14.
 
 ```sh
 uv run pytest -q
