@@ -666,7 +666,7 @@ uv run rulesmith draw examples/rules/routing.rules
 
 Output:
 
-```text
+```mermaid
 flowchart TD
     n0{{"ask choice: Which team should answer this ticket?"}}
     n1(("billing"))
