@@ -75,9 +75,33 @@ flowchart LR
   P --> RUN["run / evaluate"]
 ```
 
-**1. Start a judge.** [Ruling](https://github.com/bradAGI/ruling) runs locally
-on an Apple Silicon Mac and needs no account. In a separate terminal, starting
-from your `rulesmith` checkout:
+**1. Pick a judge.** The judge answers the graph's typed questions. Use
+TypeSafe's hosted Jev, or run Ruling on your own machine; every command takes
+either, and the examples below use Ruling.
+
+<details open>
+<summary><b>Jev, hosted</b></summary>
+
+Jev runs on TypeSafe's servers, so it works on any machine and answers many
+requests at once. It needs an API key from [TypeSafe](https://typesafe.ai), and
+its calls are billed:
+
+```sh
+export TYPESAFE_API_KEY=<your key>
+```
+
+Jev is the default backend, so with the key set, leave `--backend ruling
+--max-workers 1` off the commands below. The model defaults to `jev-latest`;
+pass `--model` with a pinned version for results you want to reproduce.
+
+</details>
+
+<details>
+<summary><b>Ruling, local</b></summary>
+
+[Ruling](https://github.com/bradAGI/ruling) runs on an Apple Silicon Mac and
+needs no account. In a separate terminal, starting from your `rulesmith`
+checkout:
 
 ```sh
 git clone https://github.com/bradAGI/ruling.git ../ruling
@@ -85,9 +109,11 @@ uv sync --directory ../ruling
 uv run --directory ../ruling ruling serve
 ```
 
-Leave that server running. Run the remaining commands from `rulesmith`
-in your original terminal. Ruling downloads its model on first use. On other
-hardware, use a remote Ruling server or the [hosted Jev backend](#backends).
+Leave that server running and run the remaining commands from `rulesmith` in
+your original terminal. Ruling downloads its model on first use and answers one
+request at a time, hence `--max-workers 1`.
+
+</details>
 
 **2. Configure a proposer**, the model that writes graphs, using a
 [DSPy model identifier](https://dspy.ai/learn/programming/language_models/).
@@ -604,8 +630,8 @@ cannot matter are rules the proposer wastes proposals on.
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 
-Every command that asks a judge (`run`, `evaluate`, `optimize`, `arena`,
-`record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,
+Every command that asks a judge (`run`, `evaluate`, `optimize`, `calibrate`,
+`arena`, `record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,
 `--retries` and `--max-workers`; see [backends](#backends). `draft-labels` calls
 a generative model instead, set with `--labeler-model` and `--labeler-base-url`.
 
@@ -637,6 +663,9 @@ with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") a
     print(result.label, result.answers)
 ```
 
+Against Jev, the client reads `TYPESAFE_API_KEY` and TypeSafe's endpoint by
+itself: `with TypeSafeClient() as client:` and `model="jev-latest"`.
+
 `result.answers` holds what each judgment said, so a decision can be logged or
 audited, not just acted on. Rules load the same way, and a graph of reads alone
 needs no judge at all:
@@ -657,13 +686,22 @@ print(DecisionProgram(triage, None, "none")(state={"order": {"total": 900}}).lab
 
 ## Backends
 
-| Backend | Flag | Endpoint | Credential |
-| --- | --- | --- | --- |
-| Ruling (local) | `--backend ruling` | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
-| Jev (hosted) | `--backend typesafe` (default) | `TYPESAFE_BASE_URL` | `TYPESAFE_API_KEY` |
+| Backend | Flag | Model | Endpoint | Credential |
+| --- | --- | --- | --- | --- |
+| Jev (hosted) | `--backend typesafe` (default) | `jev-latest`, or `--model` | `TYPESAFE_BASE_URL`, default `https://api.typesafe.ai` | `TYPESAFE_API_KEY` |
+| Ruling (local) | `--backend ruling` | whatever Ruling serves | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
 
-Ruling serializes requests, so use `--max-workers 1`. Hosted calls may incur
-charges: the search budget counts examples, not requests or dollars.
+Jev answers requests in parallel, so the default `--max-workers 4` applies;
+Ruling serializes them, so use `--max-workers 1`. Jev calls are billed: the
+search budget counts examples, not requests or dollars, and `--call-cost` makes
+search prefer graphs that ask less. The same search against Jev:
+
+```sh
+export TYPESAFE_API_KEY=<your key>
+uv run rulesmith optimize task.json \
+  --reflection-model "$REFLECTION_MODEL" --reflection-base-url "$REFLECTION_BASE_URL" \
+  --output runs/my-task-jev
+```
 
 ## Related work
 
