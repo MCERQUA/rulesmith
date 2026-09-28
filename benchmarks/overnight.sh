@@ -93,6 +93,8 @@ bench trec majority tfidf direct search dspy dspy-cot & runs+=($!)
 bench clothing majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
 bench jobs majority tfidf direct handwritten search dspy dspy-cot & runs+=($!)
 bench banking77 majority tfidf direct search dspy & runs+=($!)
+# Chosen before any result and used for nothing while building: the check on the rest.
+bench news majority tfidf direct search dspy dspy-cot & runs+=($!)
 chess & runs+=($!)
 
 # The hard stop: whatever is still running at the deadline ends, and what finished is kept.
@@ -103,7 +105,7 @@ stopper=$!
 # Waiting on these alone: caffeinate runs until this script exits, so a bare wait never returns.
 wait $runs
 kill $stopper 2>/dev/null
-for dataset in trec clothing jobs banking77; do
+for dataset in trec clothing jobs banking77 news; do
   [[ -f benchmarks/results/$dataset.json ]] && uv run python3 -m rulesmith.bench report \
     benchmarks/results/$dataset.json >>$LOGS/report.md && print >>$LOGS/report.md
 done
