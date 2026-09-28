@@ -62,9 +62,11 @@ target-version = "py312"
 select = ["E", "F", "I", "B", "UP"]
 
 [tool.hatch.build.targets.sdist]
+# Only what the package and its tests need: listing it keeps local scratch and tool folders out.
 # The docs' game videos run to tens of megabytes and are for reading on GitHub, not installing;
 # the README's banner image is served from GitHub too (see the substitutions below).
-exclude = ["docs/assets", "image.png"]
+only-include = ["src", "tests", "examples", "docs", "benchmarks", "README.md", "LICENSE", "uv.lock"]
+exclude = ["docs/assets"]
 
 # PyPI renders the README away from the repository, where its relative links and image would break.
 [tool.hatch.metadata.hooks.fancy-pypi-readme]
