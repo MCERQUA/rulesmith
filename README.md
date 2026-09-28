@@ -163,6 +163,19 @@ uv run rulesmith draft-labels inputs.json --output task.json \
   --validation 1 --test 1
 ```
 
+Output:
+
+```json
+{
+  "labels": {
+    "technical": 2,
+    "billing": 2,
+    "sales": 2
+  },
+  "output": "task.json"
+}
+```
+
 This leaves four training inputs, one validation input, and one test input: a
 workflow example, too small to measure model quality reliably. For real work,
 use more examples and larger held-out splits.
@@ -246,6 +259,28 @@ uv run rulesmith optimize task.json \
   --output runs/my-task
 ```
 
+Output (trimmed; with `REFLECTION_MODEL=openrouter/qwen/qwen3.8-27b`):
+
+```text
+Iteration 0: Base program full valset score: 0.3333333333333333 over 3 / 3 examples
+Iteration 1: Proposed new text for readings: ask intent = "Route each support ticket to billing, technical, or sales based on its primary request. ..."
+...
+{
+  "resolved_models": ["mlx-community/Qwen3.5-4B-4bit"],
+  ...
+  "seed_validation_score": 0.3333333333333333,
+  "validation_score": 1.0,
+  "improvement_p": 0.25,
+  "kept_seed": false,
+  "candidates": 2,
+  "reflection_calls": 3,
+  "metric_calls": 102,
+  "backend": "ruling",
+  "reflection_model": "openrouter/qwen/qwen3.8-27b",
+  "scored_by": "labels"
+}
+```
+
 This writes `runs/my-task/plan.json` (the graph) and `report.json` (scores).
 Compare `validation_score` with `seed_validation_score`.
 
@@ -257,6 +292,32 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json \
 
 uv run rulesmith run runs/my-task/plan.json examples/state.json \
   --backend ruling --max-workers 1
+```
+
+Output (trimmed):
+
+```text
+{
+  "score": 1.0,
+  "output": "runs/my-task/test.json"
+}
+{
+  "outputs": {"label": "billing"},
+  ...
+  "answers": {
+    "intent": {
+      "type": "choice",
+      "value": "billing",
+      "probabilities": {"billing": 0.991, "technical": 0.009, "sales": 0.00007},
+      "confidence": 0.987
+    }
+  },
+  "skipped": ["rule_2", "rule_3"],
+  ...
+  "input_tokens": 166,
+  "output_tokens": 0,
+  "label": "billing"
+}
 ```
 
 ### How answers are scored
@@ -303,6 +364,25 @@ uv run rulesmith optimize task.json \
   --reflection-model "$REFLECTION_MODEL" --reflection-base-url "$REFLECTION_BASE_URL" \
   --grader-model "$GRADER_MODEL" --grader-base-url "$GRADER_BASE_URL" \
   --output runs/my-task
+```
+
+Output (trimmed; with `GRADER_MODEL=openrouter/qwen/qwen3.8-27b`):
+
+```text
+...
+{
+  ...
+  "seed_validation_score": 0.3333333333333333,
+  "validation_score": 1.0,
+  "improvement_p": 0.25,
+  "kept_seed": false,
+  "candidates": 2,
+  "reflection_calls": 4,
+  "metric_calls": 102,
+  "backend": "ruling",
+  "reflection_model": "openrouter/qwen/qwen3.8-27b",
+  "scored_by": "grader openrouter/qwen/qwen3.8-27b"
+}
 ```
 
 The grader scores each answer from 0 to 1 and says why, and search reads the
@@ -584,6 +664,24 @@ each dashed arrow says the condition it carries.
 uv run rulesmith draw examples/rules/routing.rules
 ```
 
+Output:
+
+```text
+flowchart TD
+    n0{{"ask choice: Which team should answer this ticket?"}}
+    n1(("billing"))
+    n2(("technical"))
+    n3(("sales"))
+    n4(["decision"])
+    n0 -.->|"team == billing"| n1
+    n0 -.->|"team == technical"| n2
+    n1 --> n4
+    n2 --> n4
+    n3 --> n4
+    o0(("label"))
+    n4 --> o0
+```
+
 **`ablate`** answers what each reading, judgment and name is worth. It replays the
 decisions the graph already made with one input switched off and counts how many
 change, so it needs no fresh model calls beyond the first pass:
@@ -591,6 +689,23 @@ change, so it needs no fresh model calls beyond the first pass:
 ```sh
 uv run rulesmith ablate task.json plan.json --split validation \
   --backend ruling --output runs/ablation.json
+```
+
+Output, for the graph built in the quickstart:
+
+```json
+{
+  "states": 3,
+  "effects": [
+    {
+      "node": "intent",
+      "kind": "ask",
+      "changed": 2,
+      "share": 0.6667,
+      "reason": ""
+    }
+  ]
+}
 ```
 
 The command reads its states from a task's examples. A Doom or chess task keeps
@@ -649,6 +764,30 @@ uv run rulesmith run examples/rules/routing.rules examples/state.json \
   --backend ruling --max-workers 1
 ```
 
+Output (trimmed):
+
+```text
+{
+  "nodes": 5,
+  "labels": ["billing", "technical", "sales"]
+}
+{
+  "outputs": {"label": "billing"},
+  ...
+  "answers": {
+    "team": {
+      "type": "choice",
+      "value": "billing",
+      "probabilities": {"billing": 0.997, "technical": 0.003, "sales": 0.0003},
+      "confidence": 0.995
+    }
+  },
+  "skipped": ["rule_2"],
+  ...
+  "label": "billing"
+}
+```
+
 ## Use from Python
 
 A graph runs as a `dspy.Module`:
@@ -666,6 +805,12 @@ with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") a
     program = DecisionProgram(plan, client, model="default")
     result = program(state="Please correct the duplicate charge on my invoice.")
     print(result.label, result.answers)
+```
+
+Output (probabilities rounded):
+
+```text
+billing {'intent': {'type': 'choice', 'value': 'billing', 'probabilities': {'billing': 0.992, 'technical': 0.008, 'sales': 4.5e-05}, 'confidence': 0.989}}
 ```
 
 Against Jev, the client reads `TYPESAFE_API_KEY` and TypeSafe's endpoint by
@@ -687,6 +832,21 @@ when order.total >= 500: hold_for_review
 always: ship
 """)
 print(DecisionProgram(triage, None, "none")(state={"order": {"total": 900}}).label)
+```
+
+Output:
+
+```text
+read order.total in [0, 1000000]
+read order.country one of [domestic, eu, rest]
+read customer.orders in [0, 10000]
+ask suspicious = "This order reads like card testing or resale fraud." when order.total >= 500
+when customer.orders >= 5 and order.total < 500: ship
+when order.total < 50: ship
+when suspicious >= 0.7: hold_for_review
+when suspicious >= 0.3 and order.country == "rest": hold_for_review
+always: ship
+hold_for_review
 ```
 
 ## Backends
@@ -755,6 +915,14 @@ the same checks on Python 3.12 and 3.13.
 ```sh
 uv run pytest -q
 uv run ruff check src tests && uv run ruff format --check src tests
+```
+
+Output (the last line of pytest):
+
+```text
+490 passed, 6 skipped, 1 warning in 278.41s (0:04:38)
+All checks passed!
+48 files already formatted
 ```
 
 ## License
