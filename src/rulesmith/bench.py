@@ -9,6 +9,7 @@ import argparse
 import csv
 import hashlib
 import json
+import logging
 import math
 import os
 import random
@@ -290,9 +291,11 @@ def dspy_answers(program: dspy.Module, task: Task, student: dspy.LM) -> tuple[li
         for example in dspy_examples(task.test):
             before = len(student.history)
             try:
-                label, invalid = program(text=example.text).label, False
+                label = program(text=example.text).label
             except AdapterParseError:
-                label, invalid = None, True
+                label = None
+            # A reply naming no allowed label, or a failure the program reported as no answer.
+            invalid = label is None
             usage = [entry.get("usage") or {} for entry in student.history[before:]]
             answers.append(
                 Answer(
@@ -304,6 +307,27 @@ def dspy_answers(program: dspy.Module, task: Task, student: dspy.LM) -> tuple[li
                 )
             )
     return answers, time.perf_counter() - started
+
+
+class Failsafe(dspy.Module):
+    """A DSPy program whose failure on one example is an answer of None, scored zero, as DSPy's
+    GEPA means a failed example to be. Its integration instead crashes the whole optimization
+    when an example comes back missing, which ended runs over one dropped connection or one
+    error inside DSPy. Each failure is logged; GEPA scores copies of the program, so a count kept
+    here would miss theirs."""
+
+    def __init__(self, program: dspy.Module):
+        super().__init__()
+        self.program = program
+        self.failures = 0
+
+    def forward(self, text: str) -> dspy.Prediction:
+        try:
+            return self.program(text=text)
+        except Exception as error:  # any failure: DSPy counts it at failure_score, not a crash
+            self.failures += 1
+            logging.getLogger(__name__).warning("DSPy example failed: %r", error)
+            return dspy.Prediction(label=None)
 
 
 def dspy_baseline(
@@ -323,7 +347,7 @@ def dspy_baseline(
         },
         task.description,
     )
-    program = dspy.ChainOfThought(signature) if reasoning else dspy.Predict(signature)
+    program = Failsafe(dspy.ChainOfThought(signature) if reasoning else dspy.Predict(signature))
 
     def metric(gold, predicted, trace=None, pred_name=None, pred_trace=None):
         right = predicted.label == gold.label

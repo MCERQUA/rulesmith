@@ -270,3 +270,19 @@ def test_a_dropped_connection_to_a_generative_model_is_retried():
 
     lm = language_model("openai/fixture", "http://127.0.0.1:9", None, 64, 5, retries=3)
     assert lm.num_retries == 3
+
+
+def test_a_failed_example_scores_zero_instead_of_ending_the_run():
+    # DSPy means a failed example to score its failure_score; its GEPA integration instead
+    # crashes when one is missing, so the program under search reports failures as answers.
+    import dspy
+
+    from rulesmith.bench import Failsafe
+
+    class Broken(dspy.Module):
+        def forward(self, text):
+            raise TypeError("unsupported operand type(s) for /: 'list' and 'list'")
+
+    guarded = Failsafe(Broken())
+    predicted = guarded(text="anything")
+    assert predicted.label is None and guarded.failures == 1
