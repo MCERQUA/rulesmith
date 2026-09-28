@@ -486,6 +486,10 @@ class Task(StrictModel):
         default_factory=dict,
         description="costs[expected][answered]: what a wrong answer costs; 1 where unlisted",
     )
+    descriptions: dict[Text, Text] = Field(
+        default_factory=dict,
+        description="What each label means, for a question over them all; its words where unlisted",
+    )
 
     @model_validator(mode="after")
     def disjoint_splits(self) -> Self:
@@ -509,6 +513,9 @@ class Task(StrictModel):
                     raise ValueError(f"costs name a label the task does not have: {answered}")
             if expected in row:
                 raise ValueError(f"costs give {expected!r} a cost for answering itself")
+        unknown = self.descriptions.keys() - set(self.labels)
+        if unknown:
+            raise ValueError(f"descriptions name labels the task does not have: {sorted(unknown)}")
         if self.worst == 0:
             raise ValueError("costs make every mistake free, so no answer is worse than another")
         return self
@@ -517,6 +524,12 @@ class Task(StrictModel):
         if expected == answered:
             return 0.0
         return self.costs.get(expected, {}).get(answered, 1.0)
+
+    def criteria(self) -> dict[str, str]:
+        """Every label with what it means: a choice over the whole task, in the task's order."""
+        return {
+            label: self.descriptions.get(label, label.replace("_", " ")) for label in self.labels
+        }
 
     @property
     def worst(self) -> float:

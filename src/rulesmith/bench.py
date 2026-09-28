@@ -99,9 +99,11 @@ def sample(dataset: Dataset, train: int, validation: int, test: int, seed: int) 
     # A balanced draw alternates labels, so split it without handing one split every even row.
     rng.shuffle(searched)
     splits = {"train": searched[:train], "validation": searched[train:], "test": held}
+    described = dataset.labels()
     return Task(
         description=dataset.description,
-        labels=sorted(dataset.labels()),
+        labels=sorted(described),
+        descriptions=described,
         **{
             split: [{"id": f"{split}-{index}", **row} for index, row in enumerate(rows)]
             for split, rows in splits.items()
@@ -109,7 +111,7 @@ def sample(dataset: Dataset, train: int, validation: int, test: int, seed: int) 
     )
 
 
-def direct_plan(task: Task, labels: dict[str, str]) -> Plan:
+def direct_plan(task: Task) -> Plan:
     """The simplest thing a judge can do: one choice question over every label, no graph."""
     return Plan.model_validate(
         {
@@ -119,7 +121,7 @@ def direct_plan(task: Task, labels: dict[str, str]) -> Plan:
                     "question": {
                         "type": "choice",
                         "instructions": task.description,
-                        "criteria": {label: labels[label] for label in task.labels},
+                        "criteria": task.criteria(),
                     },
                     "inputs": {"observation": {"type": "state"}},
                 }
@@ -246,14 +248,7 @@ def tfidf(seed: int, task: Task) -> dict:
 
 
 def search(
-    seed: int,
-    task: Task,
-    labels: dict[str, str],
-    client,
-    model: str,
-    proposer,
-    budget: int,
-    call_cost: float,
+    seed: int, task: Task, client, model: str, proposer, budget: int, call_cost: float
 ) -> dict:
     """rulesmith's search, seeded with the direct call, so the comparison that matters is
     whether a graph improves on asking the judge once."""
@@ -265,7 +260,7 @@ def search(
         significance=SIGNIFICANCE,
         mine=True,
     )
-    best, report = optimize_plan(task, direct_plan(task, labels), client, model, proposer, config)
+    best, report = optimize_plan(task, direct_plan(task), client, model, proposer, config)
     return record(
         "search",
         seed,
@@ -482,16 +477,15 @@ def measure(method: str, seed: int, task: Task, dataset: Dataset, resources: Mod
     if method == "tfidf":
         return tfidf(seed, task)
     if method == "direct":
-        plan = direct_plan(task, dataset.labels())
+        plan = direct_plan(task)
         return record("direct", seed, task, plan, resources.client, resources.judge)
     if method == "handwritten":
-        plan = compile_rules(dataset.handwritten)
+        plan = compile_rules(dataset.handwritten, task.criteria())
         return record("handwritten", seed, task, plan, resources.client, resources.judge)
     if method == "search":
         return search(
             seed,
             task,
-            dataset.labels(),
             resources.client,
             resources.judge,
             resources.proposer,
