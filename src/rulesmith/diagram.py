@@ -64,7 +64,7 @@ def label(name: str, node) -> str:
     if isinstance(node, Vote):
         return f"{name}: {node.rule} of {len(node.sources)}"
     if isinstance(node, Coalesce):
-        return f"{name}<br/>first that answers"
+        return f"{name}<br/>first rule that answers"
     if isinstance(node, Confidence):
         return f"how sure {node.source} was"
     if isinstance(node, Sum):
@@ -105,8 +105,11 @@ def mermaid(plan: Plan) -> str:
         # ride on. Draw it as its own dashed arrow from whatever the condition reads.
         if node.when is not None:
             guard = safe(render_condition(node.when, reads, plan))
-            for source in sorted(tested(node.when)):
-                lines.append(f'    {ids[source]} -.->|"{guard}"| {ids[name]}')
+            # Written once, on the first arrow; repeated on each, a long condition buries the
+            # drawing, and the other arrows still show what else it reads.
+            first, *others = sorted(tested(node.when))
+            lines.append(f'    {ids[first]} -.->|"{guard}"| {ids[name]}')
+            lines += [f"    {ids[source]} -.-> {ids[name]}" for source in others]
     for index, (output, source) in enumerate(plan.outputs.items()):
         lines.append(f'    o{index}(("{safe(output)}"))')
         if isinstance(source, NodeInput):

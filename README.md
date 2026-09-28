@@ -423,9 +423,9 @@ flowchart TD
     n1[/"read length of company_profile"/]
     n2(("fraudulent"))
     n3{{"judge<br/>choice: Is this job posting a scam?"}}
-    n4(["decision<br/>first that answers"])
+    n4(["decision<br/>first rule that answers"])
     n0 -.->|"has_company_logo == 0 and length of company_profile == 0"| n2
-    n1 -.->|"has_company_logo == 0 and length of company_profile == 0"| n2
+    n1 -.-> n2
     n2 -->|"1"| n4
     n3 -->|"2"| n4
     o0(("label"))
@@ -673,6 +673,38 @@ when severity >= 2: queue_urgent
 always: queue_normal
 ```
 
+<details>
+<summary>Drawn with <code>rulesmith draw</code></summary>
+
+```mermaid
+flowchart TD
+    n0[/"read variables.customer_tier"/]
+    n1{{"judge: severity<br/>score: How badly is this customer blocked?"}}
+    n2(("page_oncall"))
+    n3(("escalate"))
+    n4(("queue_urgent"))
+    n5(("queue_normal"))
+    n6(["decision<br/>first rule that answers"])
+    n1 -.->|"severity >= 3"| n2
+    n0 -.->|"severity >= 2 and variables.customer_tier >= 2"| n3
+    n1 -.-> n3
+    n1 -.->|"severity >= 2"| n4
+    n2 -->|"1"| n6
+    n3 -->|"2"| n6
+    n4 -->|"3"| n6
+    n5 -->|"4"| n6
+    o0(("label"))
+    n6 --> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n1 judge
+    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
+    class n0 read
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n2,n3,n4,n5 rule
+```
+
+</details>
+
 **Spend the judge only where it decides something**
 ([gating.rules](examples/rules/gating.rules)) — readings settle the clear cases,
 and the question is asked only about orders big enough to matter:
@@ -690,6 +722,45 @@ when suspicious >= 0.3 and order.country == "rest": hold_for_review
 always: ship
 ```
 
+<details>
+<summary>Drawn with <code>rulesmith draw</code></summary>
+
+```mermaid
+flowchart TD
+    n0[/"read order.total"/]
+    n1[/"read order.country"/]
+    n2[/"read customer.orders"/]
+    n3{{"judge: suspicious<br/>noul: This order reads like card testing or resale..."}}
+    n4(("ship"))
+    n5(("ship"))
+    n6(("hold_for_review"))
+    n7(("hold_for_review"))
+    n8(("ship"))
+    n9(["decision<br/>first rule that answers"])
+    n0 -.->|"order.total >= 500"| n3
+    n2 -.->|"customer.orders >= 5 and order.total < 500"| n4
+    n0 -.-> n4
+    n0 -.->|"order.total < 50"| n5
+    n3 -.->|"suspicious >= 0.7"| n6
+    n1 -.->|"suspicious >= 0.3 and order.country == rest"| n7
+    n3 -.-> n7
+    n4 -->|"1"| n9
+    n5 -->|"2"| n9
+    n6 -->|"3"| n9
+    n7 -->|"4"| n9
+    n8 -->|"5"| n9
+    o0(("label"))
+    n9 --> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n3 judge
+    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
+    class n0,n1,n2 read
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n4,n5,n6,n7,n8 rule
+```
+
+</details>
+
 **Check a draft reply before sending it**
 ([grounding.rules](examples/rules/grounding.rules)) — probabilities compose, so
 two judgments set a floor and a ceiling with a human in between:
@@ -703,6 +774,35 @@ when grounded >= 0.85: send
 when grounded < 0.4: escalate
 always: ask_for_review
 ```
+
+<details>
+<summary>Drawn with <code>rulesmith draw</code></summary>
+
+```mermaid
+flowchart TD
+    n0{{"judge: grounded<br/>noul: Every claim in the draft reply follows from..."}}
+    n1{{"judge: harmful<br/>noul: The draft reply would embarrass us if a..."}}
+    n2(("rewrite"))
+    n3(("send"))
+    n4(("escalate"))
+    n5(("ask_for_review"))
+    n6(["decision<br/>first rule that answers"])
+    n1 -.->|"harmful >= 0.2"| n2
+    n0 -.->|"grounded >= 0.85"| n3
+    n0 -.->|"grounded < 0.4"| n4
+    n2 -->|"1"| n6
+    n3 -->|"2"| n6
+    n4 -->|"3"| n6
+    n5 -->|"4"| n6
+    o0(("label"))
+    n6 --> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n0,n1 judge
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n2,n3,n4,n5 rule
+```
+
+</details>
 
 See [Graph format](docs/graphs.md) for the JSON behind each node, and
 [Optimization](docs/optimization.md) for the rule surface search writes.
@@ -748,7 +848,7 @@ flowchart TD
     n1(("billing"))
     n2(("technical"))
     n3(("sales"))
-    n4(["decision<br/>first that answers"])
+    n4(["decision<br/>first rule that answers"])
     n0 -.->|"team == billing"| n1
     n0 -.->|"team == technical"| n2
     n1 -->|"1"| n4
