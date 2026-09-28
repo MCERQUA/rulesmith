@@ -145,6 +145,11 @@ def parser() -> argparse.ArgumentParser:
             )
             command.add_argument("--merges", type=int, default=SearchConfig().merges)
             command.add_argument(
+                "--significance",
+                type=float,
+                help="Keep the seed unless the winner's gain passes a sign test at this level",
+            )
+            command.add_argument(
                 "--call-cost",
                 type=float,
                 default=SearchConfig().call_cost,
@@ -454,6 +459,7 @@ def main() -> None:
             parallel_examples=args.parallel_examples,
             merges=args.merges,
             call_cost=args.call_cost,
+            significance=args.significance,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}
         if args.reflection_timeout is not None:

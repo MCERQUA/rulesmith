@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import math
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -166,6 +167,14 @@ class SearchConfig(StrictModel):
     )
     merges: int = Field(
         default=5, ge=0, description="Times search may combine two candidates' parts"
+    )
+    significance: float | None = Field(
+        default=None,
+        gt=0,
+        lt=1,
+        description="Replace the starting graph only if the winner's gain over it on "
+        "validation passes a one-sided sign test at this level; small validation sets otherwise "
+        "reward a lucky candidate",
     )
     call_cost: float = Field(
         default=0,
@@ -514,7 +523,17 @@ def optimize_plan(
     )
     if adapter.failure is not None:
         raise adapter.failure
-    best = adapter.parse(result.best_candidate)
+    chosen = result.best_idx
+    seed_scores, best_scores = result.val_subscores[0], result.val_subscores[chosen]
+    shared = seed_scores.keys() & best_scores.keys()
+    p = improvement_p(
+        sum(best_scores[i] > seed_scores[i] for i in shared),
+        sum(best_scores[i] < seed_scores[i] for i in shared),
+    )
+    kept_seed = config.significance is not None and chosen != 0 and p > config.significance
+    if kept_seed:
+        chosen = 0
+    best = adapter.parse(result.candidates[chosen])
     report = {
         "model": model,
         "resolved_models": sorted(adapter.resolved_models),
@@ -524,7 +543,9 @@ def optimize_plan(
         "search": config.model_dump(),
         "execution": adapter.execution.model_dump(),
         "seed_validation_score": result.val_aggregate_scores[0],
-        "validation_score": result.val_aggregate_scores[result.best_idx],
+        "validation_score": result.val_aggregate_scores[chosen],
+        "improvement_p": p,
+        "kept_seed": kept_seed,
         "validation_scores": result.val_aggregate_scores,
         "candidates": len(result.candidates),
         "reflection_calls": reflection_calls,
@@ -533,6 +554,13 @@ def optimize_plan(
         "metric_calls": result.total_metric_calls,
     }
     return best, report
+
+
+def improvement_p(wins: int, losses: int) -> float:
+    """One-sided sign test: the chance of at least this many wins among the examples that
+    changed, if the new graph were no better. Ties say nothing either way."""
+    changed = wins + losses
+    return sum(math.comb(changed, k) for k in range(wins, changed + 1)) / 2**changed
 
 
 def evaluate_plan(

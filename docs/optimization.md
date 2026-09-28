@@ -48,6 +48,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--reflection-timeout` | none | Seconds before a proposal request fails, so a hung proposer stops the search instead of stalling it |
 | `--retries` | 0 | Retries for judge requests that fail or time out |
 | `--parallel-examples` | 1 | Examples scored at once; Doom allows more than 1 only for deathmatch tasks, whose duels each run their own games |
+| `--significance` | off | Keep the starting graph unless the winner's gain on validation passes a one-sided sign test at this level, so a candidate that was only lucky on a small validation set does not replace it |
 | `--call-cost` | 0 | Score taken off an example for each judge question it asks, so search prefers the graph that asks less when two answer alike |
 | `--merges` | 5 | Times search may combine two candidates, taking each part from whichever graph scored better |
 | `--max-nodes` / `--max-depth` | 16 / 8 | Limits on generated graphs |
@@ -77,6 +78,7 @@ that already exist are refused before any request is sent.
 | `reflection_calls` | Proposer calls |
 | `invalid_candidate_evaluations` | Evaluations rejected by schema or graph checks |
 | `metric_calls` | Example evaluations used |
+| `improvement_p`, `kept_seed` | The sign test of the winner against the seed, and whether `--significance` kept the seed |
 | `scored_by` | `labels`, `grader <model>`, or `games`: a graded score is not accuracy |
 
 Reports also record resolved model IDs, dependency versions, settings, and

@@ -257,7 +257,10 @@ def search(
 ) -> dict:
     """rulesmith's search, seeded with the direct call, so the comparison that matters is
     whether a graph improves on asking the judge once."""
-    config = SearchConfig(max_metric_calls=budget, seed=seed, call_cost=call_cost)
+    # 50 validation examples reward a lucky candidate; keep the direct call unless the gain holds.
+    config = SearchConfig(
+        max_metric_calls=budget, seed=seed, call_cost=call_cost, significance=SIGNIFICANCE
+    )
     best, report = optimize_plan(task, direct_plan(task, labels), client, model, proposer, config)
     return record(
         "search",
@@ -268,6 +271,7 @@ def search(
         model,
         validation=report["validation_score"],
         seed_validation=report["seed_validation_score"],
+        kept_seed=report["kept_seed"],
         nodes=len(best.nodes),
         graph=best.model_dump(mode="json"),
     )
@@ -779,6 +783,7 @@ CLOTHING_REVISION = "4e788183125a6143d8bdba24e58f1efda2e4b48f"
 TREC_REVISION = "0a34640b3cac3affef6f0abdfb81e3d0ecffcf92"
 JOBS_REPO = "victor/real-or-fake-fake-jobposting-prediction"
 JOBS_REVISION = "a751f55136a26da3c36e26aa207a9e187ca24b45"
+SIGNIFICANCE = 0.1
 METHODS = ("majority", "tfidf", "direct", "handwritten", "search", "dspy", "dspy-cot")
 DATASETS: dict[str, Dataset] = {
     "banking77": Dataset(

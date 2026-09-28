@@ -17,6 +17,7 @@ from rulesmith.optimize import (
     assemble,
     components,
     evaluate_plan,
+    improvement_p,
     optimize_plan,
 )
 from rulesmith.rules import parts
@@ -985,3 +986,25 @@ def test_with_a_price_on_calls_the_cheaper_of_two_equal_graphs_scores_higher(pro
     assert batch.scores == [pytest.approx(0.9)]
     assert priced.evaluate(task.train, silent).scores == [1.0]
     assert "0.1" in batch.trajectories[0]["Feedback"]
+
+
+def test_a_win_on_too_few_validation_examples_does_not_replace_the_seed(provider, client):
+    # One validation example cannot tell a better graph from a lucky one.
+    data = task_data()
+    data["validation"][0]["label"] = "accept"
+    task = Task.model_validate(data)
+    initial = Plan.model_validate(constant_plan())
+    provider.answers = {"eligible": {"type": "noul", "noul": 0.9}}
+    better = Plan.model_validate(binary_plan()).model_dump_json()
+    config = SearchConfig(max_metric_calls=4, reflection_batch=1, significance=0.05)
+    plan, report = optimize_plan(task, initial, client, "fixture-model", lambda _: better, config)
+    assert plan == initial
+    assert report["kept_seed"] and report["improvement_p"] == 0.5
+    assert report["validation_score"] == report["seed_validation_score"] == 0.0
+
+
+def test_one_sided_sign_test():
+    assert improvement_p(0, 0) == 1.0
+    assert improvement_p(1, 0) == 0.5
+    assert improvement_p(10, 0) == pytest.approx(1 / 2**10)
+    assert improvement_p(3, 3) > 0.5
