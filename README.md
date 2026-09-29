@@ -289,9 +289,9 @@ with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md)
 
 A graph can hand a case to another graph. Each unit is a graph in a file of its
 own, a map names them, and the map runs as one graph on one judge, with every
-answer traced to the unit and rule that made it.  checks every
-hand-off across the files,  searches one unit in place with
-the rest frozen, and  refuses a unit that is better alone and worse
+answer traced to the unit and rule that made it. `validate` checks every
+hand-off across the files, `optimize --unit` searches one unit in place with
+the rest frozen, and `--map-task` refuses a unit that is better alone and worse
 for the map. The first map, three units search found on the
 [benchmarks](docs/benchmarks.md) behind a router that reads which fields an
 input has, scores 0.84 on 120 held-out rows at 0.53 judge calls a row:
