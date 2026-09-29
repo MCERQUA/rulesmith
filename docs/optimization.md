@@ -70,8 +70,9 @@ the model defaults to `jev-latest`; pin a version for reproducible runs.
 
 ## Reports
 
-Each run writes a new directory with `plan.json` and `report.json`. Output paths
-that already exist are refused before any request is sent.
+Each run writes a new directory with `plan.json`, `plan.rules` (the same graph
+as rules, for a graph that has a rule form) and `report.json`. Output paths that
+already exist are refused before any request is sent.
 
 | Field | Meaning |
 | --- | --- |
@@ -85,6 +86,7 @@ that already exist are refused before any request is sent.
 | `improvement_p`, `kept_seed` | The sign test of the winner against the seed, and whether `--significance` kept the seed |
 | `keep_judge_passed_over` | With `--keep-judge`: better-scoring candidates refused because a rule answered alone too often wrongly |
 | `scored_by` | `labels`, `grader <model>`, or `games`: a graded score is not accuracy |
+| `rules` | `plan.rules`, or null for a graph beyond rules, which is saved as JSON only |
 
 Reports also record resolved model IDs, dependency versions, settings, and
 task/seed hashes.

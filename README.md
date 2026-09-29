@@ -193,8 +193,10 @@ Iteration 1: Proposed new text for readings: ask intent = "Route each support ti
 }
 ```
 
-This writes `runs/my-task/plan.json` (the graph) and `report.json` (scores).
-Compare `validation_score` with `seed_validation_score`.
+This writes `runs/my-task/plan.json` (the graph), `plan.rules` (the same
+graph as the rules search wrote, which you can edit, and which every command
+accepts in place of the JSON) and `report.json` (scores). Compare
+`validation_score` with `seed_validation_score`.
 
 **5. Evaluate and run it.** The proposer is not needed from here on.
 
@@ -278,7 +280,8 @@ profile, answers `fraudulent` without calling any model. Only when it declines
 does rule 2 ask the judge (Jev or Ruling), which it did on 60% of test postings.
 
 Rules compile to a validated graph that the runtime executes, and read back as
-the rules they came from, so you can edit what search wrote. The language,
+the rules they came from: `optimize` saves both, and a `.rules` file runs
+anywhere a `plan.json` does, so you can edit what search wrote. The language,
 with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md).
 
 ## Use from Python
@@ -338,7 +341,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-504 passed, 6 skipped, 1 warning in 286.25s (0:04:46)
+505 passed, 6 skipped, 1 warning in 286.39s (0:04:46)
 All checks passed!
 49 files already formatted
 ```

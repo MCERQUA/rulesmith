@@ -158,6 +158,56 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
     # The proposer is asked for a part, and the graph it answers with is the whole program.
     assert sum(path == "/v1/chat/completions" for path, _ in provider.requests) >= 1
     assert invoke("validate", task, output / "plan.json").returncode == 0
+    # This graph keys its judgment's input 'state', which rules cannot write, so no rules file.
+    assert not (output / "plan.rules").exists() and report["rules"] is None
+
+
+def test_cli_optimization_saves_the_graph_as_rules_too(tmp_path, provider, monkeypatch):
+    # The rules are what search wrote and what a person edits; saving only the JSON loses that.
+    monkeypatch.setenv("TYPESAFE_API_KEY", "test-placeholder")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")
+    data = task_data()
+    data["train"].append({"id": "d", "state": "request D", "label": "review"})
+    task = write(tmp_path / "task.json", data)
+    rules = (
+        'ask eligible = "Should this request be accepted?"\n'
+        "when eligible >= 0.5: accept\nalways: review\n"
+    )
+    seed = tmp_path / "seed.rules"
+    seed.write_text(rules)
+    provider.completion = chat_reply(graph=rules)
+
+    def answer_by_request(request):
+        noul = 0.9 if "request A" in json.dumps(request["state"]) else 0.1
+        provider.body["answers"] = {"eligible": {"type": "noul", "noul": noul}}
+
+    provider.on_request = answer_by_request
+    output = tmp_path / "run"
+    result = invoke(
+        "optimize",
+        task,
+        seed,
+        "--output",
+        output,
+        "--base-url",
+        provider.url,
+        "--model",
+        "fixture-model",
+        "--reflection-model",
+        "openai/fixture-model",
+        "--reflection-base-url",
+        provider.url + "/v1",
+        "--max-metric-calls",
+        6,
+        "--reflection-batch",
+        2,
+    )
+    assert result.returncode == 0, result.stderr
+    saved = Plan.model_validate_json((output / "plan.json").read_text())
+    from rulesmith.rules import compile_rules
+
+    assert compile_rules((output / "plan.rules").read_text()) == saved
+    assert json.loads((output / "report.json").read_text())["rules"] == "plan.rules"
 
 
 def test_cli_drafts_a_reviewable_task_from_unlabeled_inputs(tmp_path, provider, monkeypatch):

@@ -30,7 +30,7 @@ from rulesmith.optimize import (
     evaluate_plan,
     optimize_plan,
 )
-from rulesmith.rules import compile_rules, render_rules
+from rulesmith.rules import RuleError, compile_rules, render_rules
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, Remembered
 
 # The games load only for a task that plays one (see game), so a core install without their
@@ -671,6 +671,14 @@ def main() -> None:
             report["opponent"] = opponent_of(args)
             args.output.mkdir()
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")
+            # The same graph as the rules search wrote, which is the form a person edits and
+            # any command accepts; a graph beyond rules has no such form, and the report says.
+            try:
+                written = render_rules(best, described_labels(task))
+                (args.output / "plan.rules").write_text(written + "\n")
+                report["rules"] = "plan.rules"
+            except RuleError:
+                report["rules"] = None
             (args.output / "report.json").write_text(dump(report))
             print(dump(report), end="")
 
