@@ -216,7 +216,9 @@ Search from `greedy`, with a budget of 200 scored games and nine proposals, kept
 no proposal scored better on validation. On the 40 test games the two scored 0.215 and 0.218
 (no wins, one draw for the second), which is the same graph playing different games. A rules
 graph that picks one move type per position is far below even the weakest Stockfish, and
-nothing the proposer tried changed that.
+nothing the proposer tried changed that. A later run with five times the budget, three seeds
+of 1,000 games each, is in the [chess results](chess.md#against-stockfish): search raised
+validation scores there and still lost every test game.
 
 ## Caveats
 

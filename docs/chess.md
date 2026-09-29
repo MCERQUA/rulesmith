@@ -94,8 +94,40 @@ tops both columns.
 
 ## Results
 
-This section is a record of past runs. The scripts that drove the 1,680-game
-ladder and the league are not in the repo, and the `arena` command ranks Doom
+### Against Stockfish
+
+The one chess result that can be rerun: `benchmarks/chess.sh` searches from
+[greedy.rules](../examples/chess/graphs/greedy.rules) on
+[stockfish.json](../examples/chess/stockfish.json), where every game is played as
+White against Stockfish at skill level 0 and scored mostly by the result, then by
+how long the game lasts and how much material is kept. Three search seeds ran
+at once, 1,000 games each, with `openrouter/qwen/qwen3.8-27b` proposing; the
+searches' reports are summarized in
+[benchmarks/results/games.json](../benchmarks/results/games.json), and the chess
+panel of the chart in the [Doom results](doom.md#results) is drawn from them.
+
+| Search seed | Validation, seed → best | Test | Won / drew / lost | Mean plies | Mean material |
+| --- | --- | --- | --- | --- | --- |
+| greedy, unsearched | | 0.22 | 0 / 1 / 39 | 63 | −8.0 |
+| 0 | 0.17 → 0.25 | 0.21 | 0 / 0 / 40 | 63 | −8.9 |
+| 1 | 0.18 → 0.26 | 0.17 | 0 / 0 / 40 | 55 | −13.4 |
+| 2 | 0.22 → 0.27 | 0.21 | 0 / 0 / 40 | 61 | −7.5 |
+
+Search raised every seed's validation score by 0.05 to 0.08, and two of the
+three gains pass the sign test (p = 0.004 and 0.035). None of it carried to the
+40 test games: no searched graph scores better there than the graph it started
+from, and every graph, searched or not, loses all 40. The three searches agree
+on what to change, which says something about the training games rather than
+about chess: each moved "save a hanging piece" ahead of "take the best capture",
+raised the gain a capture needs (to 2 or 3 points), and replaced developing a
+piece as the default with a quiet move, developing only while minor pieces are
+still at home. A graph that picks one policy per move from eight is far below
+even the weakest Stockfish, and 3,000 games of search did not change that.
+
+### The league
+
+The rest of this section is a record of past runs. The scripts that drove the
+1,680-game ladder and the league are not in the repo, and the `arena` command ranks Doom
 graphs only, so these tables cannot be regenerated from it. The graphs they
 produced are: [searched.json](../examples/chess/graphs/searched.json), found
 before the league, and [league-best.json](../examples/chess/graphs/league-best.json),
