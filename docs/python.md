@@ -59,4 +59,8 @@ always: ship
 hold_for_review
 ```
 
+A map whose units live in files of their own loads with `rulesmith.maps.load(path)`,
+which embeds each unit and returns an ordinary `Plan`; see
+[Composing graphs](graphs.md#composing-graphs).
+
 Search runs from Python too; see [Optimization](optimization.md#from-python).

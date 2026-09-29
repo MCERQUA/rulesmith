@@ -240,8 +240,22 @@ A `graph` node runs another graph as a unit: it is handed one value, its own
 reads and judgments work on that value, and it answers with one of its outputs.
 The boundary is typed like any edge, so a rule outside the unit may test its
 answer only against the values the unit's graph can give, and `validate` says
-so when it cannot. [examples/support-map.json](../examples/support-map.json)
-routes a ticket and hands billing tickets to a billing graph:
+so when it cannot. A unit is embedded as a `plan`, or named by `path`: a `.json`
+or `.rules` file relative to the file naming it, which may name units of its own.
+Every command loads a map's units before validating it, and from Python
+`rulesmith.maps.load(path)` does the same, so what runs is always an ordinary
+graph. [examples/support-map.json](../examples/support-map.json) routes a
+ticket and hands billing tickets to
+[units/billing.rules](../examples/units/billing.rules):
+
+```json
+"billing": {
+  "type": "graph",
+  "path": "units/billing.rules",
+  "when": {"type": "compare", "node": "team", "op": "eq", "value": "billing"}
+}
+```
+
 
 ```mermaid
 flowchart TD
@@ -309,10 +323,16 @@ Output (trimmed), for a ticket about a duplicate $40 charge:
 the least sure of every judgment on the way, the router's and the unit's. A
 unit that could not answer answers nothing, and the rules after it decide.
 
-Units are the piece a map of many decisions is built from. What they do not do
-yet: search revises a graph's rules, not its units, so a unit is searched on its
-own task and then placed; and a unit is embedded in its parent's JSON rather
-than loaded from a file of its own.
+`validate` on a map checks every hand-off across its files, refusing a rule
+that tests a unit's answer against a value the unit never gives, and lists the
+units it loaded under `units`. `draw` opens every unit, as above; `draw --closed`
+draws each as one box named for what it answers with, which is how a map of
+many units reads as a map.
+
+Units are the piece a map of many decisions is built from: a directory of unit
+files and the maps that name them. What they do not do yet: search revises a
+graph's rules, not its units, so a unit is searched on its own task and then
+placed.
 
 ## Writing a graph by hand
 

@@ -1,0 +1,5 @@
+# The billing unit: handed the whole ticket, it settles small genuine mistakes itself.
+read charge.amount in [0, 100000]
+ask genuine = "The message describes a mistake the customer did not cause."
+when charge.amount < 50 and genuine >= 0.8: auto_refund
+always: review

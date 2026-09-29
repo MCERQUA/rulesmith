@@ -18,78 +18,7 @@
     },
     "billing": {
       "type": "graph",
-      "plan": {
-        "nodes": {
-          "read_charge_amount": {
-            "type": "read",
-            "path": [
-              "charge",
-              "amount"
-            ],
-            "bounds": [
-              0.0,
-              100000.0
-            ],
-            "measure": "value"
-          },
-          "genuine": {
-            "type": "call",
-            "question": {
-              "type": "noul",
-              "instructions": "The message describes a mistake the customer did not cause."
-            },
-            "inputs": {
-              "observation": {
-                "type": "state"
-              }
-            },
-            "temperature": 1.0
-          },
-          "rule_1": {
-            "when": {
-              "type": "all",
-              "conditions": [
-                {
-                  "type": "compare",
-                  "node": "read_charge_amount",
-                  "op": "lt",
-                  "value": 50.0
-                },
-                {
-                  "type": "compare",
-                  "node": "genuine",
-                  "op": "ge",
-                  "value": 0.8
-                }
-              ]
-            },
-            "type": "value",
-            "value": "auto_refund"
-          },
-          "rule_2": {
-            "type": "value",
-            "value": "review"
-          },
-          "decision": {
-            "type": "coalesce",
-            "sources": [
-              "rule_1",
-              "rule_2"
-            ]
-          }
-        },
-        "outputs": {
-          "label": {
-            "type": "node",
-            "node": "decision",
-            "view": "value",
-            "optional": false
-          }
-        }
-      },
-      "input": {
-        "type": "state"
-      },
+      "path": "units/billing.rules",
       "when": {
         "type": "compare",
         "node": "team",

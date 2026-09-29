@@ -12,7 +12,7 @@ every flag.
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
 | `calibrate` | Fit how sure each judgment should read, and count how often each rule is right, from the labeled examples |
-| `draw` | Write a graph as a Mermaid flowchart |
+| `draw` | Write a graph as a Mermaid flowchart; `--closed` draws a map's units as single boxes |
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 

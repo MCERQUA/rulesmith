@@ -314,12 +314,24 @@ class Graph(Guarded):
     typed like any other edge."""
 
     type: Literal["graph"] = "graph"
-    plan: Plan
+    plan: Plan | None = None
+    path: str | None = Field(
+        default=None,
+        description="A file holding the unit's graph, .json or .rules, relative to the file "
+        "naming it; rulesmith.maps.load embeds it, and a plan is what validation needs",
+    )
     input: Source = Field(default_factory=StateInput)
     output: Text = "label"
 
     @model_validator(mode="after")
     def answers_with_an_output_it_has(self) -> Self:
+        if self.plan is None:
+            raise ValueError(
+                f"a unit named by path ({self.path!r}) must be loaded first: "
+                "rulesmith.maps.load reads the map and embeds its units"
+            )
+        if self.path is not None:
+            raise ValueError("a unit is embedded as a plan or named by path, not both")
         if self.output not in self.plan.outputs:
             raise ValueError(f"the graph has no output {self.output!r} to answer with")
         return self
@@ -506,7 +518,15 @@ class Plan(StrictModel):
                 domain = domains[condition.node]
                 if isinstance(condition.value, str) and condition.op == "eq":
                     if not isinstance(domain, frozenset) or condition.value not in domain:
-                        raise ValueError("equality requires a declared source category")
+                        can = (
+                            f"one of {sorted(domain)}"
+                            if isinstance(domain, frozenset)
+                            else "a number"
+                        )
+                        raise ValueError(
+                            f"the condition {condition.node} == {condition.value!r} tests a value "
+                            f"{condition.node} never has; it is {can}"
+                        )
                 elif not isinstance(domain, tuple) or isinstance(condition.value, str):
                     raise ValueError("numeric comparison requires a numeric source and value")
         return self

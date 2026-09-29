@@ -22,6 +22,7 @@ from rulesmith.diagram import mermaid
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Call, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
+from rulesmith.maps import load, units
 from rulesmith.optimize import (
     GraphProposer,
     Labels,
@@ -30,7 +31,7 @@ from rulesmith.optimize import (
     evaluate_plan,
     optimize_plan,
 )
-from rulesmith.rules import RuleError, compile_rules, render_rules
+from rulesmith.rules import RuleError, render_rules
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, Remembered
 
 # The games load only for a task that plays one (see game), so a core install without their
@@ -211,6 +212,11 @@ def parser() -> argparse.ArgumentParser:
     provider_arguments(fit)
     draw = commands.add_parser("draw", help="Write a plan as a Mermaid flowchart")
     draw.add_argument("plan", type=Path)
+    draw.add_argument(
+        "--closed",
+        action="store_true",
+        help="Draw each unit as one box rather than opening it, so a map reads as a map",
+    )
     ablation = commands.add_parser(
         "ablate", help="Measure what each reading, judgment and name in a graph is worth"
     )
@@ -435,12 +441,9 @@ def read_plan(
     """A graph from its JSON, or from the rules it is written as, which may ask over the labels
     of the task the command names. A file that does not hold one is a mistake in the command,
     reported as such rather than as a crash."""
-    text = path.read_text()
     try:
-        if path.suffix == ".rules":
-            return compile_rules(text, described_labels(task) if task else None)
-        return Plan.model_validate_json(text)
-    except ValueError as error:
+        return load(path, described_labels(task) if task else None)
+    except (ValueError, OSError) as error:
         cli.error(f"{path}: {error}")
 
 
@@ -482,7 +485,7 @@ def main() -> None:
         draft_labels(cli, args)
         return
     if args.command == "draw":
-        print(mermaid(read_plan(cli, args.plan)))
+        print(mermaid(read_plan(cli, args.plan), closed=args.closed))
         return
     if args.command == "arena":
         arena(cli, args)
@@ -498,7 +501,11 @@ def main() -> None:
     if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
-        print(dump({"nodes": len(plan.nodes), "labels": task.labels}), end="")
+        checked = {"nodes": len(plan.nodes), "labels": task.labels}
+        # A map's units, so what was validated across files is on record.
+        if named := units(args.plan):
+            checked["units"] = named
+        print(dump(checked), end="")
         return
     if getattr(args, "visible", False) and not plays(task, "doom"):
         cli.error("--visible requires a Doom task")

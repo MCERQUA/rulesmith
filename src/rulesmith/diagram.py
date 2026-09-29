@@ -87,12 +87,13 @@ def safe(text: str) -> str:
     return " ".join(text.split())
 
 
-def mermaid(plan: Plan) -> str:
+def mermaid(plan: Plan, closed: bool = False) -> str:
     """The plan as a Mermaid flowchart: boxes for nodes, arrows for what feeds what, a box of
-    its own for each condition, and a unit's graph drawn inside a box of its own."""
+    its own for each condition, and a unit's graph drawn inside a box of its own, or, closed,
+    as one box, so a map of many units reads as a map."""
     lines = ["flowchart TD"]
     styled: dict[str, list[str]] = {}
-    draw(plan, "", lines, styled)
+    draw(plan, "", lines, styled, closed)
     for kind, members in styled.items():
         if members:
             lines.append(f"    classDef {kind} {STYLES[kind]}")
@@ -100,7 +101,9 @@ def mermaid(plan: Plan) -> str:
     return "\n".join(lines)
 
 
-def draw(plan: Plan, prefix: str, lines: list[str], styled: dict[str, list[str]]) -> None:
+def draw(
+    plan: Plan, prefix: str, lines: list[str], styled: dict[str, list[str]], closed: bool = False
+) -> None:
     """One plan's nodes, edges and outputs, with ids under `prefix` so a unit's graph and the
     graph around it never share an id."""
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
@@ -110,15 +113,20 @@ def draw(plan: Plan, prefix: str, lines: list[str], styled: dict[str, list[str]]
     conditions: list[str] = []
     for name, node in plan.nodes.items():
         if isinstance(node, Graph):
-            unit = f"{ids[name]}_unit"
-            lines.append(f'    subgraph {unit}["{safe(name)}: a graph of its own"]')
-            draw(node.plan, f"{ids[name]}_", lines, styled)
-            lines.append(f'    {ids[name]}(["{safe(name)}<br/>answers with its {node.output}"])')
-            answer = list(node.plan.outputs).index(node.output)
-            lines.append(f"    {ids[name]}_o{answer} --> {ids[name]}")
-            lines.append("    end")
+            box = f'{ids[name]}(["{safe(name)}<br/>answers with its {node.output}"])'
+            if closed:
+                lines.append(f"    {box}")
+                handed = ids[name]
+            else:
+                handed = f"{ids[name]}_unit"
+                lines.append(f'    subgraph {handed}["{safe(name)}: a graph of its own"]')
+                draw(node.plan, f"{ids[name]}_", lines, styled, closed)
+                lines.append(f"    {box}")
+                answer = list(node.plan.outputs).index(node.output)
+                lines.append(f"    {ids[name]}_o{answer} --> {ids[name]}")
+                lines.append("    end")
             if isinstance(node.input, NodeInput):
-                lines.append(f"    {ids[node.input.node]} --> {unit}")
+                lines.append(f"    {ids[node.input.node]} --> {handed}")
             continue
         open_shape, close_shape = SHAPES[type(node)]
         lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')

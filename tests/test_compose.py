@@ -97,7 +97,8 @@ def test_the_boundary_is_typed():
     graph["outputs"]["refunded"] = {"type": "node", "node": "refunded"}
     Plan.model_validate(graph)
     graph["nodes"]["refunded"]["when"]["value"] = "approved"
-    with pytest.raises(ValidationError, match="category"):
+    # The refusal names the hand-off and what the unit can give, since a map has many.
+    with pytest.raises(ValidationError, match="billing == 'approved'.*auto_refund.*review"):
         Plan.model_validate(graph)
     # A unit must answer with an output its graph has.
     graph = support_map()
@@ -122,8 +123,10 @@ def test_a_unit_is_drawn_as_a_box_you_can_see_into():
     assert "genuine" in inside and "Which team" not in inside
 
 
-def test_the_example_map_validates_and_runs_offline_where_no_judgment_is_needed():
+def test_the_example_map_loads_with_its_unit_in_a_file_of_its_own():
+    from rulesmith.maps import load
+
     path = Path(__file__).resolve().parents[1] / "examples" / "support-map.json"
-    plan = Plan.model_validate_json(path.read_text())
+    plan = load(path)
     assert any(node.type == "graph" for node in plan.nodes.values())
-    assert json.loads(path.read_text())["outputs"]["label"]
+    assert json.loads(path.read_text())["nodes"]["billing"]["path"] == "units/billing.rules"
