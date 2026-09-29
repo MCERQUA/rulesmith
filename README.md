@@ -423,7 +423,7 @@ flowchart TD
     n1[/"read length of company_profile"/]
     n2(("fraudulent"))
     n3{{"judge<br/>choice: Is this job posting a scam?"}}
-    n4(["decision<br/>first rule that answers"])
+    n4(["decision<br/>first that answers"])
     c0["has_company_logo == 0 and length of company_profile == 0"]
     n0 --> c0
     n1 --> c0
@@ -431,7 +431,7 @@ flowchart TD
     n2 -->|"1"| n4
     n3 -->|"2"| n4
     o0(("label"))
-    n4 --> o0
+    n4 ==> o0
     classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
     class n3 judge
     classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
@@ -469,22 +469,24 @@ flowchart LR
   D -.->|"department == billing"| B
   D -.->|"department == technical"| T
   D -.->|"department == sales"| S
-  B --> CO(["specialist_result<br/>first that answers"])
-  T --> CO
-  S --> CO
+  B -->|"1"| CO(["specialist_result<br/>first that answers"])
+  T -->|"2"| CO
+  S -->|"3"| CO
   D --> A["assessment<br/>merge"]
   U --> A
   CO --> A
-  D ==> LBL(["label"])
-  A ==> AS(["assessment"])
+  D ==> LBL(("label"))
+  A ==> AS(("assessment"))
   classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
   class D,U,B,T,S judge
 ```
 
 The amber hexagons are judge calls, each a question to Jev or Ruling; the rest
-runs without a model. Solid arrows carry values and dashed ones gate: each
-review is shown the merged `context`, and asked only when `department` answered
-its team. Thick arrows are the graph's two outputs.
+runs without a model. `ticket` is the input. Solid arrows carry values and
+dashed ones gate: each review is shown the merged `context`, and asked only when
+`department` answered its team. `specialist_result` takes the first of its
+three inputs that answered, in the numbered order, though here at most one ever
+does. Thick arrows lead to the graph's two outputs.
 
 Search does not write that JSON. It writes rules, which compile to it:
 
@@ -688,7 +690,7 @@ flowchart TD
     n3(("escalate"))
     n4(("queue_urgent"))
     n5(("queue_normal"))
-    n6(["decision<br/>first rule that answers"])
+    n6(["decision<br/>first that answers"])
     n1 -.->|"severity >= 3"| n2
     c0["severity >= 2 and variables.customer_tier >= 2"]
     n0 --> c0
@@ -700,7 +702,7 @@ flowchart TD
     n4 -->|"3"| n6
     n5 -->|"4"| n6
     o0(("label"))
-    n6 --> o0
+    n6 ==> o0
     classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
     class n1 judge
     classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
@@ -744,7 +746,7 @@ flowchart TD
     n6(("hold_for_review"))
     n7(("hold_for_review"))
     n8(("ship"))
-    n9(["decision<br/>first rule that answers"])
+    n9(["decision<br/>first that answers"])
     n0 -.->|"order.total >= 500"| n3
     c0["customer.orders >= 5 and order.total < 500"]
     n2 --> c0
@@ -762,7 +764,7 @@ flowchart TD
     n7 -->|"4"| n9
     n8 -->|"5"| n9
     o0(("label"))
-    n9 --> o0
+    n9 ==> o0
     classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
     class n3 judge
     classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
@@ -800,7 +802,7 @@ flowchart TD
     n3(("send"))
     n4(("escalate"))
     n5(("ask_for_review"))
-    n6(["decision<br/>first rule that answers"])
+    n6(["decision<br/>first that answers"])
     n1 -.->|"harmful >= 0.2"| n2
     n0 -.->|"grounded >= 0.85"| n3
     n0 -.->|"grounded < 0.4"| n4
@@ -809,7 +811,7 @@ flowchart TD
     n4 -->|"3"| n6
     n5 -->|"4"| n6
     o0(("label"))
-    n6 --> o0
+    n6 ==> o0
     classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
     class n0,n1 judge
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
@@ -862,14 +864,14 @@ flowchart TD
     n1(("billing"))
     n2(("technical"))
     n3(("sales"))
-    n4(["decision<br/>first rule that answers"])
+    n4(["decision<br/>first that answers"])
     n0 -.->|"team == billing"| n1
     n0 -.->|"team == technical"| n2
     n1 -->|"1"| n4
     n2 -->|"2"| n4
     n3 -->|"3"| n4
     o0(("label"))
-    n4 --> o0
+    n4 ==> o0
     classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
     class n0 judge
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
@@ -886,7 +888,8 @@ when it reads several. Either way the rule at the dashed arrow's end fires when
 the condition holds. Green circles
 are the answers rules give, and the numbers on the arrows into `decision` are
 the order the rules are tried in. The first that answers decides; `sales` has
-no condition, so it answers whenever the two before it do not. A graph that
+no condition, so it answers whenever the two before it do not. The thick arrow
+leads to the graph's output. A graph that
 reads fields, like the [job-postings one](#how-it-works) above, draws each
 reading as a blue slanted box: a value taken from the input for free.
 

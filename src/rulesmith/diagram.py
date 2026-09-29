@@ -65,11 +65,13 @@ def label(name: str, node) -> str:
     if isinstance(node, Vote):
         return f"{name}: {node.rule} of {len(node.sources)}"
     if isinstance(node, Coalesce):
-        return f"{name}<br/>first rule that answers"
+        return f"{name}<br/>first that answers"
     if isinstance(node, Confidence):
         return f"how sure {node.source} was"
     if isinstance(node, Sum):
         return f"{name}: sum"
+    if isinstance(node, Merge):
+        return f"{name}<br/>merge"
     return name
 
 
@@ -119,8 +121,9 @@ def mermaid(plan: Plan) -> str:
             lines.append(f"    {box} -.-> {ids[name]}")
     for index, (output, source) in enumerate(plan.outputs.items()):
         lines.append(f'    o{index}(("{safe(output)}"))')
+        # Thick, so what the graph answers stands apart from what feeds what.
         if isinstance(source, NodeInput):
-            lines.append(f"    {ids[source.node]} --> o{index}")
+            lines.append(f"    {ids[source.node]} ==> o{index}")
     styled = {
         kind: [ids[name] for name, node in plan.nodes.items() if isinstance(node, types)]
         for kind, types in KINDS.items()
