@@ -129,8 +129,12 @@ uv run rulesmith draw plan.json
 uv run rulesmith ablate task.json plan.json --split validation --backend ruling
 ```
 
-`draw` writes the graph as a Mermaid flowchart: solid arrows carry values, dashed
-arrows gate, and each dashed arrow carries its condition. `ablate` suppresses each
+`draw` writes the graph as a Mermaid flowchart. A `call` is an amber hexagon
+labeled `judge`, a `read` a blue slanted box, a `value` or `threshold` a green
+circle, and a `coalesce` a rounded box whose inputs are numbered in the order
+they are tried. Solid arrows carry values, a gray box is a condition fed by each
+value it reads, a dashed arrow leads from a condition to the node it gates, and a
+thick arrow leads to an output. `ablate` suppresses each
 `read` and `call` in turn over a split's states and reports how many decisions
 change. The judge answers each state once; the replays reuse those answers.
 

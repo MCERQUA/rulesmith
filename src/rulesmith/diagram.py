@@ -106,14 +106,12 @@ def mermaid(plan: Plan) -> str:
         for source in sorted(feeds(node)):
             lines.append(f"    {ids[source]} --> {ids[name]}")
         # A rule is often a bare value with a condition on it, so the guard has no data edge to
-        # ride on. Over one value it is written on a dashed arrow from that value; over several
-        # it is a box of its own fed by each, or it would look as if it belonged to one of them.
+        # ride on. It is a box of its own, fed by each value it reads, with a dashed arrow to
+        # what it gates: written on one arrow, a condition over two values looked as if it
+        # belonged to one of them.
         if node.when is not None:
             guard = safe(render_condition(node.when, reads, plan))
             sources = sorted(tested(node.when))
-            if len(sources) == 1:
-                lines.append(f'    {ids[sources[0]]} -.->|"{guard}"| {ids[name]}')
-                continue
             box = f"c{len(conditions)}"
             conditions.append(box)
             lines.append(f'    {box}["{guard}"]')

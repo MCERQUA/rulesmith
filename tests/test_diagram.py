@@ -21,9 +21,9 @@ def test_every_node_and_edge_appears():
     )
     drawn = mermaid(plan)
     assert drawn.startswith("flowchart TD")
-    assert len(boxes(drawn)) == len(plan.nodes) + len(plan.outputs)
-    # The guard on a rule is written along the arrow that reaches it, from what it reads.
-    assert len(guards(drawn)) == 1
+    # Every node, every output, and one box for the rule's condition.
+    assert len(boxes(drawn)) == len(plan.nodes) + len(plan.outputs) + 1
+    assert len(conditions(drawn)) == 1
 
 
 def boxes(drawn: str) -> dict[str, str]:
@@ -31,9 +31,9 @@ def boxes(drawn: str) -> dict[str, str]:
     return dict(re.findall(r'^\s*(\w+)[\[({/]+"([^"]*)"', drawn, re.MULTILINE))
 
 
-def guards(drawn: str) -> list[tuple[str, str]]:
-    """The dashed arrows a condition draws, as (from, to) ids."""
-    return re.findall(r"^\s*(\w+) -\.->\|[^|]*\| (\w+)$", drawn, re.MULTILINE)
+def conditions(drawn: str) -> list[tuple[str, str]]:
+    """The dashed arrows from each condition box to the rule it gates, as (from, to) ids."""
+    return re.findall(r"^\s*(c\d+) -\.-> (\w+)$", drawn, re.MULTILINE)
 
 
 @pytest.mark.parametrize("path", GRAPHS, ids=lambda path: path.stem)
@@ -102,8 +102,9 @@ def test_the_arrows_into_a_list_of_rules_are_numbered_in_the_order_they_are_trie
     assert [ranked[ids[source]] for source in plan.nodes["decision"].sources] == ["1", "2", "3"]
 
 
-def test_a_condition_over_two_values_is_drawn_between_both_and_the_rule():
-    # On one arrow, a condition reading two values looks like it belongs to one of them.
+def test_every_condition_is_a_box_fed_by_what_it_reads():
+    # One form for every condition: on an arrow, one reading two values looked as if it
+    # belonged to one of them, and one reading a single value looked unlike it.
     plan = compile_rules(
         "read logo in [0, 1]\nread length of profile in [0, 9999]\n"
         "when logo == 0 and length of profile == 0: scam\nalways: real"
@@ -113,5 +114,9 @@ def test_a_condition_over_two_values_is_drawn_between_both_and_the_rule():
     (condition,) = [id_ for id_, text in boxes(drawn).items() if "logo == 0 and" in text]
     fed = re.findall(rf"^\s*(\w+) --> {condition}$", drawn, re.MULTILINE)
     assert sorted(fed) == sorted(ids[name] for name in ("read_logo", "read_length_profile"))
-    assert re.search(rf"^\s*{condition} -\.-> {ids['rule_1']}$", drawn, re.MULTILINE)
-    assert guards(drawn) == []
+    assert conditions(drawn) == [(condition, ids["rule_1"])]
+    single = mermaid(compile_rules("read logo in [0, 1]\nwhen logo == 0: scam\nalways: real"))
+    (box,) = [id_ for id_, text in boxes(single).items() if text == "logo == 0"]
+    assert re.search(rf"^\s*n0 --> {box}$", single, re.MULTILINE) and conditions(single) == [
+        (box, "n1")
+    ]

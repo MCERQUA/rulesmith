@@ -454,37 +454,53 @@ wins. The test split never reaches the optimizer.
 
 The full DAG language is available. This hand-written example
 ([examples/dag.json](examples/dag.json)) asks two questions in parallel, then
-runs only the specialist that matches:
+runs only the specialist that matches. Drawn with `rulesmith draw`:
 
 ```mermaid
-flowchart LR
-  IN(["ticket"]) --> D{{"judge: department<br/>choice"}}
-  IN --> U{{"judge: urgency<br/>score"}}
-  D --> C["context<br/>merge"]
-  U --> C
-  IN --> C
-  C --> B{{"judge: billing_review<br/>noul"}}
-  C --> T{{"judge: technical_review<br/>noul"}}
-  C --> S{{"judge: sales_review<br/>noul"}}
-  D -.->|"department == billing"| B
-  D -.->|"department == technical"| T
-  D -.->|"department == sales"| S
-  B -->|"1"| CO(["specialist_result<br/>first that answers"])
-  T -->|"2"| CO
-  S -->|"3"| CO
-  D --> A["assessment<br/>merge"]
-  U --> A
-  CO --> A
-  D ==> LBL(("label"))
-  A ==> AS(("assessment"))
-  classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
-  class D,U,B,T,S judge
+flowchart TD
+    n0{{"judge: department<br/>choice: Which department should handle the primary..."}}
+    n1{{"judge: urgency<br/>score: Assess how urgently the ticket needs a response."}}
+    n2["context<br/>merge"]
+    n3{{"judge: billing_review<br/>noul: Does this ticket describe a duplicate or..."}}
+    n4{{"judge: technical_review<br/>noul: Does this ticket describe a reproducible..."}}
+    n5{{"judge: sales_review<br/>noul: Does this prospective customer describe a..."}}
+    n6(["specialist_result<br/>first that answers"])
+    n7["assessment<br/>merge"]
+    n0 --> n2
+    n1 --> n2
+    n2 --> n3
+    c0["department == billing"]
+    n0 --> c0
+    c0 -.-> n3
+    n2 --> n4
+    c1["department == technical"]
+    n0 --> c1
+    c1 -.-> n4
+    n2 --> n5
+    c2["department == sales"]
+    n0 --> c2
+    c2 -.-> n5
+    n3 -->|"1"| n6
+    n4 -->|"2"| n6
+    n5 -->|"3"| n6
+    n0 --> n7
+    n6 --> n7
+    n1 --> n7
+    o0(("label"))
+    n0 ==> o0
+    o1(("assessment"))
+    n7 ==> o1
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n0,n1,n3,n4,n5 judge
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0,c1,c2 condition
 ```
 
 The amber hexagons are judge calls, each a question to Jev or Ruling; the rest
-runs without a model. `ticket` is the input. Solid arrows carry values and
-dashed ones gate: each review is shown the merged `context`, and asked only when
-`department` answered its team. `specialist_result` takes the first of its
+runs without a model. Solid arrows carry values, a gray box is a condition, and
+a dashed arrow leads from a condition to what it gates: each review is shown the
+merged `context`, and asked only when `department` answered its team. The two
+judgments nothing feeds are shown the whole ticket. `specialist_result` takes the first of its
 three inputs that answered, in the numbered order, though here at most one ever
 does. Thick arrows lead to the graph's two outputs.
 
@@ -691,12 +707,16 @@ flowchart TD
     n4(("queue_urgent"))
     n5(("queue_normal"))
     n6(["decision<br/>first that answers"])
-    n1 -.->|"severity >= 3"| n2
-    c0["severity >= 2 and variables.customer_tier >= 2"]
-    n0 --> c0
+    c0["severity >= 3"]
     n1 --> c0
-    c0 -.-> n3
-    n1 -.->|"severity >= 2"| n4
+    c0 -.-> n2
+    c1["severity >= 2 and variables.customer_tier >= 2"]
+    n0 --> c1
+    n1 --> c1
+    c1 -.-> n3
+    c2["severity >= 2"]
+    n1 --> c2
+    c2 -.-> n4
     n2 -->|"1"| n6
     n3 -->|"2"| n6
     n4 -->|"3"| n6
@@ -710,7 +730,7 @@ flowchart TD
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n2,n3,n4,n5 rule
     classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
-    class c0 condition
+    class c0,c1,c2 condition
 ```
 
 </details>
@@ -747,17 +767,23 @@ flowchart TD
     n7(("hold_for_review"))
     n8(("ship"))
     n9(["decision<br/>first that answers"])
-    n0 -.->|"order.total >= 500"| n3
-    c0["customer.orders >= 5 and order.total < 500"]
-    n2 --> c0
+    c0["order.total >= 500"]
     n0 --> c0
-    c0 -.-> n4
-    n0 -.->|"order.total < 50"| n5
-    n3 -.->|"suspicious >= 0.7"| n6
-    c1["suspicious >= 0.3 and order.country == rest"]
-    n1 --> c1
-    n3 --> c1
-    c1 -.-> n7
+    c0 -.-> n3
+    c1["customer.orders >= 5 and order.total < 500"]
+    n2 --> c1
+    n0 --> c1
+    c1 -.-> n4
+    c2["order.total < 50"]
+    n0 --> c2
+    c2 -.-> n5
+    c3["suspicious >= 0.7"]
+    n3 --> c3
+    c3 -.-> n6
+    c4["suspicious >= 0.3 and order.country == rest"]
+    n1 --> c4
+    n3 --> c4
+    c4 -.-> n7
     n4 -->|"1"| n9
     n5 -->|"2"| n9
     n6 -->|"3"| n9
@@ -772,7 +798,7 @@ flowchart TD
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n4,n5,n6,n7,n8 rule
     classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
-    class c0,c1 condition
+    class c0,c1,c2,c3,c4 condition
 ```
 
 </details>
@@ -803,9 +829,15 @@ flowchart TD
     n4(("escalate"))
     n5(("ask_for_review"))
     n6(["decision<br/>first that answers"])
-    n1 -.->|"harmful >= 0.2"| n2
-    n0 -.->|"grounded >= 0.85"| n3
-    n0 -.->|"grounded < 0.4"| n4
+    c0["harmful >= 0.2"]
+    n1 --> c0
+    c0 -.-> n2
+    c1["grounded >= 0.85"]
+    n0 --> c1
+    c1 -.-> n3
+    c2["grounded < 0.4"]
+    n0 --> c2
+    c2 -.-> n4
     n2 -->|"1"| n6
     n3 -->|"2"| n6
     n4 -->|"3"| n6
@@ -816,6 +848,8 @@ flowchart TD
     class n0,n1 judge
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n2,n3,n4,n5 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0,c1,c2 condition
 ```
 
 </details>
@@ -849,8 +883,8 @@ past runs: its driver script is not in the repo, but its best graph is,
 Two commands for reading a graph rather than running it.
 
 **`draw`** writes it as a Mermaid flowchart, which is the readable form for the
-graphs rules cannot express: solid arrows carry values, dashed ones gate, and
-each dashed arrow says the condition it carries.
+graphs rules cannot express: solid arrows carry values, a gray box is a
+condition, and a dashed arrow leads from a condition to the rule it gates.
 
 ```sh
 uv run rulesmith draw examples/rules/routing.rules
@@ -865,8 +899,12 @@ flowchart TD
     n2(("technical"))
     n3(("sales"))
     n4(["decision<br/>first that answers"])
-    n0 -.->|"team == billing"| n1
-    n0 -.->|"team == technical"| n2
+    c0["team == billing"]
+    n0 --> c0
+    c0 -.-> n1
+    c1["team == technical"]
+    n0 --> c1
+    c1 -.-> n2
     n1 -->|"1"| n4
     n2 -->|"2"| n4
     n3 -->|"3"| n4
@@ -876,16 +914,16 @@ flowchart TD
     class n0 judge
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n1,n2,n3 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0,c1 condition
 ```
 
 The amber hexagon is the **judge**: the one step that calls a model, Jev or
 Ruling, whichever `--backend` runs the graph. The graph itself names no
-backend. Its box shows the name the rules test it by, `team`, so the dashed
-arrow `team == billing` reads as "the judge answered billing". A condition is
-written in gray, and is a test rather than a step: on the dashed arrow itself
-when it reads one value, and as a box of its own, fed by each value it reads,
-when it reads several. Either way the rule at the dashed arrow's end fires when
-the condition holds. Green circles
+backend. Its box shows the name the rules test it by, `team`, so the gray
+box `team == billing` reads as "the judge answered billing". A gray box is a
+condition, a test rather than a step: solid arrows bring it each value it reads,
+and its dashed arrow leads to the rule that fires when it holds. Green circles
 are the answers rules give, and the numbers on the arrows into `decision` are
 the order the rules are tried in. The first that answers decides; `sales` has
 no condition, so it answers whenever the two before it do not. The thick arrow
