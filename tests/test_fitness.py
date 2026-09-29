@@ -53,6 +53,11 @@ def test_the_chart_and_results_come_from_the_reports(tmp_path):
     ]
     svg = (tmp_path / "fitness.svg").read_text()
     assert svg.count("<polyline") == 3 and "chess: survive Stockfish" in svg
+    # Each game's page gets its own chart, drawn from the same results.
+    fitness.main(runs, games, tmp_path / "games.json", tmp_path / "chess.svg", tasks=["chess"])
+    chess = (tmp_path / "chess.svg").read_text()
+    assert chess.count("<polyline") == 1 and "kill one monster" not in chess
+    assert ">games</text>" in chess and ">episodes</text>" in svg
     # A dot per improvement: the seed, then the candidate that beat it, not the one that did not.
     assert svg.count("<circle") == 5
     assert "seed 0 0.90, test 0.94" in svg and "seed 1 0.33" in svg

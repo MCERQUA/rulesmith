@@ -93,4 +93,5 @@ done
 kill $stopper 2>/dev/null
 rm -f $LOGS/driver.pid
 uv run python3 benchmarks/fitness.py runs/doom runs/chess benchmarks/results/games.json \
-  docs/assets/fitness.svg && note "all finished; chart rebuilt" || note "chart not rebuilt; see above"
+  docs/assets/fitness.svg --tasks basic,e1m1 \
+  && note "all finished; chart rebuilt" || note "chart not rebuilt; see above"

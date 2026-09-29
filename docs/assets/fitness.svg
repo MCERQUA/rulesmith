@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1548" height="300" viewBox="0 0 1548 300" font-family="system-ui, sans-serif" font-size="12">
-<rect width="1548" height="300" fill="#ffffff"/>
-<text x="16" y="22" font-size="14" font-weight="600" fill="#1c1917">Search fitness: best validation score after each candidate, by metric calls spent</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1048" height="300" viewBox="0 0 1048 300" font-family="system-ui, sans-serif" font-size="12">
+<rect width="1048" height="300" fill="#ffffff"/>
+<text x="16" y="22" font-size="14" font-weight="600" fill="#1c1917">Search fitness: best validation score after each candidate, by budget spent</text>
 <text x="16" y="40" fill="#57534e">Dots mark candidates that beat everything before them; a line ends where its search ended. Scores are per task, not comparable across panels.</text>
 <text x="48" y="60" font-weight="600" fill="#1c1917">basic: kill one monster</text>
 <line x1="48" y1="256.0" x2="338" y2="256.0" stroke="#e7e5e4"/>
@@ -18,7 +18,7 @@
 <text x="190.2" y="272" text-anchor="middle" fill="#57534e">100</text>
 <text x="261.2" y="272" text-anchor="middle" fill="#57534e">150</text>
 <text x="332.3" y="272" text-anchor="middle" fill="#57534e">200</text>
-<text x="193.0" y="290" text-anchor="middle" fill="#57534e">metric calls</text>
+<text x="193.0" y="290" text-anchor="middle" fill="#57534e">episodes</text>
 <polyline points="48.0,236.0 103.4,236.0 103.4,83.3 338.0,83.3" fill="none" stroke="#1d4ed8" stroke-width="2"/>
 <circle cx="48.0" cy="236.0" r="3.5" fill="#1d4ed8"/>
 <circle cx="103.4" cy="83.3" r="3.5" fill="#1d4ed8"/>
@@ -47,7 +47,7 @@
 <text x="690.2" y="272" text-anchor="middle" fill="#57534e">100</text>
 <text x="761.2" y="272" text-anchor="middle" fill="#57534e">150</text>
 <text x="832.3" y="272" text-anchor="middle" fill="#57534e">200</text>
-<text x="693.0" y="290" text-anchor="middle" fill="#57534e">metric calls</text>
+<text x="693.0" y="290" text-anchor="middle" fill="#57534e">episodes</text>
 <polyline points="548.0,208.2 562.2,208.2 562.2,184.4 627.6,184.4 627.6,165.0 673.1,165.0 673.1,139.8 832.3,139.8" fill="none" stroke="#1d4ed8" stroke-width="2"/>
 <circle cx="548.0" cy="208.2" r="3.5" fill="#1d4ed8"/>
 <circle cx="562.2" cy="184.4" r="3.5" fill="#1d4ed8"/>
@@ -66,38 +66,4 @@
 <circle cx="769.8" cy="170.8" r="3.5" fill="#15803d"/>
 <circle cx="832.3" cy="166.6" r="3.5" fill="#15803d"/>
 <text x="844.0" y="170.6" fill="#15803d">seed 2 0.27, test 0.26</text>
-<text x="1048" y="60" font-weight="600" fill="#1c1917">chess: survive Stockfish at skill 0</text>
-<line x1="1048" y1="256.0" x2="1338" y2="256.0" stroke="#e7e5e4"/>
-<text x="1042" y="260.0" text-anchor="end" fill="#57534e">0.05</text>
-<line x1="1048" y1="211.0" x2="1338" y2="211.0" stroke="#e7e5e4"/>
-<text x="1042" y="215.0" text-anchor="end" fill="#57534e">0.12</text>
-<line x1="1048" y1="166.0" x2="1338" y2="166.0" stroke="#e7e5e4"/>
-<text x="1042" y="170.0" text-anchor="end" fill="#57534e">0.20</text>
-<line x1="1048" y1="121.0" x2="1338" y2="121.0" stroke="#e7e5e4"/>
-<text x="1042" y="125.0" text-anchor="end" fill="#57534e">0.27</text>
-<line x1="1048" y1="76.0" x2="1338" y2="76.0" stroke="#e7e5e4"/>
-<text x="1042" y="80.0" text-anchor="end" fill="#57534e">0.35</text>
-<text x="1048.0" y="272" text-anchor="middle" fill="#57534e">0</text>
-<text x="1120.1" y="272" text-anchor="middle" fill="#57534e">250</text>
-<text x="1192.3" y="272" text-anchor="middle" fill="#57534e">500</text>
-<text x="1264.4" y="272" text-anchor="middle" fill="#57534e">750</text>
-<text x="1336.6" y="272" text-anchor="middle" fill="#57534e">1000</text>
-<text x="1193.0" y="290" text-anchor="middle" fill="#57534e">metric calls</text>
-<polyline points="1048.0,182.5 1052.0,182.5 1052.0,143.4 1150.4,143.4 1150.4,135.0 1338.0,135.0" fill="none" stroke="#1d4ed8" stroke-width="2"/>
-<circle cx="1048.0" cy="182.5" r="3.5" fill="#1d4ed8"/>
-<circle cx="1052.0" cy="143.4" r="3.5" fill="#1d4ed8"/>
-<circle cx="1150.4" cy="135.0" r="3.5" fill="#1d4ed8"/>
-<text x="1344.0" y="153.3" fill="#1d4ed8">seed 0 0.25, test 0.21</text>
-<polyline points="1048.0,175.6 1059.0,175.6 1059.0,162.1 1063.0,162.1 1063.0,156.3 1103.4,156.3 1103.4,153.9 1118.4,153.9 1118.4,146.0 1195.2,146.0 1195.2,129.0 1337.7,129.0" fill="none" stroke="#b45309" stroke-width="2"/>
-<circle cx="1048.0" cy="175.6" r="3.5" fill="#b45309"/>
-<circle cx="1059.0" cy="162.1" r="3.5" fill="#b45309"/>
-<circle cx="1063.0" cy="156.3" r="3.5" fill="#b45309"/>
-<circle cx="1103.4" cy="153.9" r="3.5" fill="#b45309"/>
-<circle cx="1118.4" cy="146.0" r="3.5" fill="#b45309"/>
-<circle cx="1195.2" cy="129.0" r="3.5" fill="#b45309"/>
-<text x="1343.7" y="139.3" fill="#b45309">seed 1 0.26, test 0.17</text>
-<polyline points="1048.0,153.8 1324.4,153.8 1324.4,121.3 1336.6,121.3" fill="none" stroke="#15803d" stroke-width="2"/>
-<circle cx="1048.0" cy="153.8" r="3.5" fill="#15803d"/>
-<circle cx="1324.4" cy="121.3" r="3.5" fill="#15803d"/>
-<text x="1342.6" y="125.3" fill="#15803d">seed 2 0.27, test 0.21</text>
 </svg>

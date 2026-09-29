@@ -1,25 +1,28 @@
 """The game search chart, drawn from the searches' own reports.
 
     python3 benchmarks/fitness.py runs/doom runs/chess \
-        benchmarks/results/games.json docs/assets/fitness.svg
+        benchmarks/results/games.json docs/assets/fitness.svg --tasks basic,e1m1
 
 Every run directory `<task>-<seed>` under the run paths holds a `report.json` from
-`rulesmith optimize` and, once the winner was scored, a `test.json`. The results file, the
-second to last argument, keeps what the chart needs from each, so the chart can be redrawn
-without the runs; the chart, the last argument, shows the best validation score found so far
-against the metric calls spent finding it: episodes for Doom, games for chess.
+`rulesmith optimize` and, once the winner was scored, a `test.json`. The results file keeps
+what the chart needs from every search found, so a chart can be redrawn without the runs; the
+chart shows, for the tasks asked for (all of them by default), the best validation score found
+so far against the metric calls spent finding it: episodes for Doom, games for chess.
 """
 
+import argparse
 import json
 import math
-import sys
 from pathlib import Path
 
+# Each task's panel title and what one metric call is.
 TASKS = {
-    "basic": "basic: kill one monster",
-    "e1m1": "E1M1: play a full level",
-    "chess": "chess: survive Stockfish at skill 0",
+    "basic": ("basic: kill one monster", "episodes"),
+    "e1m1": ("E1M1: play a full level", "episodes"),
+    "chess": ("chess: survive Stockfish at skill 0", "games"),
 }
+# The title runs wider than one panel.
+MIN_WIDTH = 600
 COLORS = ["#1d4ed8", "#b45309", "#15803d", "#7e22ce"]
 PANEL, HEIGHT, LEFT, TOP, GAP = 460, 300, 48, 56, 40
 PLOT_HEIGHT = HEIGHT - TOP - 64
@@ -69,19 +72,21 @@ def best_so_far(run: dict) -> list[tuple[int, float]]:
     return points
 
 
-def chart(results: dict) -> str:
+def chart(results: dict, tasks: list[str] | None = None) -> str:
     runs = results["runs"]
-    tasks = [task for task in TASKS if any(run["task"] == task for run in runs)]
-    width = LEFT + len(tasks) * (PANEL + GAP)
+    tasks = [task for task in (tasks or TASKS) if any(run["task"] == task for run in runs)]
+    if not tasks:
+        raise ValueError("no finished search for any of the tasks asked for")
+    width = max(MIN_WIDTH, LEFT + len(tasks) * (PANEL + GAP))
+    apart = " Scores are per task, not comparable across panels." if len(tasks) > 1 else ""
     out = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{HEIGHT}" '
         f'viewBox="0 0 {width} {HEIGHT}" font-family="system-ui, sans-serif" font-size="12">',
         f'<rect width="{width}" height="{HEIGHT}" fill="#ffffff"/>',
         '<text x="16" y="22" font-size="14" font-weight="600" fill="#1c1917">Search fitness: '
-        "best validation score after each candidate, by metric calls spent</text>",
+        "best validation score after each candidate, by budget spent</text>",
         '<text x="16" y="40" fill="#57534e">Dots mark candidates that beat everything before '
-        "them; a line ends where its search ended. Scores are per task, not comparable across "
-        "panels.</text>",
+        f"them; a line ends where its search ended.{apart}</text>",
     ]
     for index, task in enumerate(tasks):
         x0 = LEFT + index * (PANEL + GAP)
@@ -122,7 +127,8 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
     def y(score: float) -> float:
         return y_bottom - PLOT_HEIGHT * (score - low) / (high - low)
 
-    out = [f'<text x="{x0}" y="{TOP + 4}" font-weight="600" fill="#1c1917">{TASKS[task]}</text>']
+    title, unit = TASKS[task]
+    out = [f'<text x="{x0}" y="{TOP + 4}" font-weight="600" fill="#1c1917">{title}</text>']
     ticks = [low + (high - low) * k / 4 for k in range(5)]
     for tick in ticks:
         out.append(
@@ -141,7 +147,7 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
         )
     out.append(
         f'<text x="{x0 + plot_width / 2:.1f}" y="{y_bottom + 34}" text-anchor="middle" '
-        'fill="#57534e">metric calls</text>'
+        f'fill="#57534e">{unit}</text>'
     )
     ordered = sorted(runs, key=lambda run: run["seed"])
     finals = [best_so_far(run)[-1][1] for run in ordered]
@@ -169,14 +175,22 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
     return out
 
 
-def main(*paths: Path) -> None:
+def main(*paths: Path, tasks: list[str] | None = None) -> None:
     *runs, results, svg = paths
     found = collect(runs)
     if not found["runs"]:
         raise SystemExit(f"no finished searches under {', '.join(map(str, runs))}")
     results.write_text(json.dumps(found, indent=2) + "\n")
-    svg.write_text(chart(found))
+    svg.write_text(chart(found, tasks))
 
 
 if __name__ == "__main__":
-    main(*map(Path, sys.argv[1:]))
+    parser = argparse.ArgumentParser(description="Chart game searches from their reports.")
+    parser.add_argument("paths", type=Path, nargs="+", help="run directories, results file, chart")
+    parser.add_argument(
+        "--tasks", help="comma-separated tasks to draw, such as basic,e1m1; all by default"
+    )
+    args = parser.parse_args()
+    if len(args.paths) < 3:
+        parser.error("give at least one run directory, then the results file and the chart")
+    main(*args.paths, tasks=args.tasks.split(",") if args.tasks else None)

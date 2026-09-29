@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="300" viewBox="0 0 600 300" font-family="system-ui, sans-serif" font-size="12">
+<rect width="600" height="300" fill="#ffffff"/>
+<text x="16" y="22" font-size="14" font-weight="600" fill="#1c1917">Search fitness: best validation score after each candidate, by budget spent</text>
+<text x="16" y="40" fill="#57534e">Dots mark candidates that beat everything before them; a line ends where its search ended.</text>
+<text x="48" y="60" font-weight="600" fill="#1c1917">chess: survive Stockfish at skill 0</text>
+<line x1="48" y1="256.0" x2="338" y2="256.0" stroke="#e7e5e4"/>
+<text x="42" y="260.0" text-anchor="end" fill="#57534e">0.05</text>
+<line x1="48" y1="211.0" x2="338" y2="211.0" stroke="#e7e5e4"/>
+<text x="42" y="215.0" text-anchor="end" fill="#57534e">0.12</text>
+<line x1="48" y1="166.0" x2="338" y2="166.0" stroke="#e7e5e4"/>
+<text x="42" y="170.0" text-anchor="end" fill="#57534e">0.20</text>
+<line x1="48" y1="121.0" x2="338" y2="121.0" stroke="#e7e5e4"/>
+<text x="42" y="125.0" text-anchor="end" fill="#57534e">0.27</text>
+<line x1="48" y1="76.0" x2="338" y2="76.0" stroke="#e7e5e4"/>
+<text x="42" y="80.0" text-anchor="end" fill="#57534e">0.35</text>
+<text x="48.0" y="272" text-anchor="middle" fill="#57534e">0</text>
+<text x="120.1" y="272" text-anchor="middle" fill="#57534e">250</text>
+<text x="192.3" y="272" text-anchor="middle" fill="#57534e">500</text>
+<text x="264.4" y="272" text-anchor="middle" fill="#57534e">750</text>
+<text x="336.6" y="272" text-anchor="middle" fill="#57534e">1000</text>
+<text x="193.0" y="290" text-anchor="middle" fill="#57534e">games</text>
+<polyline points="48.0,182.5 52.0,182.5 52.0,143.4 150.4,143.4 150.4,135.0 338.0,135.0" fill="none" stroke="#1d4ed8" stroke-width="2"/>
+<circle cx="48.0" cy="182.5" r="3.5" fill="#1d4ed8"/>
+<circle cx="52.0" cy="143.4" r="3.5" fill="#1d4ed8"/>
+<circle cx="150.4" cy="135.0" r="3.5" fill="#1d4ed8"/>
+<text x="344.0" y="153.3" fill="#1d4ed8">seed 0 0.25, test 0.21</text>
+<polyline points="48.0,175.6 59.0,175.6 59.0,162.1 63.0,162.1 63.0,156.3 103.4,156.3 103.4,153.9 118.4,153.9 118.4,146.0 195.2,146.0 195.2,129.0 337.7,129.0" fill="none" stroke="#b45309" stroke-width="2"/>
+<circle cx="48.0" cy="175.6" r="3.5" fill="#b45309"/>
+<circle cx="59.0" cy="162.1" r="3.5" fill="#b45309"/>
+<circle cx="63.0" cy="156.3" r="3.5" fill="#b45309"/>
+<circle cx="103.4" cy="153.9" r="3.5" fill="#b45309"/>
+<circle cx="118.4" cy="146.0" r="3.5" fill="#b45309"/>
+<circle cx="195.2" cy="129.0" r="3.5" fill="#b45309"/>
+<text x="343.7" y="139.3" fill="#b45309">seed 1 0.26, test 0.17</text>
+<polyline points="48.0,153.8 324.4,153.8 324.4,121.3 336.6,121.3" fill="none" stroke="#15803d" stroke-width="2"/>
+<circle cx="48.0" cy="153.8" r="3.5" fill="#15803d"/>
+<circle cx="324.4" cy="121.3" r="3.5" fill="#15803d"/>
+<text x="342.6" y="125.3" fill="#15803d">seed 2 0.27, test 0.21</text>
+</svg>

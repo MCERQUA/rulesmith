@@ -19,8 +19,9 @@ flowchart LR
 The chart is drawn by `benchmarks/fitness.py` from the searches' own reports,
 summarized in [benchmarks/results/games.json](../benchmarks/results/games.json).
 Every search in it ran with the same proposer, `openrouter/qwen/qwen3.8-27b`,
-and a local Ruling judge (`Qwen3.5-4B-4bit`, one option ordering per question);
-Doom searches had 200 episodes each and chess 1,000 games. A dot is a candidate
+a local Ruling judge (`Qwen3.5-4B-4bit`, one option ordering per question) and
+200 episodes; the [chess searches](chess.md#against-stockfish) have a chart of
+their own from the same file. A dot is a candidate
 that beat everything before it, a line ends where its search's budget ran out,
 and the label carries the winner's test score. The panels are not comparable:
 each is a different task, and each is scaled to its own scores.

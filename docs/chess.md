@@ -103,8 +103,12 @@ White against Stockfish at skill level 0 and scored mostly by the result, then b
 how long the game lasts and how much material is kept. Three search seeds ran
 at once, 1,000 games each, with `openrouter/qwen/qwen3.8-27b` proposing; the
 searches' reports are summarized in
-[benchmarks/results/games.json](../benchmarks/results/games.json), and the chess
-panel of the chart in the [Doom results](doom.md#results) is drawn from them.
+[benchmarks/results/games.json](../benchmarks/results/games.json), and the chart
+is drawn from them by `benchmarks/fitness.py`: the best validation score found
+so far against the games spent finding it, a dot for each candidate that beat
+everything before it, and the winner's test score on the label.
+
+![Search fitness against Stockfish: best validation score after each candidate, by games spent](assets/chess-stockfish.svg)
 
 | Search seed | Validation, seed → best | Test | Won / drew / lost | Mean plies | Mean material |
 | --- | --- | --- | --- | --- | --- |
