@@ -7,6 +7,7 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib.metadata import version
+from pathlib import Path
 from statistics import mean
 from typing import Protocol
 
@@ -521,9 +522,15 @@ def optimize_plan(
     config: SearchConfig,
     execution: ExecutionConfig | None = None,
     score: Scorer | None = None,
+    run_dir: Path | None = None,
 ) -> tuple[Plan, dict]:
+    """Search from `initial`. With `run_dir`, GEPA checkpoints its state there after every
+    round and resumes from it when it exists, so an interrupted search continues where it
+    stopped and a finished one runs on under a larger budget; a `gepa.stop` file in it stops
+    the search after the current round with everything kept."""
     initial.check(task.labels, config.max_nodes, config.max_depth)
     seed_sha256 = hashlib.sha256(initial.model_dump_json().encode()).hexdigest()
+    task_sha256 = hashlib.sha256(task.model_dump_json().encode()).hexdigest()
     # A rule's counts describe the graph they were taken on; a proposer would carry them onto
     # rewrites they no longer describe.
     initial = unmeasured(initial)
@@ -531,6 +538,18 @@ def optimize_plan(
     minimum_budget = 2 * (len(task.validation) + batch_size)
     if config.max_metric_calls < minimum_budget:
         raise ValueError(f"max_metric_calls must be at least {minimum_budget} for one search round")
+    resumed = run_dir is not None and (run_dir / "gepa_state.bin").exists()
+    if run_dir is not None:
+        # A checkpoint continues one search; another task or seed would corrupt it quietly.
+        identity = {"task_sha256": task_sha256, "seed_sha256": seed_sha256}
+        record = run_dir / "search.json"
+        if resumed and json.loads(record.read_text()) != identity:
+            raise ValueError(
+                f"{run_dir} holds another search, of another task or from another starting "
+                "graph; resume it with the same, or write to a new output"
+            )
+        run_dir.mkdir(parents=True, exist_ok=True)
+        record.write_text(json.dumps(identity, indent=2) + "\n")
     adapter = GraphAdapter(task, client, model, config, execution, score)
     if config.keep_judge is not None and not isinstance(adapter.score, Labels):
         raise ValueError("keep_judge counts how often rules are right, which needs labels")
@@ -629,6 +648,7 @@ def optimize_plan(
         display_progress_bar=False,
         raise_on_exception=True,
         stop_callbacks=lambda state: adapter.failure is not None,
+        run_dir=str(run_dir) if run_dir is not None else None,
     )
     if adapter.failure is not None:
         raise adapter.failure
@@ -677,8 +697,11 @@ def optimize_plan(
     report = {
         "model": model,
         "resolved_models": sorted(adapter.resolved_models),
-        "task_sha256": hashlib.sha256(task.model_dump_json().encode()).hexdigest(),
+        "task_sha256": task_sha256,
         "seed_sha256": seed_sha256,
+        "checkpoint": str(run_dir) if run_dir is not None else None,
+        "resumed": resumed,
+        "stopped_early": run_dir is not None and (run_dir / "gepa.stop").exists(),
         "mined": mined_report,
         "versions": {name: version(name) for name in ("dspy", "gepa", "typesafe-sdk")},
         "search": config.model_dump(),

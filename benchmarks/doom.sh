@@ -46,9 +46,13 @@ caffeinate -dimsu -w $$ &
 print $$ >$LOGS/driver.pid
 halt() {
   trap - TERM INT
-  note "stopping"
-  pkill -f '^[^ ]*python3 [^ ]*/rulesmith (optimize|evaluate) examples/doom/'
+  # A search stops after its current round and keeps its checkpoint; a run of this script
+  # again resumes it. A second signal ends the searches at once.
+  note "stopping after the current round"
+  for search in $LOGS/*/search; do [[ -d $search ]] && touch $search/gepa.stop; done
+  trap 'pkill -f "^[^ ]*python3 [^ ]*/rulesmith (optimize|evaluate) examples/doom/"' TERM INT
   [[ -n ${stopper:-} ]] && kill $stopper 2>/dev/null
+  wait
   rm -f $LOGS/driver.pid
   exit 143
 }
@@ -72,13 +76,16 @@ for task in $TASKS; do
     if [[ -f $run/report.json ]]; then
       note "$task seed $seed: already done"
     else
-      # optimize refuses an output that exists, so a search that crashed is set aside, not lost.
-      [[ -d $run ]] && mv $run $run-failed-$(date +%s)
+      # A search that was interrupted resumes from its checkpoint; one that left none is set aside.
+      resume=()
+      if [[ -f $run/search/gepa_state.bin ]]; then resume=(--resume)
+      elif [[ -d $run ]]; then mv $run $run-failed-$(date +%s)
+      fi
       note "$task seed $seed: searching, $BUDGET metric calls"
       uv run rulesmith optimize examples/doom/$task.json ${STARTS[$task]} \
         --backend ruling --max-workers 1 --base-url $JUDGE \
         --max-nodes 40 --max-depth 16 --max-metric-calls $BUDGET --seed $seed \
-        $proposer --output $run >>$LOGS/$task-$seed.log 2>&1 \
+        $proposer $resume --output $run >>$LOGS/$task-$seed.log 2>&1 \
         || { note "$task seed $seed: search failed, see $LOGS/$task-$seed.log"; continue; }
     fi
     if [[ ! -f $run/test.json ]]; then

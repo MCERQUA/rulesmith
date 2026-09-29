@@ -197,7 +197,9 @@ Iteration 1: Proposed new text for readings: ask intent = "Route each support ti
 This writes `runs/my-task/plan.json` (the graph), `plan.rules` (the same
 graph as the rules search wrote, which you can edit, and which every command
 accepts in place of the JSON) and `report.json` (scores). Compare
-`validation_score` with `seed_validation_score`.
+`validation_score` with `seed_validation_score`. Search checkpoints as it goes:
+an interrupted run continues with `--resume`, and a larger `--max-metric-calls`
+on a resumed run searches further.
 
 **5. Evaluate and run it.** The proposer is not needed from here on.
 
@@ -384,7 +386,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-531 passed, 6 skipped, 1 warning in 306.10s (0:05:06)
+535 passed, 6 skipped, 1 warning in 298.73s (0:04:58)
 All checks passed!
 49 files already formatted
 ```

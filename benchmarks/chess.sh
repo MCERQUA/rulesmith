@@ -39,10 +39,13 @@ print $$ >$LOGS/driver.pid
 runs=()
 halt() {
   trap - TERM INT
-  note "stopping"
-  (( ${#runs} )) && kill $runs 2>/dev/null
-  pkill -f '^[^ ]*python3 [^ ]*/rulesmith (optimize|evaluate) examples/chess/'
+  # Each search stops after its current round and keeps its checkpoint; running this script
+  # again resumes them. A second signal ends the searches at once.
+  note "stopping after the current round"
+  for search in $LOGS/*/search; do [[ -d $search ]] && touch $search/gepa.stop; done
+  trap 'pkill -f "^[^ ]*python3 [^ ]*/rulesmith (optimize|evaluate) examples/chess/"' TERM INT
   [[ -n ${stopper:-} ]] && kill $stopper 2>/dev/null
+  wait $runs
   rm -f $LOGS/driver.pid
   exit 143
 }
@@ -53,11 +56,14 @@ search() {
   if [[ -f $run/report.json ]]; then
     note "seed $seed: already done"
   else
-    # optimize refuses an output that exists, so a search that crashed is set aside, not lost.
-    [[ -d $run ]] && mv $run $run-failed-$(date +%s)
+    # A search that was interrupted resumes from its checkpoint; one that left none is set aside.
+    resume=()
+    if [[ -f $run/search/gepa_state.bin ]]; then resume=(--resume)
+    elif [[ -d $run ]]; then mv $run $run-failed-$(date +%s)
+    fi
     note "seed $seed: searching, $BUDGET games"
     uv run rulesmith optimize $TASK $START $judge --max-metric-calls $BUDGET --seed $seed \
-      $proposer --output $run >>$LOGS/chess-$seed.log 2>&1 \
+      $proposer $resume --output $run >>$LOGS/chess-$seed.log 2>&1 \
       || { note "seed $seed: search failed, see $LOGS/chess-$seed.log"; return; }
   fi
   if [[ ! -f $run/test.json ]]; then

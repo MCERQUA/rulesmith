@@ -173,6 +173,12 @@ def parser() -> argparse.ArgumentParser:
                 help="Keep the seed unless the winner's gain passes a sign test at this level",
             )
             command.add_argument(
+                "--resume",
+                action="store_true",
+                help="Continue the search checkpointed under --output/search, to "
+                "--max-metric-calls; the same task and starting graph are required",
+            )
+            command.add_argument(
                 "--unit",
                 help="Search this unit of the map given as the plan, against the task given, "
                 "with the rest of the map frozen; the winner must still fit the map",
@@ -575,8 +581,13 @@ def main() -> None:
         if unlabeled:
             cli.error(f"examples {unlabeled} have no label; label them or pass a --grader-model")
     if args.command in ("evaluate", "optimize", "record"):
-        if args.output.exists():
-            cli.error(f"output already exists: {args.output}")
+        resuming = getattr(args, "resume", False)
+        checkpoint = args.output / "search" / "gepa_state.bin"
+        if resuming and not checkpoint.exists():
+            cli.error(f"no checkpoint to resume in {args.output}: {checkpoint} is missing")
+        if args.output.exists() and not resuming:
+            hint = "; pass --resume to continue its search" if checkpoint.exists() else ""
+            cli.error(f"output already exists: {args.output}{hint}")
         args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.command == "optimize":
         config = SearchConfig(
@@ -688,7 +699,15 @@ def main() -> None:
         else:
             with redirect_stdout(sys.stderr):
                 best, report = optimize_plan(
-                    task, plan, client, model, reflect, config, execution, score
+                    task,
+                    plan,
+                    client,
+                    model,
+                    reflect,
+                    config,
+                    execution,
+                    score,
+                    run_dir=args.output / "search",
                 )
             report["backend"] = args.backend
             report["reflection_model"] = args.reflection_model
@@ -728,7 +747,7 @@ def main() -> None:
                             "before: better alone, worse for the map"
                         )
                     report["unit"]["map_validation"] = scores
-            args.output.mkdir()
+            args.output.mkdir(exist_ok=True)
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")
             # The same graph as the rules search wrote, which is the form a person edits and
             # any command accepts; a graph beyond rules has no such form, and the report says.
