@@ -153,6 +153,8 @@ def test_cli_optimization_generates_a_graph_from_the_task_alone(tmp_path, provid
     assert report["validation_score"] == 1.0
     assert report["seed_validation_score"] == 0.0
     assert report["candidates"] == 2
+    # When each candidate was found, in metric calls: the seed first, for nothing.
+    assert report["discovered_at"][0] == 0 and len(report["discovered_at"]) == 2
     # suppress is empty for a real run; it only carries nodes when measuring what one is worth.
     assert report["execution"] == {"max_workers": 2, "suppress": []}
     # The proposer is asked for a part, and the graph it answers with is the whole program.

@@ -689,6 +689,8 @@ def optimize_plan(
         "kept_seed": kept_seed,
         "keep_judge_passed_over": passed_over,
         "validation_scores": result.val_aggregate_scores,
+        # The budget spent when each candidate was found, so a run can be charted by cost.
+        "discovered_at": list(result.discovery_eval_counts),
         "candidates": len(result.candidates),
         "reflection_calls": reflection_calls,
         "repairs": repairs,

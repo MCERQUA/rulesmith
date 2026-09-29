@@ -84,6 +84,7 @@ already exist are refused before any request is sent.
 | `metric_calls` | Example evaluations used |
 | `mined` | With `--mine`: how many rules were mined, their validation score, and whether search started from them |
 | `improvement_p`, `kept_seed` | The sign test of the winner against the seed, and whether `--significance` kept the seed |
+| `discovered_at` | Metric calls spent when each candidate was found, in candidate order, the seed's being 0 |
 | `keep_judge_passed_over` | With `--keep-judge`: better-scoring candidates refused because a rule answered alone too often wrongly |
 | `scored_by` | `labels`, `grader <model>`, or `games`: a graded score is not accuracy |
 | `rules` | `plan.rules`, or null for a graph beyond rules, which is saved as JSON only |
