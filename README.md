@@ -865,11 +865,12 @@ flowchart TD
 The amber hexagon is the **judge**: the one step that calls a model, Jev or
 Ruling, whichever `--backend` runs the graph. The graph itself names no
 backend. Its box shows the name the rules test it by, `team`, so the dashed
-arrow `team == billing` reads as "the judge answered billing". Blue slanted
-boxes read a field of the input for free, green circles are the answers rules
-give, and the numbers on the arrows into `decision` are the order the rules are
-tried in. The first that answers decides; `sales` has no condition, so it
-answers whenever the two before it do not.
+arrow `team == billing` reads as "the judge answered billing". Green circles
+are the answers rules give, and the numbers on the arrows into `decision` are
+the order the rules are tried in. The first that answers decides; `sales` has
+no condition, so it answers whenever the two before it do not. A graph that
+reads fields, like the [job-postings one](#how-it-works) above, draws each
+reading as a blue slanted box: a value taken from the input for free.
 
 **`ablate`** answers what each reading, judgment and name is worth. It replays the
 decisions the graph already made with one input switched off and counts how many
