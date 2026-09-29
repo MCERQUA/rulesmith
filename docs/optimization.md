@@ -205,6 +205,12 @@ always: MOVE_FORWARD
   `vote verdict = agree of [first, second]` or `vote verdict = majority of [a, b, c]`.
 - **Outputs** beyond the label each get a rule list of their own, after the
   label's, under an `output <name>:` heading. Search scores the label only.
+- **Measurements** are what `rulesmith calibrate` writes and search never invents.
+  A judgment may end `calibrated 1.8`, the temperature fitted to how sure it
+  should read; a rule may end `calibrated 37/40 of 100`, how many of the labeled
+  examples it decided and how many rightly. Search drops a starting graph's rule
+  measurements, since they describe that graph and not its rewrites, and the
+  proposer is told to keep a temperature as written.
 - The two parts, readings and rules, are revised separately and may be merged
   between candidates. A rules part may declare any reading its rules need.
 - A program beyond rules is proposed as whole-graph JSON, which is accepted as the
