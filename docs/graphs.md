@@ -41,6 +41,7 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 | `read` | Take one value from the original input by `path`, declaring `bounds` (numbers) or `categories` (strings). A missing path, or a value outside the declared domain, skips the node. |
 | `confidence` | How sure the `choice` or `score` call named in `source` was, from 0 to 1. A `noul` answers with the probability itself, so it has no separate confidence, and validation refuses a `confidence` of one (or of anything but a call). |
 | `sum` | A weighted sum of numeric `terms` (each `{"node", "weight"}`, weight 1 by default) plus a `constant`. Skipped when any term is skipped. Its range follows from its terms, so thresholds on it are checked like any other. |
+| `graph` | Run another `plan`, embedded in this node, on the one value its `input` names (the whole input by default, or a node's value, or an object a `merge` built) and answer with its `output` (`label` by default). A unit of a larger map; see [Composing graphs](#composing-graphs). |
 | `vote` | Settle two or more categorical `sources` into one value. `rule: majority` returns the value most of them gave, a tie going to the one named first; `rule: agree` returns `same` (default `"yes"`) when every source gave the same value and `different` (default `"no"`) otherwise, and is skipped while any source is, since an opinion never given has not agreed. |
 
 ## Questions
@@ -171,6 +172,7 @@ Legend, the same in every drawing:
 | <img src="assets/legend/condition.svg" width="64" height="36" alt=""> | Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
 | <img src="assets/legend/rule.svg" width="64" height="36" alt=""> | Green circle | The answer a rule gives when its condition holds | Free |
 | <img src="assets/legend/list.svg" width="64" height="36" alt=""> | Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
+| <img src="assets/legend/unit.svg" width="64" height="36" alt=""> | Violet rounded box inside a framed box | A unit: another graph run on what it is handed, answering with one of its outputs. The frame holds the unit's own graph | Whatever its graph asks |
 | <img src="assets/legend/value.svg" width="64" height="36" alt=""> | Solid arrow | Carries a value | |
 | <img src="assets/legend/gate.svg" width="64" height="36" alt=""> | Dashed arrow | Gates: leads from a condition to what fires when it holds | |
 | <img src="assets/legend/output.svg" width="64" height="36" alt=""> | Thick arrow | Leads to a graph output | |
@@ -231,6 +233,86 @@ data never trips is a number chosen badly.
 
 Search spends its budget rewriting whatever is in the graph, so rules that
 cannot matter are rules the proposer wastes proposals on.
+
+## Composing graphs
+
+A `graph` node runs another graph as a unit: it is handed one value, its own
+reads and judgments work on that value, and it answers with one of its outputs.
+The boundary is typed like any edge, so a rule outside the unit may test its
+answer only against the values the unit's graph can give, and `validate` says
+so when it cannot. [examples/support-map.json](../examples/support-map.json)
+routes a ticket and hands billing tickets to a billing graph:
+
+```mermaid
+flowchart TD
+    n0{{"judge: team<br/>choice: Which team should answer this ticket?"}}
+    subgraph n1_unit["billing: a graph of its own"]
+    n1_n0[/"read charge.amount"/]
+    n1_n1{{"judge: genuine<br/>noul: The message describes a mistake the customer..."}}
+    n1_n2(("auto_refund"))
+    n1_n3(("review"))
+    n1_n4(["decision<br/>first that answers"])
+    n1_c0["charge.amount < 50 and genuine >= 0.8"]
+    n1_n1 --> n1_c0
+    n1_n0 --> n1_c0
+    n1_c0 -.-> n1_n2
+    n1_n2 -->|"1"| n1_n4
+    n1_n3 -->|"2"| n1_n4
+    n1_o0(("label"))
+    n1_n4 ==> n1_o0
+    n1(["billing<br/>answers with its label"])
+    n1_o0 --> n1
+    end
+    n2(("engineer"))
+    n3(["decision<br/>first that answers"])
+    c0["team == billing"]
+    n0 --> c0
+    c0 -.-> n1
+    n1 -->|"1"| n3
+    n2 -->|"2"| n3
+    o0(("label"))
+    n3 ==> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n1_n1,n0 judge
+    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
+    class n1_n0 read
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n1_n2,n1_n3,n2 rule
+    classDef unit fill:#ede9fe,stroke:#7c3aed,color:#1c1917
+    class n1 unit
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class n1_c0,c0 condition
+```
+
+The unit runs through the same engine on the same judge, gated like anything
+else (here, only when the router answered billing), and its work rolls up into
+the result under its name:
+
+```sh
+uv run rulesmith run examples/support-map.json ticket.json --backend ruling --max-workers 1
+```
+
+Output (trimmed), for a ticket about a duplicate $40 charge:
+
+```text
+{
+  "label": "auto_refund",
+  "decided_by": "billing.rule_1",
+  "confidence": 0.867,
+  "answers": {"team": {...}, "billing.genuine": {...}},
+  "calls": {"team": {...}, "billing.genuine": {...}},
+  ...
+}
+```
+
+`decided_by` names the rule inside the unit that decided, and the confidence is
+the least sure of every judgment on the way, the router's and the unit's. A
+unit that could not answer answers nothing, and the rules after it decide.
+
+Units are the piece a map of many decisions is built from. What they do not do
+yet: search revises a graph's rules, not its units, so a unit is searched on its
+own task and then placed; and a unit is embedded in its parent's JSON rather
+than loaded from a file of its own.
 
 ## Writing a graph by hand
 

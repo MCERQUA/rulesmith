@@ -6,6 +6,7 @@ from rulesmith.graph import (
     Call,
     Coalesce,
     Confidence,
+    Graph,
     Merge,
     NodeInput,
     Plan,
@@ -37,9 +38,11 @@ KINDS = {
     "judge": (Call,),
     "read": (Read,),
     "rule": (Value, Threshold),
+    "unit": (Graph,),
 }
 STYLES = {
     "judge": "fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917",
+    "unit": "fill:#ede9fe,stroke:#7c3aed,color:#1c1917",
     "condition": "fill:#e5e7eb,stroke:#6b7280,color:#1c1917",
     "read": "fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917",
     "rule": "fill:#bbf7d0,stroke:#15803d,color:#1c1917",
@@ -85,15 +88,38 @@ def safe(text: str) -> str:
 
 
 def mermaid(plan: Plan) -> str:
-    """The plan as a Mermaid flowchart: boxes for nodes, arrows for what feeds what, and the
-    condition on a guarded node written along the arrow that reaches it."""
+    """The plan as a Mermaid flowchart: boxes for nodes, arrows for what feeds what, a box of
+    its own for each condition, and a unit's graph drawn inside a box of its own."""
     lines = ["flowchart TD"]
+    styled: dict[str, list[str]] = {}
+    draw(plan, "", lines, styled)
+    for kind, members in styled.items():
+        if members:
+            lines.append(f"    classDef {kind} {STYLES[kind]}")
+            lines.append(f"    class {','.join(members)} {kind}")
+    return "\n".join(lines)
+
+
+def draw(plan: Plan, prefix: str, lines: list[str], styled: dict[str, list[str]]) -> None:
+    """One plan's nodes, edges and outputs, with ids under `prefix` so a unit's graph and the
+    graph around it never share an id."""
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
     # Mermaid joins boxes that share an id, and a node may be named like an output or anything
     # else, so ids are positions and the names go in the labels.
-    ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
+    ids = {name: f"{prefix}n{index}" for index, name in enumerate(plan.nodes)}
     conditions: list[str] = []
     for name, node in plan.nodes.items():
+        if isinstance(node, Graph):
+            unit = f"{ids[name]}_unit"
+            lines.append(f'    subgraph {unit}["{safe(name)}: a graph of its own"]')
+            draw(node.plan, f"{ids[name]}_", lines, styled)
+            lines.append(f'    {ids[name]}(["{safe(name)}<br/>answers with its {node.output}"])')
+            answer = list(node.plan.outputs).index(node.output)
+            lines.append(f"    {ids[name]}_o{answer} --> {ids[name]}")
+            lines.append("    end")
+            if isinstance(node.input, NodeInput):
+                lines.append(f"    {ids[node.input.node]} --> {unit}")
+            continue
         open_shape, close_shape = SHAPES[type(node)]
         lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')
     for name, node in plan.nodes.items():
@@ -112,25 +138,21 @@ def mermaid(plan: Plan) -> str:
         if node.when is not None:
             guard = safe(render_condition(node.when, reads, plan))
             sources = sorted(tested(node.when))
-            box = f"c{len(conditions)}"
+            box = f"{prefix}c{len(conditions)}"
             conditions.append(box)
             lines.append(f'    {box}["{guard}"]')
             lines += [f"    {ids[source]} --> {box}" for source in sources]
             lines.append(f"    {box} -.-> {ids[name]}")
     for index, (output, source) in enumerate(plan.outputs.items()):
-        lines.append(f'    o{index}(("{safe(output)}"))')
+        lines.append(f'    {prefix}o{index}(("{safe(output)}"))')
         # Thick, so what the graph answers stands apart from what feeds what.
         if isinstance(source, NodeInput):
-            lines.append(f"    {ids[source.node]} ==> o{index}")
-    styled = {
-        kind: [ids[name] for name, node in plan.nodes.items() if isinstance(node, types)]
-        for kind, types in KINDS.items()
-    } | {"condition": conditions}
-    for kind, members in styled.items():
-        if members:
-            lines.append(f"    classDef {kind} {STYLES[kind]}")
-            lines.append(f"    class {','.join(members)} {kind}")
-    return "\n".join(lines)
+            lines.append(f"    {ids[source.node]} ==> {prefix}o{index}")
+    for kind, types in KINDS.items():
+        styled.setdefault(kind, []).extend(
+            ids[name] for name, node in plan.nodes.items() if isinstance(node, types)
+        )
+    styled.setdefault("condition", []).extend(conditions)
 
 
 def feeds(node) -> set[str]:

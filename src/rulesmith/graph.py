@@ -143,6 +143,8 @@ def references(value: JsonValue) -> set[str]:
     if kind in ("call", "merge") and isinstance(value.get("inputs"), dict):
         for source in value["inputs"].values():
             named.update(references(source))
+    if kind == "graph":
+        named.update(references(value.get("input")))
     return named
 
 
@@ -304,8 +306,27 @@ class Read(Guarded):
         return self
 
 
+class Graph(Guarded):
+    """Another plan, run on the one value this node is handed and answering with one of its
+    outputs: a unit of a larger map. The value may be the whole input, a node's value, or an
+    object a merge built, so the unit's own reads stay relative to what it receives. A parent's
+    rules test the unit's answer only against the values its graph can give, so the boundary is
+    typed like any other edge."""
+
+    type: Literal["graph"] = "graph"
+    plan: Plan
+    input: Source = Field(default_factory=StateInput)
+    output: Text = "label"
+
+    @model_validator(mode="after")
+    def answers_with_an_output_it_has(self) -> Self:
+        if self.output not in self.plan.outputs:
+            raise ValueError(f"the graph has no output {self.output!r} to answer with")
+        return self
+
+
 Node = Annotated[
-    Call | Switch | Threshold | Merge | Coalesce | Value | Read | Confidence | Vote | Sum,
+    Call | Switch | Threshold | Merge | Coalesce | Value | Read | Confidence | Vote | Sum | Graph,
     Field(discriminator="type"),
 ]
 Domain = frozenset[str] | tuple[float, float] | None
@@ -335,6 +356,8 @@ class Plan(StrictModel):
                 refs.update(node.sources)
             elif isinstance(node, Sum):
                 refs.update(term.node for term in node.terms)
+            elif isinstance(node, Graph) and isinstance(node.input, NodeInput):
+                refs.add(node.input.node)
             result[key] = refs
         return result
 
@@ -373,6 +396,13 @@ class Plan(StrictModel):
                 domain = frozenset(node.categories) if node.categories else node.bounds
             elif isinstance(node, Confidence):
                 domain = (0.0, 1.0)
+            elif isinstance(node, Graph):
+                # The unit answers with what its own graph can put on that output.
+                answer = node.plan.outputs[node.output]
+                if isinstance(answer, LiteralInput):
+                    domain = literal_domain(answer.value)
+                elif answer.view == "value" and not answer.optional:
+                    domain = node.plan.domains()[answer.node]
             elif isinstance(node, Sum):
                 ranges = [result[term.node] for term in node.terms]
                 if all(isinstance(r, tuple) for r in ranges):
@@ -408,6 +438,8 @@ class Plan(StrictModel):
         for node in self.nodes.values():
             if isinstance(node, (Call, Merge)):
                 sources.extend(node.inputs.values())
+            elif isinstance(node, Graph):
+                sources.append(node.input)
         references = {r for parents in dependencies.values() for r in parents}
         references.update(s.node for s in sources if isinstance(s, NodeInput))
         unknown = references - self.nodes.keys()
@@ -503,6 +535,11 @@ class Plan(StrictModel):
             raise ValueError(
                 "label output must have a required categorical value within task labels"
             )
+
+
+# A unit holds a plan and a plan may hold units, so each finishes the other's schema.
+Graph.model_rebuild()
+Plan.model_rebuild()
 
 
 class Example(StrictModel):

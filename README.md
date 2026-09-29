@@ -319,7 +319,7 @@ The rest, from loading rules to running search from Python, is in
 
 - [Tasks](docs/tasks.md): the task file, drafting labels, structured inputs, costs, and graders.
 - [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration, and worked examples.
-- [Graph format](docs/graphs.md): the JSON behind each node, execution, drawing and ablating a graph.
+- [Graph format](docs/graphs.md): the JSON behind each node, execution, composing graphs from graphs, and drawing and ablating one.
 - [Optimization](docs/optimization.md): how search runs, its settings, reports, testing, and limits.
 - [Command line](docs/cli.md): every command, the flags they share, and the backends.
 - [Python](docs/python.md): running and building graphs from code.
@@ -341,7 +341,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-505 passed, 6 skipped, 1 warning in 286.39s (0:04:46)
+515 passed, 6 skipped, 1 warning in 285.88s (0:04:45)
 All checks passed!
 49 files already formatted
 ```

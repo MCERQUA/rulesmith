@@ -660,10 +660,21 @@ def every_construct_plan():
                 },
             },
             "priority": {"type": "read", "path": ["priority"], "categories": ["low", "high"]},
+            # A unit: another graph, handed the input, answering with its label.
+            "policy": {
+                "type": "graph",
+                "input": {"type": "state"},
+                "output": "label",
+                "plan": {
+                    "nodes": {"standard": {"type": "value", "value": "standard"}},
+                    "outputs": {"label": ref("standard")},
+                },
+            },
             "summary": {
                 "type": "merge",
                 "inputs": {
                     "priority": {"type": "node", "node": "priority", "optional": True},
+                    "policy_applied": ref("policy"),
                     "route": ref("route"),
                     "team": {"type": "node", "node": "team", "view": "answer"},
                     "held": {"type": "node", "node": "hold", "optional": True},

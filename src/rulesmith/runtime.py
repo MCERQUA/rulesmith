@@ -25,6 +25,7 @@ from rulesmith.graph import (
     Compare,
     Condition,
     Confidence,
+    Graph,
     LiteralInput,
     Merge,
     Node,
@@ -222,6 +223,8 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
         return deepcopy(node.value)
     if isinstance(node, (Call, Merge)):
         return resolve_inputs(node.inputs, state, values, answers)
+    if isinstance(node, Graph):
+        return resolve(node.input, state, values, answers)
     if isinstance(node, Coalesce):
         return next((values[source] for source in node.sources if source in values), MISSING)
     if isinstance(node, Vote):
@@ -314,7 +317,7 @@ def fallbacks(plan: Plan) -> dict[str, list[list[str]]]:
 
     found = {}
     for name, ahead in uses.items():
-        if ahead is None or not isinstance(plan.nodes[name], Call):
+        if ahead is None or not isinstance(plan.nodes[name], (Call, Graph)):
             continue
         # Waiting on a source that itself waits on this judgment would never end.
         if any(name in ancestors(source, set()) for sources in ahead for source in sources):
@@ -395,9 +398,33 @@ class DecisionProgram(dspy.Module):
             results[key] = answer, usage
         return results
 
+    def _delegate(self, key: str, node: Graph, handed) -> dict[str, dspy.Prediction]:
+        """Run a unit's graph on what it was handed, through the same engine, on the same
+        judge. A unit whose graph could not answer is a unit that answered nothing."""
+        try:
+            prediction = DecisionProgram(node.plan, self.client, self.model, self.execution)(
+                state=handed
+            )
+        except GraphExecutionError as failure:
+            prediction = failure.prediction
+        return {key: prediction}
+
+    def _settle_unit(self, key: str, prediction, values: dict, answers: dict, calls, units):
+        """A unit's answer is its graph's chosen output, and its judgments and calls are
+        reported under the unit's name, so a map's decision can be audited unit by unit."""
+        unit = dict(prediction)
+        units[key] = unit
+        for name, answer in unit["answers"].items():
+            answers[f"{key}.{name}"] = answer
+        for name, usage in unit["calls"].items():
+            calls[f"{key}.{name}"] = usage
+        output = self.plan.nodes[key].output
+        if output in unit["outputs"]:
+            values[key] = unit["outputs"][output]
+
     def forward(self, state: State) -> dspy.Prediction:
         state = TypeAdapter(State, config=ConfigDict(allow_inf_nan=False)).validate_python(state)
-        values, answers, calls = {}, {}, {}
+        values, answers, calls, units = {}, {}, {}, {}
         sorter = TopologicalSorter(self.plan.dependencies())
         sorter.prepare()
         ready, running, settled, stuck = [], {}, set(), False
@@ -412,7 +439,7 @@ class DecisionProgram(dspy.Module):
                 progressed = True
                 while progressed:
                     ready.extend(sorter.get_ready())
-                    deferred, progressed, requests = [], False, {}
+                    deferred, progressed, requests, delegations = [], False, {}, []
                     for key in sorted(ready):
                         node = self.plan.nodes[key]
                         value = resolve_node(
@@ -421,14 +448,17 @@ class DecisionProgram(dspy.Module):
                         needed = (
                             "ask" if stuck else demand(self.fallbacks.get(key), values, settled)
                         )
-                        if value is MISSING or (isinstance(node, Call) and needed == "skip"):
+                        asks = isinstance(node, (Call, Graph))
+                        if value is MISSING or (asks and needed == "skip"):
                             done(key)
                             progressed = True
-                        elif isinstance(node, Call) and needed == "wait":
+                        elif asks and needed == "wait":
                             deferred.append(key)
                         elif isinstance(node, Call):
                             group = json.dumps(value, sort_keys=True)
                             requests.setdefault(group, (value, []))[1].append((key, node))
+                        elif isinstance(node, Graph):
+                            delegations.append((key, node, value))
                         else:
                             values[key] = value
                             done(key)
@@ -438,6 +468,11 @@ class DecisionProgram(dspy.Module):
                             running[pool.submit(self._ask, group, value)] = group[0][0]
                         else:
                             deferred.extend(key for key, _ in group)
+                    for key, node, handed in delegations:
+                        if len(running) < self.execution.max_workers:
+                            running[pool.submit(self._delegate, key, node, handed)] = key
+                        else:
+                            deferred.append(key)
                     ready = deferred
                 # Judgments waiting only on one another would wait for ever; ask them all.
                 stuck = not running and bool(ready)
@@ -445,9 +480,13 @@ class DecisionProgram(dspy.Module):
                     completed, _ = wait(running, return_when=FIRST_COMPLETED)
                     for future in sorted(completed, key=running.get):
                         running.pop(future)
-                        for key, (answer, usage) in sorted(future.result().items()):
-                            answers[key], calls[key] = answer, usage
-                            values[key] = answer["value"]
+                        for key, result in sorted(future.result().items()):
+                            if isinstance(result, dspy.Prediction):
+                                self._settle_unit(key, result, values, answers, calls, units)
+                            else:
+                                answer, usage = result
+                                answers[key], calls[key] = answer, usage
+                                values[key] = answer["value"]
                             done(key)
 
         outputs, missing = {}, []
@@ -461,9 +500,12 @@ class DecisionProgram(dspy.Module):
         result = dict(
             outputs=outputs,
             node_values={key: values[key] for key in order if key in values},
-            answers={key: answers[key] for key in order if key in answers},
+            # A unit's judgments and calls follow its own name, after the graph's own.
+            answers={key: answers[key] for key in order if key in answers}
+            | {key: answer for key, answer in answers.items() if key not in order},
             skipped=[key for key in order if key not in values],
-            calls={key: calls[key] for key in order if key in calls},
+            calls={key: calls[key] for key in order if key in calls}
+            | {key: usage for key, usage in calls.items() if key not in order},
             models=sorted({call["model"] for call in calls.values()}),
             input_tokens=sum(call["input_tokens"] for call in calls.values()),
             output_tokens=sum(call["output_tokens"] for call in calls.values()),
@@ -474,9 +516,13 @@ class DecisionProgram(dspy.Module):
             decided = (
                 decider(self.plan, source.node, values) if isinstance(source, NodeInput) else None
             )
-            result["decided_by"] = decided
             measured = getattr(self.plan.nodes.get(decided), "measured", None)
+            # A unit's decision names the rule inside it, and is no surer than that unit was.
+            if decided in units and units[decided].get("decided_by"):
+                decided = f"{decided}.{units[decided]['decided_by']}"
+            result["decided_by"] = decided
             sure = [sureness(answer) for answer in result["answers"].values()]
+            sure += [unit["confidence"] for unit in units.values() if "confidence" in unit]
             result["confidence"] = min(
                 sure + ([measured.precision] if measured else []), default=1.0
             )
