@@ -43,13 +43,13 @@
 <text x="344.0" y="115.3" class="m2">seed 2 0.97, test 0.94</text>
 <text x="548" y="60" font-weight="600" class="ink">E1M1: play a full level</text>
 <line x1="548" y1="256.0" x2="838" y2="256.0" class="grid"/>
-<text x="542" y="260.0" text-anchor="end" class="muted">0.15</text>
+<text x="542" y="260.0" text-anchor="end" class="muted">0.10</text>
 <line x1="548" y1="211.0" x2="838" y2="211.0" class="grid"/>
-<text x="542" y="215.0" text-anchor="end" class="muted">0.23</text>
+<text x="542" y="215.0" text-anchor="end" class="muted">0.19</text>
 <line x1="548" y1="166.0" x2="838" y2="166.0" class="grid"/>
-<text x="542" y="170.0" text-anchor="end" class="muted">0.30</text>
+<text x="542" y="170.0" text-anchor="end" class="muted">0.28</text>
 <line x1="548" y1="121.0" x2="838" y2="121.0" class="grid"/>
-<text x="542" y="125.0" text-anchor="end" class="muted">0.38</text>
+<text x="542" y="125.0" text-anchor="end" class="muted">0.36</text>
 <line x1="548" y1="76.0" x2="838" y2="76.0" class="grid"/>
 <text x="542" y="80.0" text-anchor="end" class="muted">0.45</text>
 <text x="548.0" y="272" text-anchor="middle" class="muted">0</text>
@@ -58,16 +58,22 @@
 <text x="764.1" y="272" text-anchor="middle" class="muted">450</text>
 <text x="836.1" y="272" text-anchor="middle" class="muted">600</text>
 <text x="693.0" y="290" text-anchor="middle" class="muted">episodes</text>
-<polyline points="548.0,216.2 567.2,216.2 567.2,199.8 574.9,199.8 574.9,176.9 712.2,176.9 712.2,171.3 838.0,171.3" class="l0" fill="none" stroke-width="2"/>
-<circle cx="548.0" cy="216.2" r="3.5" class="m0"/>
-<circle cx="567.2" cy="199.8" r="3.5" class="m0"/>
-<circle cx="574.9" cy="176.9" r="3.5" class="m0"/>
-<circle cx="712.2" cy="171.3" r="3.5" class="m0"/>
-<text x="844.0" y="175.3" class="m0">seed 0 0.29, test 0.24</text>
-<polyline points="548.0,216.2 567.2,216.2 567.2,216.1 622.9,216.1 622.9,196.2 668.0,196.2 668.0,133.7 838.0,133.7" class="l1" fill="none" stroke-width="2"/>
-<circle cx="548.0" cy="216.2" r="3.5" class="m1"/>
-<circle cx="567.2" cy="216.1" r="3.5" class="m1"/>
-<circle cx="622.9" cy="196.2" r="3.5" class="m1"/>
-<circle cx="668.0" cy="133.7" r="3.5" class="m1"/>
-<text x="844.0" y="137.7" class="m1">seed 1 0.35, test 0.28</text>
+<polyline points="548.0,196.2 567.2,196.2 567.2,182.1 574.9,182.1 574.9,162.5 712.2,162.5 712.2,157.7 838.0,157.7" class="l0" fill="none" stroke-width="2"/>
+<circle cx="548.0" cy="196.2" r="3.5" class="m0"/>
+<circle cx="567.2" cy="182.1" r="3.5" class="m0"/>
+<circle cx="574.9" cy="162.5" r="3.5" class="m0"/>
+<circle cx="712.2" cy="157.7" r="3.5" class="m0"/>
+<text x="844.0" y="161.7" class="m0">seed 0 0.29, test 0.24</text>
+<polyline points="548.0,196.2 567.2,196.2 567.2,196.0 622.9,196.0 622.9,179.0 668.0,179.0 668.0,125.4 838.0,125.4" class="l1" fill="none" stroke-width="2"/>
+<circle cx="548.0" cy="196.2" r="3.5" class="m1"/>
+<circle cx="567.2" cy="196.0" r="3.5" class="m1"/>
+<circle cx="622.9" cy="179.0" r="3.5" class="m1"/>
+<circle cx="668.0" cy="125.4" r="3.5" class="m1"/>
+<text x="844.0" y="129.4" class="m1">seed 1 0.35, test 0.28</text>
+<polyline points="548.0,196.2 606.6,196.2 606.6,195.3 730.5,195.3 730.5,179.2 746.8,179.2 746.8,166.3 836.1,166.3" class="l2" fill="none" stroke-width="2"/>
+<circle cx="548.0" cy="196.2" r="3.5" class="m2"/>
+<circle cx="606.6" cy="195.3" r="3.5" class="m2"/>
+<circle cx="730.5" cy="179.2" r="3.5" class="m2"/>
+<circle cx="746.8" cy="166.3" r="3.5" class="m2"/>
+<text x="842.1" y="175.7" class="m2">seed 2 0.27, test 0.24</text>
 </svg>

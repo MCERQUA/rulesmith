@@ -44,24 +44,27 @@ seed had stopped while every seed was still improving, so the budget was tripled
 | --- | --- | --- | --- | --- | --- |
 | 0 | 0.22 → 0.29 | 0.24 | 0 of 6 | none | episode 534 |
 | 1 | 0.22 → 0.35 | 0.28 | 1 of 6 | none | episode 570 |
-| 2 | running | | | | |
+| 2 | 0.22 → 0.27 | 0.24 | 0 of 6 | none | episode 596 |
 
-Both finished seeds were still finding improvements past episode 500, so 600 is
-not the ceiling either. The 200-episode round scored 0.31, 0.32 and 0.27 on
-validation; with three times the budget seed 1 went past its plateau and seed 0
-landed lower than its own shorter run, since the proposer samples at
-temperature 1 and the same search seed does not retrace the same path.
+All three seeds were still finding improvements past episode 500, seed 2 at its
+596th, so 600 is not the ceiling either. The 200-episode round scored 0.31, 0.32
+and 0.27 on validation; with three times the budget seed 1 went past its
+plateau, seed 2 matched its shorter run, and seed 0 landed lower than its own,
+since the proposer samples at temperature 1 and the same search seed does not
+retrace the same path.
 
 What search found is worth reading with the reward in mind. The starting graph
-survives the whole four minutes and scores 0.22; every winner runs the route,
-kills several monsters and usually dies inside a minute, and scores more,
-because progress along the route and kills pay better than staying alive. Seed
-1 reached the exit on one held-out seed. Both winners dropped the judge
-entirely. How long a search takes turns on how soon its candidates stop asking
-the judge on nearly every step: an episode of the starting graph makes about
-1,400 judge calls and takes ten minutes on a local judge, and one whose graph
-asks rarely takes seconds, so the same 600-episode budget has run from three
-hours to most of a day.
+survives the whole four minutes and scores 0.22. Seeds 0 and 1 found graphs
+that run the route, kill several monsters and usually die inside a minute, and
+score more, because progress along the route and kills pay better than staying
+alive; seed 1's reached the exit on one held-out seed. Seed 2 found the other
+way to score: a graph that survives the full four minutes on five of six test
+seeds and scores its points on the way, reaching the exit on none. All three
+winners dropped the judge entirely. How long a search takes turns on how soon
+its candidates stop asking the judge on nearly every step: an episode of the
+starting graph makes about 1,400 judge calls and takes ten minutes on a local
+judge, and one whose graph asks rarely takes seconds, so the same 600-episode
+budget ran from two and a half to three and a half hours.
 
 The graph in [the E1M1 exit graph](#the-e1m1-exit-graph) below, which exits
 on 5 of 12 seeds, came from an earlier run with Claude Sonnet 5 proposing,
