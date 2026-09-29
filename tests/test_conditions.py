@@ -119,9 +119,11 @@ def test_labels_compare_with_labels_and_numbers_with_numbers():
 
 def test_a_comparison_draws_a_gate_from_both_sides():
     plan = compile_rules("read a in [0, 9]\nread b in [0, 9]\nwhen a < b: LOW\nalways: HIGH")
-    arrows = re.findall(r"^\s*(\w+) -\.->\|[^|]*\| (\w+)$", mermaid(plan), re.MULTILINE)
-    # One dashed arrow into the rule from each reading the comparison names.
-    assert len({source for source, _ in arrows}) == 2 and len({target for _, target in arrows}) == 1
+    drawn = mermaid(plan)
+    # The comparison's box is fed by each reading it names, and gates the one rule.
+    (box,) = re.findall(r'^\s*(c\d+)\["a < b"\]$', drawn, re.MULTILINE)
+    assert sorted(re.findall(rf"^\s*(\w+) --> {box}$", drawn, re.MULTILINE)) == ["n0", "n1"]
+    assert re.findall(rf"^\s*{box} -\.-> (\w+)$", drawn, re.MULTILINE) == ["n2"]
 
 
 def test_a_graph_node_rules_cannot_write_is_refused_rather_than_dropped():
