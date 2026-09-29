@@ -23,7 +23,29 @@ TASKS = {
 }
 # The title runs wider than one panel.
 MIN_WIDTH = 600
+# Per search seed, on a light ground and on a dark one.
 COLORS = ["#1d4ed8", "#b45309", "#15803d", "#7e22ce"]
+DARK_COLORS = ["#58a6ff", "#f0883e", "#3fb950", "#d2a8ff"]
+# The chart follows the viewer's theme: a browser applies this to an SVG shown as an image too.
+STYLE = """
+.bg {{ fill: #ffffff }} .ink {{ fill: #1c1917 }}
+.muted {{ fill: #57534e }} .grid {{ stroke: #e7e5e4 }}
+{light}
+@media (prefers-color-scheme: dark) {{
+  .bg {{ fill: #0d1117 }} .ink {{ fill: #e6edf3 }}
+  .muted {{ fill: #9da7b3 }} .grid {{ stroke: #30363d }}
+  {dark}
+}}
+"""
+
+
+def series_styles(colors: list[str]) -> str:
+    """A line class and a mark class per seed: a class sets both stroke and fill over any
+    attribute, so a line's fill and a label's stroke must come from a class that leaves them
+    alone."""
+    return " ".join(f".l{i} {{ stroke: {c} }} .m{i} {{ fill: {c} }}" for i, c in enumerate(colors))
+
+
 PANEL, HEIGHT, LEFT, TOP, GAP = 460, 300, 48, 56, 40
 PLOT_HEIGHT = HEIGHT - TOP - 64
 # Room to the right of each plot for the end labels, and how far apart they must sit.
@@ -82,10 +104,13 @@ def chart(results: dict, tasks: list[str] | None = None) -> str:
     out = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{HEIGHT}" '
         f'viewBox="0 0 {width} {HEIGHT}" font-family="system-ui, sans-serif" font-size="12">',
-        f'<rect width="{width}" height="{HEIGHT}" fill="#ffffff"/>',
-        '<text x="16" y="22" font-size="14" font-weight="600" fill="#1c1917">Search fitness: '
+        "<style>"
+        + STYLE.format(light=series_styles(COLORS), dark=series_styles(DARK_COLORS))
+        + "</style>",
+        f'<rect width="{width}" height="{HEIGHT}" class="bg"/>',
+        '<text x="16" y="22" font-size="14" font-weight="600" class="ink">Search fitness: '
         "best validation score after each candidate, by budget spent</text>",
-        '<text x="16" y="40" fill="#57534e">Dots mark candidates that beat everything before '
+        '<text x="16" y="40" class="muted">Dots mark candidates that beat everything before '
         f"them; a line ends where its search ended.{apart}</text>",
     ]
     for index, task in enumerate(tasks):
@@ -128,32 +153,32 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
         return y_bottom - PLOT_HEIGHT * (score - low) / (high - low)
 
     title, unit = TASKS[task]
-    out = [f'<text x="{x0}" y="{TOP + 4}" font-weight="600" fill="#1c1917">{title}</text>']
+    out = [f'<text x="{x0}" y="{TOP + 4}" font-weight="600" class="ink">{title}</text>']
     ticks = [low + (high - low) * k / 4 for k in range(5)]
     for tick in ticks:
         out.append(
             f'<line x1="{x0}" y1="{y(tick):.1f}" x2="{x0 + plot_width}" y2="{y(tick):.1f}" '
-            'stroke="#e7e5e4"/>'
+            'class="grid"/>'
         )
         out.append(
-            f'<text x="{x0 - 6}" y="{y(tick) + 4:.1f}" text-anchor="end" fill="#57534e">'
+            f'<text x="{x0 - 6}" y="{y(tick) + 4:.1f}" text-anchor="end" class="muted">'
             f"{tick:.2f}</text>"
         )
     # Ticks on the budget the runs were given; a run may overshoot it by one round.
     for tick in range(0, budget + 1, max(1, budget // 4)):
         out.append(
-            f'<text x="{x(tick):.1f}" y="{y_bottom + 16}" text-anchor="middle" fill="#57534e">'
+            f'<text x="{x(tick):.1f}" y="{y_bottom + 16}" text-anchor="middle" class="muted">'
             f"{tick}</text>"
         )
     out.append(
         f'<text x="{x0 + plot_width / 2:.1f}" y="{y_bottom + 34}" text-anchor="middle" '
-        f'fill="#57534e">{unit}</text>'
+        f'class="muted">{unit}</text>'
     )
     ordered = sorted(runs, key=lambda run: run["seed"])
     finals = [best_so_far(run)[-1][1] for run in ordered]
     label_ys = spread([y(final) + 4 for final in finals], LABEL_STEP)
     for run, label_y in zip(ordered, label_ys, strict=True):
-        color = COLORS[run["seed"] % len(COLORS)]
+        seed = run["seed"] % len(COLORS)
         points = best_so_far(run)
         # A step line: the best stays until the next candidate beats it, then jumps.
         path = [(x(points[0][0]), y(points[0][1]))]
@@ -161,15 +186,16 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
             path += [(x(at), y(previous)), (x(at), y(score))]
         path.append((x(run["metric_calls"]), y(points[-1][1])))
         polyline = " ".join(f"{px:.1f},{py:.1f}" for px, py in path)
-        out.append(f'<polyline points="{polyline}" fill="none" stroke="{color}" stroke-width="2"/>')
+        out.append(f'<polyline points="{polyline}" class="l{seed}" fill="none" stroke-width="2"/>')
         out += [
-            f'<circle cx="{x(at):.1f}" cy="{y(score):.1f}" r="3.5" fill="{color}"/>'
+            f'<circle cx="{x(at):.1f}" cy="{y(score):.1f}" r="3.5" class="m{seed}"/>'
             for at, score in points
         ]
         final = points[-1][1]
         tested = f", test {run['test']:.2f}" if run["test"] is not None else ""
         out.append(
-            f'<text x="{x(run["metric_calls"]) + 6:.1f}" y="{label_y:.1f}" fill="{color}">'
+            f'<text x="{x(run["metric_calls"]) + 6:.1f}" y="{label_y:.1f}" '
+            f'class="m{seed}">'
             f"seed {run['seed']} {final:.2f}{tested}</text>"
         )
     return out

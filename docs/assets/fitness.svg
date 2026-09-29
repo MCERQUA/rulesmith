@@ -1,69 +1,79 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1048" height="300" viewBox="0 0 1048 300" font-family="system-ui, sans-serif" font-size="12">
-<rect width="1048" height="300" fill="#ffffff"/>
-<text x="16" y="22" font-size="14" font-weight="600" fill="#1c1917">Search fitness: best validation score after each candidate, by budget spent</text>
-<text x="16" y="40" fill="#57534e">Dots mark candidates that beat everything before them; a line ends where its search ended. Scores are per task, not comparable across panels.</text>
-<text x="48" y="60" font-weight="600" fill="#1c1917">basic: kill one monster</text>
-<line x1="48" y1="256.0" x2="338" y2="256.0" stroke="#e7e5e4"/>
-<text x="42" y="260.0" text-anchor="end" fill="#57534e">0.25</text>
-<line x1="48" y1="211.0" x2="338" y2="211.0" stroke="#e7e5e4"/>
-<text x="42" y="215.0" text-anchor="end" fill="#57534e">0.44</text>
-<line x1="48" y1="166.0" x2="338" y2="166.0" stroke="#e7e5e4"/>
-<text x="42" y="170.0" text-anchor="end" fill="#57534e">0.62</text>
-<line x1="48" y1="121.0" x2="338" y2="121.0" stroke="#e7e5e4"/>
-<text x="42" y="125.0" text-anchor="end" fill="#57534e">0.81</text>
-<line x1="48" y1="76.0" x2="338" y2="76.0" stroke="#e7e5e4"/>
-<text x="42" y="80.0" text-anchor="end" fill="#57534e">1.00</text>
-<text x="48.0" y="272" text-anchor="middle" fill="#57534e">0</text>
-<text x="119.1" y="272" text-anchor="middle" fill="#57534e">50</text>
-<text x="190.2" y="272" text-anchor="middle" fill="#57534e">100</text>
-<text x="261.2" y="272" text-anchor="middle" fill="#57534e">150</text>
-<text x="332.3" y="272" text-anchor="middle" fill="#57534e">200</text>
-<text x="193.0" y="290" text-anchor="middle" fill="#57534e">episodes</text>
-<polyline points="48.0,236.0 103.4,236.0 103.4,83.3 338.0,83.3" fill="none" stroke="#1d4ed8" stroke-width="2"/>
-<circle cx="48.0" cy="236.0" r="3.5" fill="#1d4ed8"/>
-<circle cx="103.4" cy="83.3" r="3.5" fill="#1d4ed8"/>
-<text x="344.0" y="87.3" fill="#1d4ed8">seed 0 0.97, test 0.94</text>
-<polyline points="48.0,236.0 69.3,236.0 69.3,83.3 338.0,83.3" fill="none" stroke="#b45309" stroke-width="2"/>
-<circle cx="48.0" cy="236.0" r="3.5" fill="#b45309"/>
-<circle cx="69.3" cy="83.3" r="3.5" fill="#b45309"/>
-<text x="344.0" y="101.3" fill="#b45309">seed 1 0.97, test 0.94</text>
-<polyline points="48.0,236.0 69.3,236.0 69.3,83.3 338.0,83.3" fill="none" stroke="#15803d" stroke-width="2"/>
-<circle cx="48.0" cy="236.0" r="3.5" fill="#15803d"/>
-<circle cx="69.3" cy="83.3" r="3.5" fill="#15803d"/>
-<text x="344.0" y="115.3" fill="#15803d">seed 2 0.97, test 0.94</text>
-<text x="548" y="60" font-weight="600" fill="#1c1917">E1M1: play a full level</text>
-<line x1="548" y1="256.0" x2="838" y2="256.0" stroke="#e7e5e4"/>
-<text x="542" y="260.0" text-anchor="end" fill="#57534e">0.15</text>
-<line x1="548" y1="211.0" x2="838" y2="211.0" stroke="#e7e5e4"/>
-<text x="542" y="215.0" text-anchor="end" fill="#57534e">0.21</text>
-<line x1="548" y1="166.0" x2="838" y2="166.0" stroke="#e7e5e4"/>
-<text x="542" y="170.0" text-anchor="end" fill="#57534e">0.28</text>
-<line x1="548" y1="121.0" x2="838" y2="121.0" stroke="#e7e5e4"/>
-<text x="542" y="125.0" text-anchor="end" fill="#57534e">0.34</text>
-<line x1="548" y1="76.0" x2="838" y2="76.0" stroke="#e7e5e4"/>
-<text x="542" y="80.0" text-anchor="end" fill="#57534e">0.40</text>
-<text x="548.0" y="272" text-anchor="middle" fill="#57534e">0</text>
-<text x="619.1" y="272" text-anchor="middle" fill="#57534e">50</text>
-<text x="690.2" y="272" text-anchor="middle" fill="#57534e">100</text>
-<text x="761.2" y="272" text-anchor="middle" fill="#57534e">150</text>
-<text x="832.3" y="272" text-anchor="middle" fill="#57534e">200</text>
-<text x="693.0" y="290" text-anchor="middle" fill="#57534e">episodes</text>
-<polyline points="548.0,208.2 562.2,208.2 562.2,184.4 627.6,184.4 627.6,165.0 673.1,165.0 673.1,139.8 832.3,139.8" fill="none" stroke="#1d4ed8" stroke-width="2"/>
-<circle cx="548.0" cy="208.2" r="3.5" fill="#1d4ed8"/>
-<circle cx="562.2" cy="184.4" r="3.5" fill="#1d4ed8"/>
-<circle cx="627.6" cy="165.0" r="3.5" fill="#1d4ed8"/>
-<circle cx="673.1" cy="139.8" r="3.5" fill="#1d4ed8"/>
-<text x="838.3" y="155.0" fill="#1d4ed8">seed 0 0.31, test 0.28</text>
-<polyline points="548.0,208.2 570.7,208.2 570.7,137.0 832.3,137.0" fill="none" stroke="#b45309" stroke-width="2"/>
-<circle cx="548.0" cy="208.2" r="3.5" fill="#b45309"/>
-<circle cx="570.7" cy="137.0" r="3.5" fill="#b45309"/>
-<text x="838.3" y="141.0" fill="#b45309">seed 1 0.32, test 0.26</text>
-<polyline points="548.0,208.2 562.2,208.2 562.2,207.9 593.5,207.9 593.5,204.9 730.0,204.9 730.0,190.6 769.8,190.6 769.8,170.8 832.3,170.8 832.3,166.6 838.0,166.6" fill="none" stroke="#15803d" stroke-width="2"/>
-<circle cx="548.0" cy="208.2" r="3.5" fill="#15803d"/>
-<circle cx="562.2" cy="207.9" r="3.5" fill="#15803d"/>
-<circle cx="593.5" cy="204.9" r="3.5" fill="#15803d"/>
-<circle cx="730.0" cy="190.6" r="3.5" fill="#15803d"/>
-<circle cx="769.8" cy="170.8" r="3.5" fill="#15803d"/>
-<circle cx="832.3" cy="166.6" r="3.5" fill="#15803d"/>
-<text x="844.0" y="170.6" fill="#15803d">seed 2 0.27, test 0.26</text>
+<style>
+.bg { fill: #ffffff } .ink { fill: #1c1917 }
+.muted { fill: #57534e } .grid { stroke: #e7e5e4 }
+.l0 { stroke: #1d4ed8 } .m0 { fill: #1d4ed8 } .l1 { stroke: #b45309 } .m1 { fill: #b45309 } .l2 { stroke: #15803d } .m2 { fill: #15803d } .l3 { stroke: #7e22ce } .m3 { fill: #7e22ce }
+@media (prefers-color-scheme: dark) {
+  .bg { fill: #0d1117 } .ink { fill: #e6edf3 }
+  .muted { fill: #9da7b3 } .grid { stroke: #30363d }
+  .l0 { stroke: #58a6ff } .m0 { fill: #58a6ff } .l1 { stroke: #f0883e } .m1 { fill: #f0883e } .l2 { stroke: #3fb950 } .m2 { fill: #3fb950 } .l3 { stroke: #d2a8ff } .m3 { fill: #d2a8ff }
+}
+</style>
+<rect width="1048" height="300" class="bg"/>
+<text x="16" y="22" font-size="14" font-weight="600" class="ink">Search fitness: best validation score after each candidate, by budget spent</text>
+<text x="16" y="40" class="muted">Dots mark candidates that beat everything before them; a line ends where its search ended. Scores are per task, not comparable across panels.</text>
+<text x="48" y="60" font-weight="600" class="ink">basic: kill one monster</text>
+<line x1="48" y1="256.0" x2="338" y2="256.0" class="grid"/>
+<text x="42" y="260.0" text-anchor="end" class="muted">0.25</text>
+<line x1="48" y1="211.0" x2="338" y2="211.0" class="grid"/>
+<text x="42" y="215.0" text-anchor="end" class="muted">0.44</text>
+<line x1="48" y1="166.0" x2="338" y2="166.0" class="grid"/>
+<text x="42" y="170.0" text-anchor="end" class="muted">0.62</text>
+<line x1="48" y1="121.0" x2="338" y2="121.0" class="grid"/>
+<text x="42" y="125.0" text-anchor="end" class="muted">0.81</text>
+<line x1="48" y1="76.0" x2="338" y2="76.0" class="grid"/>
+<text x="42" y="80.0" text-anchor="end" class="muted">1.00</text>
+<text x="48.0" y="272" text-anchor="middle" class="muted">0</text>
+<text x="119.1" y="272" text-anchor="middle" class="muted">50</text>
+<text x="190.2" y="272" text-anchor="middle" class="muted">100</text>
+<text x="261.2" y="272" text-anchor="middle" class="muted">150</text>
+<text x="332.3" y="272" text-anchor="middle" class="muted">200</text>
+<text x="193.0" y="290" text-anchor="middle" class="muted">episodes</text>
+<polyline points="48.0,236.0 103.4,236.0 103.4,83.3 338.0,83.3" class="l0" fill="none" stroke-width="2"/>
+<circle cx="48.0" cy="236.0" r="3.5" class="m0"/>
+<circle cx="103.4" cy="83.3" r="3.5" class="m0"/>
+<text x="344.0" y="87.3" class="m0">seed 0 0.97, test 0.94</text>
+<polyline points="48.0,236.0 69.3,236.0 69.3,83.3 338.0,83.3" class="l1" fill="none" stroke-width="2"/>
+<circle cx="48.0" cy="236.0" r="3.5" class="m1"/>
+<circle cx="69.3" cy="83.3" r="3.5" class="m1"/>
+<text x="344.0" y="101.3" class="m1">seed 1 0.97, test 0.94</text>
+<polyline points="48.0,236.0 69.3,236.0 69.3,83.3 338.0,83.3" class="l2" fill="none" stroke-width="2"/>
+<circle cx="48.0" cy="236.0" r="3.5" class="m2"/>
+<circle cx="69.3" cy="83.3" r="3.5" class="m2"/>
+<text x="344.0" y="115.3" class="m2">seed 2 0.97, test 0.94</text>
+<text x="548" y="60" font-weight="600" class="ink">E1M1: play a full level</text>
+<line x1="548" y1="256.0" x2="838" y2="256.0" class="grid"/>
+<text x="542" y="260.0" text-anchor="end" class="muted">0.15</text>
+<line x1="548" y1="211.0" x2="838" y2="211.0" class="grid"/>
+<text x="542" y="215.0" text-anchor="end" class="muted">0.21</text>
+<line x1="548" y1="166.0" x2="838" y2="166.0" class="grid"/>
+<text x="542" y="170.0" text-anchor="end" class="muted">0.28</text>
+<line x1="548" y1="121.0" x2="838" y2="121.0" class="grid"/>
+<text x="542" y="125.0" text-anchor="end" class="muted">0.34</text>
+<line x1="548" y1="76.0" x2="838" y2="76.0" class="grid"/>
+<text x="542" y="80.0" text-anchor="end" class="muted">0.40</text>
+<text x="548.0" y="272" text-anchor="middle" class="muted">0</text>
+<text x="619.1" y="272" text-anchor="middle" class="muted">50</text>
+<text x="690.2" y="272" text-anchor="middle" class="muted">100</text>
+<text x="761.2" y="272" text-anchor="middle" class="muted">150</text>
+<text x="832.3" y="272" text-anchor="middle" class="muted">200</text>
+<text x="693.0" y="290" text-anchor="middle" class="muted">episodes</text>
+<polyline points="548.0,208.2 562.2,208.2 562.2,184.4 627.6,184.4 627.6,165.0 673.1,165.0 673.1,139.8 832.3,139.8" class="l0" fill="none" stroke-width="2"/>
+<circle cx="548.0" cy="208.2" r="3.5" class="m0"/>
+<circle cx="562.2" cy="184.4" r="3.5" class="m0"/>
+<circle cx="627.6" cy="165.0" r="3.5" class="m0"/>
+<circle cx="673.1" cy="139.8" r="3.5" class="m0"/>
+<text x="838.3" y="155.0" class="m0">seed 0 0.31, test 0.28</text>
+<polyline points="548.0,208.2 570.7,208.2 570.7,137.0 832.3,137.0" class="l1" fill="none" stroke-width="2"/>
+<circle cx="548.0" cy="208.2" r="3.5" class="m1"/>
+<circle cx="570.7" cy="137.0" r="3.5" class="m1"/>
+<text x="838.3" y="141.0" class="m1">seed 1 0.32, test 0.26</text>
+<polyline points="548.0,208.2 562.2,208.2 562.2,207.9 593.5,207.9 593.5,204.9 730.0,204.9 730.0,190.6 769.8,190.6 769.8,170.8 832.3,170.8 832.3,166.6 838.0,166.6" class="l2" fill="none" stroke-width="2"/>
+<circle cx="548.0" cy="208.2" r="3.5" class="m2"/>
+<circle cx="562.2" cy="207.9" r="3.5" class="m2"/>
+<circle cx="593.5" cy="204.9" r="3.5" class="m2"/>
+<circle cx="730.0" cy="190.6" r="3.5" class="m2"/>
+<circle cx="769.8" cy="170.8" r="3.5" class="m2"/>
+<circle cx="832.3" cy="166.6" r="3.5" class="m2"/>
+<text x="844.0" y="170.6" class="m2">seed 2 0.27, test 0.26</text>
 </svg>

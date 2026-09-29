@@ -58,6 +58,8 @@ def test_the_chart_and_results_come_from_the_reports(tmp_path):
     chess = (tmp_path / "chess.svg").read_text()
     assert chess.count("<polyline") == 1 and "kill one monster" not in chess
     assert ">games</text>" in chess and ">episodes</text>" in svg
+    # The chart follows the viewer's theme: every color is a class the dark rule redefines.
+    assert "@media (prefers-color-scheme: dark)" in svg and 'fill="#' not in svg
     # A dot per improvement: the seed, then the candidate that beat it, not the one that did not.
     assert svg.count("<circle") == 5
     assert "seed 0 0.90, test 0.94" in svg and "seed 1 0.33" in svg
