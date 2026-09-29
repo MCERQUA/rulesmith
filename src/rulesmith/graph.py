@@ -377,6 +377,13 @@ class Plan(StrictModel):
         """Every node an output depends on, directly or through another node."""
         return reachable(self.dependencies(), self.outputs.values())
 
+    def asks(self) -> bool:
+        """Whether running this graph asks a judge anything, in it or in a unit of it."""
+        return any(
+            isinstance(node, Call) or (isinstance(node, Graph) and node.plan.asks())
+            for node in self.nodes.values()
+        )
+
     def order(self) -> tuple[str, ...]:
         dependencies = self.dependencies()
         return tuple(

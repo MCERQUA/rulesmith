@@ -330,9 +330,22 @@ draws each as one box named for what it answers with, which is how a map of
 many units reads as a map.
 
 Units are the piece a map of many decisions is built from: a directory of unit
-files and the maps that name them. What they do not do yet: search revises a
-graph's rules, not its units, so a unit is searched on its own task and then
-placed.
+files and the maps that name them. A unit is searched in place against a task of
+its own, with the rest of the map frozen:
+
+```sh
+uv run rulesmith optimize billing-task.json examples/support-map.json --unit billing \
+  --backend ruling --max-workers 1 --reflection-model "$REFLECTION_MODEL" --output runs/billing
+```
+
+Search starts from the unit's graph, and the winner is placed back where the
+unit was before anything is written: a winner that no longer gives a value the
+map's rules test for is refused, naming the hand-off. Copy `runs/billing/plan.rules`
+over the unit's file to adopt it. Add `--map-task support-task.json`, a task for
+the whole map, and the map is scored on that task's validation examples with the
+old unit and with the new before anything is written: a unit that is better on
+its own task and worse for the map is refused, and the report records both
+scores under `unit.map_validation`.
 
 ## Writing a graph by hand
 

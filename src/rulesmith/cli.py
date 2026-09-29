@@ -20,7 +20,7 @@ from rulesmith.ablate import effects
 from rulesmith.calibrate import calibrate, drift, measure
 from rulesmith.diagram import mermaid
 from rulesmith.grade import Graded, Grader, model_name
-from rulesmith.graph import Call, Plan, Task
+from rulesmith.graph import Graph, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
 from rulesmith.maps import load, units
 from rulesmith.optimize import (
@@ -173,6 +173,17 @@ def parser() -> argparse.ArgumentParser:
                 help="Keep the seed unless the winner's gain passes a sign test at this level",
             )
             command.add_argument(
+                "--unit",
+                help="Search this unit of the map given as the plan, against the task given, "
+                "with the rest of the map frozen; the winner must still fit the map",
+            )
+            command.add_argument(
+                "--map-task",
+                type=Path,
+                help="With --unit: a task for the whole map, scored on its validation examples "
+                "before and after the unit changes; a winner that makes the map worse is refused",
+            )
+            command.add_argument(
                 "--call-cost",
                 type=float,
                 default=SearchConfig().call_cost,
@@ -274,7 +285,7 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
             "so measure those graphs with rulesmith.ablate.effects over recorded states"
         )
     states = [example.state for example in examples]
-    calls = any(isinstance(node, Call) for node in plan.nodes.values())
+    calls = plan.asks()
     model, judge_client = judge(args, calls)
     with judge_client as client:
         execution = ExecutionConfig(max_workers=args.max_workers)
@@ -314,8 +325,7 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         plans[path.stem].check(task.labels, args.max_nodes, args.max_depth)
     if len(plans) < 2:
         cli.error("the arena needs at least two entrants")
-    calls = any(isinstance(node, Call) for plan in plans.values() for node in plan.nodes.values())
-    model, judge_client = judge(args, calls)
+    model, judge_client = judge(args, any(plan.asks() for plan in plans.values()))
     execution = ExecutionConfig(max_workers=args.max_workers)
     with judge_client as client:
         entrants = [
@@ -498,6 +508,20 @@ def main() -> None:
         return
     task = None if args.command == "run" else load_task(cli, args.task)
     plan = read_plan(cli, args.plan, task) if args.plan else task.baseline_plan()
+    whole, unit = None, getattr(args, "unit", None)
+    map_task = getattr(args, "map_task", None)
+    if map_task is not None and unit is None:
+        cli.error("--map-task scores the map around a --unit; name the unit")
+    if map_task is not None:
+        map_task = load_task(cli, map_task)
+        if not isinstance(map_task, Task):
+            cli.error("--map-task must be a labeled task for the whole map")
+    if unit is not None:
+        # The map is what the winner must fit; the unit's own graph is what search starts from.
+        whole = plan
+        if not isinstance(whole.nodes.get(unit), Graph):
+            cli.error(f"{args.plan} has no unit named {unit!r}; a unit is a graph node")
+        plan = whole.nodes[unit].plan
     if args.command != "run":
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
@@ -588,13 +612,7 @@ def main() -> None:
     execution = ExecutionConfig(max_workers=args.max_workers)
     model, judge_client = judge(
         args,
-        args.command == "optimize"
-        or any(
-            isinstance(node, Call)
-            for graph in (plan, opponent)
-            if graph is not None
-            for node in graph.nodes.values()
-        ),
+        args.command == "optimize" or any(graph.asks() for graph in (plan, opponent) if graph),
     )
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
@@ -676,6 +694,40 @@ def main() -> None:
             report["reflection_model"] = args.reflection_model
             report["scored_by"] = scored_by(args, task)
             report["opponent"] = opponent_of(args)
+            if whole is not None:
+                # Placed where the unit was, the winner must meet every hand-off the map makes.
+                placed = whole.nodes[unit].model_copy(update={"plan": best})
+                try:
+                    placed_map = Plan.model_validate(
+                        whole.model_copy(
+                            update={"nodes": whole.nodes | {unit: placed}}
+                        ).model_dump()
+                    )
+                except ValueError as error:
+                    cli.error(f"the graph search found does not fit the map at {unit!r}: {error}")
+                report["unit"] = {"name": unit, "path": units(args.plan).get(unit), "placed": True}
+                if map_task is not None:
+                    # A unit is judged by what the whole map does with it, on the map's own
+                    # examples: better alone and worse for the map is worse.
+                    scores = {}
+                    for when, graph in (("before", whole), ("after", placed_map)):
+                        scored = evaluate_plan(
+                            graph,
+                            map_task.validation,
+                            client,
+                            model,
+                            Labels(map_task),
+                            execution,
+                            args.parallel_examples,
+                        )
+                        scores[when] = scored["score"]
+                    if scores["after"] < scores["before"]:
+                        cli.error(
+                            f"placed in the map, the graph search found scores {scores['after']:g} "
+                            f"on the map task's validation examples against {scores['before']:g} "
+                            "before: better alone, worse for the map"
+                        )
+                    report["unit"]["map_validation"] = scores
             args.output.mkdir()
             (args.output / "plan.json").write_text(best.model_dump_json(indent=2) + "\n")
             # The same graph as the rules search wrote, which is the form a person edits and

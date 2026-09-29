@@ -149,3 +149,30 @@ def test_a_map_can_be_drawn_with_its_units_closed(tmp_path):
     # Closed, a unit is one box named for what it answers with, and its insides are not drawn.
     assert "subgraph" not in closed.stdout and "genuine" not in closed.stdout
     assert "billing" in closed.stdout and "answers with its label" in closed.stdout
+
+
+def test_a_map_whose_only_judge_calls_are_inside_a_unit_still_gets_a_judge(tmp_path, provider):
+    # The map's top level asks nothing; the unit does. Evaluate and run must still bring a judge.
+    (tmp_path / "billing.rules").write_text(BILLING)
+    graph = {
+        "nodes": {
+            "billing": {"type": "graph", "path": "billing.rules"},
+        },
+        "outputs": {"label": {"type": "node", "node": "billing"}},
+    }
+    map_file = write(tmp_path / "support.json", graph)
+    ticket = write(tmp_path / "ticket.json", {"charge": {"amount": 40}, "message": "twice"})
+    provider.answers = {"genuine": {"type": "noul", "noul": 0.9}}
+    result = invoke(
+        "run",
+        map_file,
+        ticket,
+        "--backend",
+        "ruling",
+        "--base-url",
+        provider.url,
+        "--max-workers",
+        1,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["label"] == "auto_refund"
