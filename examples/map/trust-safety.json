@@ -1,0 +1,58 @@
+{
+  "nodes": {
+    "has_company_logo": {
+      "type": "read",
+      "path": [
+        "has_company_logo"
+      ],
+      "bounds": [
+        0,
+        1
+      ]
+    },
+    "postings": {
+      "type": "graph",
+      "path": "units/postings.rules",
+      "when": {
+        "type": "present",
+        "node": "has_company_logo"
+      }
+    },
+    "rating": {
+      "type": "read",
+      "path": [
+        "rating"
+      ],
+      "bounds": [
+        1,
+        5
+      ]
+    },
+    "reviews": {
+      "type": "graph",
+      "path": "units/reviews.rules",
+      "when": {
+        "type": "present",
+        "node": "rating"
+      }
+    },
+    "intents": {
+      "type": "graph",
+      "path": "units/intents.rules"
+    },
+    "decision": {
+      "type": "coalesce",
+      "sources": [
+        "postings",
+        "reviews",
+        "intents"
+      ]
+    }
+  },
+  "outputs": {
+    "label": {
+      "type": "node",
+      "node": "decision"
+    }
+  }
+}

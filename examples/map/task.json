@@ -1,0 +1,1868 @@
+{
+  "description": "Trust and safety for a marketplace: is a job posting a scam, would a reviewer recommend the item, and which intent does a customer's message express? Each input is one of those three, told apart by the fields it has.",
+  "labels": [
+    "fraudulent",
+    "genuine",
+    "not_recommended",
+    "recommended",
+    "Refund_not_showing_up",
+    "activate_my_card",
+    "age_limit",
+    "apple_pay_or_google_pay",
+    "atm_support",
+    "automatic_top_up",
+    "balance_not_updated_after_bank_transfer",
+    "balance_not_updated_after_cheque_or_cash_deposit",
+    "beneficiary_not_allowed",
+    "cancel_transfer",
+    "card_about_to_expire",
+    "card_acceptance",
+    "card_arrival",
+    "card_delivery_estimate",
+    "card_linking",
+    "card_not_working",
+    "card_payment_fee_charged",
+    "card_payment_not_recognised",
+    "card_payment_wrong_exchange_rate",
+    "card_swallowed",
+    "cash_withdrawal_charge",
+    "cash_withdrawal_not_recognised",
+    "change_pin",
+    "compromised_card",
+    "contactless_not_working",
+    "country_support",
+    "declined_card_payment",
+    "declined_cash_withdrawal",
+    "declined_transfer",
+    "direct_debit_payment_not_recognised",
+    "disposable_card_limits",
+    "edit_personal_details",
+    "exchange_charge",
+    "exchange_rate",
+    "exchange_via_app",
+    "extra_charge_on_statement",
+    "failed_transfer",
+    "fiat_currency_support",
+    "get_disposable_virtual_card",
+    "get_physical_card",
+    "getting_spare_card",
+    "getting_virtual_card",
+    "lost_or_stolen_card",
+    "lost_or_stolen_phone",
+    "order_physical_card",
+    "passcode_forgotten",
+    "pending_card_payment",
+    "pending_cash_withdrawal",
+    "pending_top_up",
+    "pending_transfer",
+    "pin_blocked",
+    "receiving_money",
+    "request_refund",
+    "reverted_card_payment?",
+    "supported_cards_and_currencies",
+    "terminate_account",
+    "top_up_by_bank_transfer_charge",
+    "top_up_by_card_charge",
+    "top_up_by_cash_or_cheque",
+    "top_up_failed",
+    "top_up_limits",
+    "top_up_reverted",
+    "topping_up_by_card",
+    "transaction_charged_twice",
+    "transfer_fee_charged",
+    "transfer_into_account",
+    "transfer_not_received_by_recipient",
+    "transfer_timing",
+    "unable_to_verify_identity",
+    "verify_my_identity",
+    "verify_source_of_funds",
+    "verify_top_up",
+    "virtual_card_not_working",
+    "visa_or_mastercard",
+    "why_verify_identity",
+    "wrong_amount_of_cash_received",
+    "wrong_exchange_rate_for_cash_withdrawal"
+  ],
+  "train": [
+    {
+      "id": "jobs-train-0",
+      "state": {
+        "title": "sales Associate",
+        "location": "US, NY, New York",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "SALES ASSOCIATES - CHANGE YOUR LIFE\u00a0Unemployed, underemployed or unhappy because of todays changed economy?\u00a0 Learn to take control of your life. We offer a Multi Award winning, accredited Success Education Program and we require talented sales professionals to keep up with the demands of those products in the market place.While no experience is necessary, as we offer full training to qualified candidates, it will be important that you conduct yourself in a professional and positive manner.\u00a0Influence what you achieve. Start now. Change your Life.\u00a0We will give you the tools to succeed. I look forward to working with you on your next journey.\u00a0Reach out to me on #URL_fb7cb83b9083b915f641adaee11f90f212874ba9f2d3acbda21d19d45bdcfec2# \u00a0and I will come back to you as soon as you send your details."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-train-1",
+      "state": {
+        "title": "Assistance on start-up",
+        "location": "",
+        "salary_range": "",
+        "employment_type": "Part-time",
+        "required_experience": "Internship",
+        "required_education": "",
+        "industry": "Maritime",
+        "function": "Engineering",
+        "telecommuting": 1,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "We're a yound and crazy start-up of greeks around the world making the next generation marine social platform. We need any assistance that can be offered in any position that you would like to get professional experience. See some of the projects that YOU can pick up:Docker based VMs for Google Compute EngineElastic Search - KibanaMongo DBAkka for parallel computations of weather dataPeople who care are about a great user experiences.Content EditorsElectronic EngineeringWe are just a happy bounch of people eager to welcome you to our community even if you are students looking for an internship. Just let us get in contact with you !"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-train-2",
+      "state": {
+        "title": "Home Based Payroll Data Entry Clerk Position - Earn $100-$200 Daily ",
+        "location": "US, GA, Abbeville  ",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "We are a full-service marketing and staffing firm, serving companies ranging from Fortune 100 to new start-up organizations. We work with job seekers in an equally broad range, from light industrial temporary workers to executive level candidates.Are you looking for a Work from Home Opportunity where you can earn up to $2500 and more per week? Our Online Service Representative position would be perfect for you!- Set your own hours - Make money every time you decide to work - Work remotely from home - Get paid weekly - If you have a computer with internet, this is for you"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-train-3",
+      "state": {
+        "title": "Sales Development Representative",
+        "location": "US, OH, Cincinnati",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "",
+        "industry": "Information Technology and Services",
+        "function": "Sales",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "About the jobInfotrust is a fast-growing, profitable and incredibly fun company to work for in Cincinnati, OH. InfoTrust is one of the leaders in web analytics and digital marketing fields with clients representing some of the best known brand names. We are looking for an energetic, passionate and highly motivated sales professional to join our team.Our promise to you \u2013 \u00a0\u201cYou\u2019ll have a chance to work on amazing things that you couldn\u2019t work on anywhere else if you\u2019re not already an experienced veteran with a proven track record.\u201dWhy?Because we are a young, fast growing organization and you will have an opportunity to work directly with the founders of the company on exciting new challenges, directly influence the success of the company and have an opportunity to quickly grow within our organization.When do you know your job makes a difference?We are an organization committed to building the best place to work for our team members. \u00a0What does that mean? Certainly different things to different people. If you are financially hungry, sales roles have an opportunity for a significant financial upside. At the same time, we all want our work to matter and when you are a sales professional at a small company \u2013 it is very easy to see correlation between financial performance of the organization and the resources available to support community and the causes that team members stand behind. Our Thanksgiving Basket Brigade \u00a0fed 33 families. How would it feel if you could tell your friends that through your work selling our software-as-a-service product, you were able to generate enough sales for the company that together as a team you were able to help 100 families\u2026 What about 1000?Essential Duties &amp; ResponsibilitiesThe Sales Development Representative (SDR) will generate new business opportunities by following proven processes to prospect into business accounts. You\u2019ll learn how to identify and research lists of companies to target, and how to develop email and telephone campaigns to generate new business opportunities.The SDR will conduct high-level conversations with senior executives about their business, their marketing issues and their operations. The successful candidate will be a strongly self-motivated and driven individual who is goal-oriented, methodical and tenacious, and can effectively interact with a team. This position has advancement potential within the sales organization, and the compensation package includes an uncapped commission structure.Key ResponsibilitiesLearn and execute proven processes to generate new sales opportunitiesStrategize with top-producing sales managersMap prospective accounts around organizational structure, people and existing technologyEngage executives in targeted prospect accountsOrchestrate discussions with senior execs around their business needsManage and maintain a pipeline of interested prospectsLeverage CRM tools to prospect into specific geographic territories and sectors"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "clothing-train-0",
+      "state": {
+        "rating": 5,
+        "age": 44,
+        "helpful_votes": 3,
+        "division": "General",
+        "department": "Trend",
+        "category": "Trend",
+        "review": "This skirt is gorgeous. i'm glad i saw it in-store as the picture online does not do it justice. the colors are really rich and the pattern has a sentimental, vintage feeling. it also has pockets and a great, glamorous swing to it. this skirt is great for work with a blouse and heels and also looks awesome with a t-shirt tucked in and sandals. the fabric has a really nice four season weight, i think it will also look great with high boots and a turtleneck in the autumn. i get so many compliments"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-train-1",
+      "state": {
+        "rating": 5,
+        "age": 31,
+        "helpful_votes": 1,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "Wow. bailey 44 knocks it out of the park with this sensual, i-am-woman-hear-me-purr body-slimming dress. we all have our hang ups. this dress forces you to see all the beauty that everyone else sees. the rouching covers up any dimpling or rolls you think you have. the body conscious structure lets you see those curves you knew existed but deny yourself from loving. oh - you hate your arms? me too! guess what - you don't even notice them because you're so focused on how amazing you look. the cut"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-train-2",
+      "state": {
+        "rating": 5,
+        "age": 47,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Jackets",
+        "category": "Jackets",
+        "review": "I love this little jean jacket! i am petite and usually get a xxsp , but went for a size up. i'm glad i did. it fits a little snug. the color is true to the photo and the material is a medium to heavy denim. the arm length in the petite size is perfect for me. i love this - over maxi dresses, tanks, etc... adorable jacket - great buy!!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-train-3",
+      "state": {
+        "rating": 4,
+        "age": 31,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "I really loved the pattern and style of this dress! unfortunately, i had to return it because i have broad shoulders and it is a pretty stiff top that cut into the flabby area near my armpits. for most people it's probably perfect! but if you have wide shoulders or any concerns about the armpit flab, this might not be a great choice for you."
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "banking77-train-0",
+      "state": "How can I change my PIN?  Help.",
+      "label": "change_pin"
+    },
+    {
+      "id": "banking77-train-1",
+      "state": "I am having a problem with verifying my identity.",
+      "label": "unable_to_verify_identity"
+    },
+    {
+      "id": "banking77-train-2",
+      "state": "How do I order a card?",
+      "label": "order_physical_card"
+    },
+    {
+      "id": "banking77-train-3",
+      "state": "How do I get my card back quickly from a bank machine that it?",
+      "label": "card_swallowed"
+    }
+  ],
+  "validation": [
+    {
+      "id": "jobs-validation-0",
+      "state": {
+        "title": "Contact Center Representatives",
+        "location": "US, NV, Las Vegas",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "Unspecified",
+        "industry": "Financial Services",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Tidewater Finance Co. was established in 1992 for the initial purpose of purchasing, and servicing retail installment contracts. There are two divisions: Tidewater Credit Services, providing indirect consumer retail finance options and Tidewater Motor Credit, providing indirect consumer auto financing. We remain committed to offering a partnership with the dealers and consumers to create a WIN-WIN-WIN situation. Our success relies solely on the success of our dealers and our consumers.Full time positions include the following benefits:40 vacation hours after 6 months of employment, 80 vacation hours after 1 year of employment6 paid holidays as well as an anniversary holiday benefitPaid personal and sick leave after 90 days of employmentFull benefits to include health, dental, life and disability insuranceA 401k plan with a company match after 6 months of employment based upon a quarterly entry dateIncentive bonuses for individual and team goals (certain positions)Bilingual Spanish eligible for differential pay",
+        "description": "\u00a0Tidewater Finance Company, located in Henderson, NV has full-time positions available for Contact Center Representatives.\u00a0 We provide diverse lending solutions for our dealer network while promoting employee integrity, teamwork and an uncompromised level of customer service.\u00a0The position requires the following qualifications:\u00a0A minimum of 1 year in a Call Center environmentCollections experience requiredAuto or furniture collections a plusAbility to communicate effectively and professionally both verbally and in writingProficient typing skillsMust be able to work late nights Monday \u2013 Friday as scheduled by ManagementAutomatic dialer experience a plusStrong negotiation skillsBilingual in Spanish a plus\u00a0Primary responsibilities include, but are not limited to the following:\u00a0Make and receive calls through automated dialerTake payments on past due accountsHandle customer service related issuesProcess related paperworkAdherence to company policies and procedures in addition to compliance of state and federal regulations\u00a0We offer a competitive salary based on experience and a comprehensive benefits package.\u00a0\u00a0Please submit your resume via e-mail to #EMAIL_169ac3804e2da6e0514e5ef76c29f157f41d80451b486889d9aa#PHONE_4dbd33c1dede3cec472e02df8f201e27aa330a9a201578720111c840de9d8117## or fax your resume to the Human Resources Department at #PHONE_8f86665c8a76d925f761287bb38d6bb5f440845f2a5fa712361f255943a8b21b#.\u00a0\u00a0\u00a0Tidewater Finance Company is an equal opportunity employer in all aspects of employment without regard to race, age, sex, marital status, religion, disability, military status or any other characteristic or status protected by law.\u00a0 Tidewater Finance Company includes Tidewater Motor Credit and Tidewater Credit Services."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-validation-1",
+      "state": {
+        "title": "Director of Product Management",
+        "location": "US, CA, San Mateo ",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Director",
+        "required_education": "Master's Degree",
+        "industry": "Marketing and Advertising",
+        "function": "Engineering",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Aptitude Staffing Solutions has redesigned the recruiting wheel. Our innovative new platform cuts the recruiting time in half, yields scientifically-proven results and clients and candidates enjoy a pleasant experience through advanced, simple to use technology and a tenured, industry-experienced recruiting team. Join us in a fresh new experience of leveraging your career...the way it should be!\u00a0All represented candidates enjoy the following perks:Expert negotiations, maximizing total compensation package\u00a0Signing bonus by Aptitude Staffing in addition to client signing bonus (if applicable)1 Year access to AnyPerkRelocation Services for out of town candidatesContinued education in your area of profession, seminars, workshops and other skill development events\u00a0Contract employees receive quarterly bonuses for the duration of their project\u00a0Direct-Hire employees receive double bonues ($2,000) per referred/recruited candidate into their newly appointed companyAll candidates are encouraged to participate in our\u00a0Referral Bonus Program\u00a0&amp; earn\u00a0$500 - $1,000\u00a0per hired referral\u00a0 \u00a0 \u00a0 \u00a0 \u00a0 \u00a0\u00a0",
+        "description": "Director, Product Management | San Mateo, CASan Mateo, CA, United States Seeking a talented and experienced Director of Product Management to lead the design of key components of an advanced platform for video advertising. Great for a senior product leader who thrives off chalenges, builds industry-changing products, and can lead a team. The product team is a small group of smart, creative, and disciplined professionals that are eager to master challenging projects and respond well to mentorship and are accustomed to operating under a lean startup environment and practice lean software development. We labor over every product prioritization decision, and we believe in building minimal viable products. Build, measure and learn!Job Responsibilities:Build expertise of the current structure and dynamics of the digital video advertising industry, and develop a point of view about market trends and emerging opportunities.Meet frequently with customers, potential customers, and partners - to develop a deep understanding of their current business processes and product needs.Develop a comprehensive vision and roadmap for product, or suite of products. Build alignment among internal and external stakeholders around this vision. Set aggressive goals for execution, and chart progress.Lead your team of product managers to develop designs that address needs and requirements expressed by internal and external customers. Designs should be simple, minimal, extensible, consistent with existing functionality, and easy to use. \u00a0Work with UX designers and engineers to continuously deliver new functionality, in a way that is seamlessly integrated into robust infrastructure and a beautiful user interface.Attract, hire, inspire, and grow a team of superstar product managers.\u00a0\u00a0"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-validation-2",
+      "state": {
+        "title": "Graduates: English Teacher Abroad (Conversational)",
+        "location": "US, KY, Highland Heights",
+        "salary_range": "",
+        "employment_type": "Contract",
+        "required_experience": "Entry level",
+        "required_education": "Bachelor's Degree",
+        "industry": "Education Management",
+        "function": "Education",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "We help teachers get safe &amp; secure jobs abroad :)",
+        "description": "Play with kids, get paid for it :-)Love travel? Jobs in Asia$1500 USD + monthly ($200 Cost of living)Housing providedAirfare ReimbursedExcellent for student loans/credit cards"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-validation-3",
+      "state": {
+        "title": "Technical Program Manager",
+        "location": "US, CA, San Mateo",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Mid-Senior level",
+        "required_education": "Bachelor's Degree",
+        "industry": "Information Technology and Services",
+        "function": "Information Technology",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Aptitude Staffing Solutions has redesigned the recruiting wheel. Our innovative new platform cuts the recruiting time in half, yields scientifically-proven results and clients and candidates enjoy a pleasant experience through advanced, simple to use technology and a tenured, industry-experienced recruiting team. Join us in a fresh new experience of leveraging your career...the way it should be!\u00a0All represented candidates enjoy the following perks:Expert negotiations, maximizing total compensation package\u00a0Signing bonus by Aptitude Staffing in addition to client signing bonus (if applicable)1 Year access to AnyPerkRelocation Services for out of town candidatesContinued education in your area of profession, seminars, workshops and other skill development events\u00a0Contract employees receive quarterly bonuses for the duration of their project\u00a0Direct-Hire employees receive double bonues ($2,000) per referred/recruited candidate into their newly appointed companyAll candidates are encouraged to participate in our\u00a0Referral Bonus Program\u00a0&amp; earn\u00a0$500 - $1,000\u00a0per hired referral\u00a0 \u00a0 \u00a0 \u00a0 \u00a0 \u00a0\u00a0",
+        "description": "As a Technical Program Manager, you will be responsible for the Project Management of the overall product lifecycle, from concept to product launch. \u00a0You will work primarily with the Product and Engineering teams to ensure timely delivery of the roadmap,\u00a0alignment on priorities, issue resolution, and status reporting. \u00a0This will require that you are able to demonstrate strong Technical Program Management as well as Product Development skills, stellar cross-functional relationship management, and expertise in Program Managing Software Product Development programs. You should have stellar business acumen, be detail oriented, be a self-starter, and have an Agile mindset.Responsibilities:\u00a0Be the owner of project schedules; coordinate across the Cross-Functional team comprised of product management, development, quality engineering, user experience, product marketing, sales engineering, and technical operations.Lead daily standups and provide daily project updates.Lead special projects that will align various resources to drive business outcomes.Develop strong partnerships with product, business and functional leaders to drive focus on the strategic program objectives.Translate business objectives into execution strategy (tactical and strategic), lead and successfully execute the strategy through use of strong collaboration and agile leadership.Anticipate and aggressively remove obstacles that slow down, or prevent, programs from delivering on program objectives.Provide \u201cgo to\u201d leadership, transparency and visibility to the entire Technology &amp; Products organization.Innovate and contribute to the evolution of our Agile methodology."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "clothing-validation-0",
+      "state": {
+        "rating": 5,
+        "age": 30,
+        "helpful_votes": 0,
+        "division": "Intimates",
+        "department": "Intimate",
+        "category": "Legwear",
+        "review": "I love these tights!! they're thick and durable and the pattern is super cute."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-validation-1",
+      "state": {
+        "rating": 5,
+        "age": 23,
+        "helpful_votes": 1,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Sweaters",
+        "review": "This sweater is buttery soft and warm. it is long and you will want every color. i bought the sky blue and it looks fabulous with so many outfits. i had to get the gray color also. the sleeves are a soft fitted rib material and the body is long and roomy. love love!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-validation-2",
+      "state": {
+        "rating": 4,
+        "age": 55,
+        "helpful_votes": 1,
+        "division": "General",
+        "department": "Bottoms",
+        "category": "Skirts",
+        "review": "This is a really nice fitting sweater knit skirt. the knit is soft and comfortable, heavy enough to smooth out some bumps but definitely shows your curves. i got medium and it's a little snug at the waist (i'm about 29-1/2\") but not so much to return it, and it fits the rest of me great. the only thing i wish was that they'd made the slip full length, it only goes about mid-thigh and sometimes when i get up the slip stays up while the skirt falls right, but not a big negative."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-validation-3",
+      "state": {
+        "rating": 5,
+        "age": 37,
+        "helpful_votes": 5,
+        "division": "General",
+        "department": "Tops",
+        "category": "Fine gauge",
+        "review": "Soft and cozy, the orange is vibrant, the green is more subtle and has gray tones. usually wear a small, bought the xxs ! too full and too sloppy in the xs ad small."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "banking77-validation-0",
+      "state": "Why is my payment still pending?",
+      "label": "pending_card_payment"
+    },
+    {
+      "id": "banking77-validation-1",
+      "state": "I did not get enough cash",
+      "label": "wrong_amount_of_cash_received"
+    },
+    {
+      "id": "banking77-validation-2",
+      "state": "I get a \"decline\" message when doing a transfer",
+      "label": "declined_transfer"
+    },
+    {
+      "id": "banking77-validation-3",
+      "state": "What are disposable virtual cards?",
+      "label": "get_disposable_virtual_card"
+    }
+  ],
+  "test": [
+    {
+      "id": "jobs-test-0",
+      "state": {
+        "title": "Assembly & Test Engineer",
+        "location": "US, TX, Houston",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Oil & Energy",
+        "function": "Engineering",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Corporate overviewAker Solutions is a global provider of products, systems and services to the oil and gas industry. Our engineering, design and technology bring discoveries into production and maximize recovery from each petroleum field. We employ approximately 28,000 people in about 30 countries. Go to #URL_0fa3f7c5e23a16de16a841e368006cae916884407d90b154dfef3976483a71ae# for more information on our business, people and values.We are looking for individuals who are prepared to take a position. Not only a position within Aker Solutions, but also a position on the exciting challenges the global oil and gas industry faces now and in the future.Aker Solutions' Subsea team based in Houston, TX is responsible for design, engineering, procurement and assembly/test of complex subsea systems. We need new talents who can strengthen our team and support our ambitious growth plans within the subsea market. We are looking for: Assembly &amp; Test Engineer.Responsibilities and tasks \u2022 Assembly and Test Engineer initiates work tasks to be carried out by the workshop, follows the quality standards and plans the use of resources in order to increase the efficiency of the organization\u2022 Responsible for delivering on time according to plans and manages the day-to-day work tasks in a cost effective, safe, and efficient manner\u2022 Create work orders and issue work packages in accordance with contract/project requirements and according to procedure\u2022 Arrange and call for pre-job meeting with work shop personnel \u2022 Participate on hand-over (tool box) meetings in work shop\u2022 Responsible for updating work packages related to specific project needsor NCR (CQN) reports\u2022 Follow-up progress in workshop and respond without delay on requests for support\u2022 Making requisitions towards supply chain to handle unplanned activities\u2022 Inform project manager or line manager when Variation Orders is required, for additional work on existing SOW or when change in original SOW\u2022 Continuously verify that all relevant documents are completed according to job package procedure \u2022 Evaluate the risk of operations and the compliance with laws, standards and policies\u2022 Participates in SAFOP/SJA and other HSE related activities in WS\u2022 Make sure that special tools and equipment to the planned work (according to work order/package) in assigned projects are available and certified \u2022 Control/monitor that necessary materials are received and in place before start of assembly and test\u2022 Contribute to the design and improvement of special tools to perform the work in the workshop\u2022 Inform and if applicable submit formal status reports to project manager on assigned work tasks/SOW \u2022 Write NCRs when deviation is detected\u2022 Provide Project manager with input to lessons learned\u2022 Participate and contribute with expertise in Tender work"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-1",
+      "state": {
+        "title": "Software Engineer for Games",
+        "location": "GR, B, Thessaloniki",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Mid-Senior level",
+        "required_education": "Unspecified",
+        "industry": "Computer Games",
+        "function": "Engineering",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "At Total Eclipse\u00a0we create fun, original, and addictive games that are easy to learn yet hard to master. We have a strong history of game releases, with 9 shipped games in 10 years, across different genres and #URL_d09fcd5154ef7c470dcdf6a9151af4f73dbcc5bda134912e2dedf1da67449c12# purpose is to \u2018Popularise Play\u2019; we want to get more people to enjoy games as we believe that there is a potential gamer in each one of us.This is a truly exciting time for Total Eclipse! We are growing, and we intend to become one of the top brands in multiplatform casual gaming. Are you ready to be part of a small and agile team with a great vision? Then keep reading!Are we a good match?Every new addition to the team helps define Total Eclipse\u2019s future, so we want to make sure we would be a good match for each other. \u00a0We have many of the good qualities of a startup, such as low bureaucracy and a flat hierarchy, a flexible, open working space and a motivated, talented team which aims to make millions of people\u2019s lives more fun.\u00a0We also have heaps of experience, having survived and thrived for years in a fiercely competitive environment. We embrace creativity, innovation, high quality, cooperation, teamwork and openness. We are not secretive; we enjoy exchanging knowledge not only among the team, but also with fellow game developers.\u00a0Our industry changes rapidly and we must always stay on the cutting edge. We thirst for knowledge and have a passion for honing our skills and improving ourselves. We are team players, and are looking for more nice people who enjoy working as part of a tight team. We also value constructive feedback; it is a powerful tool to help make us and our games, better. \u00a0If you think in a similar way, you will feel right at home working with us. Take a look at our current openings and get in touch!\u00a0Find out more about our company ethos!",
+        "description": "You are passionate about software design and coding, excel at creating abstract, extensible architectures, and enjoy solving problems. You set goals, time-manage yourself and enjoy working in a dynamic environment.\u00a0You think positively, discover creative solutions, and you are self-motivated and a strong team player.We offer you a chance to join an agile team of interesting, experienced &amp; talented game developers, where \u201cno bureaucracy\u201d and \u201cflat hierarchy\u201d are norms, not terms. You should expect great challenges and great rewards!We believe in mutual respect, team spirit, cooperation, and knowledge exchange. If you share these beliefs, we bet you'll feel right at home working with us!What are you waiting for? Join us and work with us to shape and advance the technology behind Total Eclipse\u2019s current and future titles.Primary responsibilitiesDevelop cross-platform 2D games and port existing ones to new platforms (mobile &amp; desktop).Design the architecture of various systems, including games and frameworks.Create tools and build upon existing frameworks.Write elegant, extensible code and maintain detailed documentation."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-2",
+      "state": {
+        "title": "Customer service/ Data Entry ",
+        "location": "US, AL,  ALEXANDER CITY",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "Unspecified",
+        "industry": "Telecommunications",
+        "function": "",
+        "telecommuting": 1,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Customer Service SpecialistWe are currently looking for talented and creative individuals to continue growing the company. If you're looking to work in an organization where you can make a long-term home, and flex both your technical and creative skills, this may be the role for you! We pride ourselves on a work hard/play hard mentality and friendly, team-based culture.We're searching for a full-time Customer Support Specialist with strong customer service background, excellent communication skills and outgoing personality.Primary ResponsibilitiesRespond to incoming calls and e-mail / mail requestsContact current customersVerify payment requests over the telephoneDuring low volume intervals perform customer follow-ups, research escalated issues, and complete special projects"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-3",
+      "state": {
+        "title": "Vice President",
+        "location": "US, DC, Washington",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Executive",
+        "required_education": "Bachelor's Degree",
+        "industry": "Public Relations and Communications",
+        "function": "Public Relations",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "We are a PR and social media agency that goes ALL IN to create campaigns people can't stop talking about for major consumer brands.\u00a0",
+        "description": "DBC PR+Social Media is an elite, fast-growing boutique public relations agency specializing in consumer public relations. We are seeking a Vice President to manage clients, conduct media relations and mentor our team.PRIMARY RESPONSIBILITIES- Participate in building strong working relationships with clients, serving as the day-to-day contact- Drive the day-to-day execution of PR, social media and integrated communications programs, working within the account teams to ensure client objectives are achieved and agency business goals are met- Develop and execute national and local market PR events- Assist with and manage media outreach including proactive and reactive media pitching- Manage news and media coverage monitoring and analysis, providing weekly updates and monthly PR coverage and measurement report- Oversee client budgets and work with SVP to bill clients accordingly and manage team member\u2019s utilization- Participate in new business development, including research &amp; presentation development- Demonstrate a desire to work in a fast-paced, creative agency environment where all \u00a0members roll up their sleeves and pitch in- Understand and implement the agency\u2019s dedication to client service- Write and edit marketing materials across multiple mediums- Mentor junior team members- Work nicely with othersBenefitsDBC is happy place to work. \u00a0We offer a number of benefits, including:- A respectful flexible work environment that is family friendly- Summer hours- Healthcare (Health, Dental, Vision)- 401(k)\u00a0- Great vacation benefits- MacBook Air's\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-4",
+      "state": {
+        "title": "Production Assistant",
+        "location": "US, TX, Houston",
+        "salary_range": "30000-34000",
+        "employment_type": "Full-time",
+        "required_experience": "Not Applicable",
+        "required_education": "Unspecified",
+        "industry": "Media Production",
+        "function": "Manufacturing",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Founded in 1993, our group has, in a few short years, earned an excellent reputation for performance &amp; consistent, repeatable quality.Our group is committed to reinvesting our profits to grow our product lines and to make Hascor the most efficient, responsive, customer oriented company of its kind anywhere. We have a clear agenda and belief: If we provide quality products and services to the customers we sell to, they will find reasons to buy from us again. We strive every day to make that our reality.Our strategy is to supply any customer at any location worldwide no matter the size of its requirement. Our motto is that we supply any customer from 1 kg up to 100000 kg. any time, any place.Our group has a worldwide presence through our company offices as well as our expansive agent network.We produce our materials under the ISO 9001-2008 certification approved by the quality department of Perry Johnson.We constantly strive to innovate under every situation and constraint, to offer our customers innovative, \u201ctailor made\u201d solutions.\u00a0We welcome your inquiries and challenge to meet all your raw material needs.\u00a0",
+        "description": "Operate machine tools such as lathes, milling machines to produce metal powder.Packing MaterialUnload/Load trucks / containersUse forklift."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-5",
+      "state": {
+        "title": "Software Clinical Specialist",
+        "location": "US, NC, Charlotte",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Mid-Senior level",
+        "required_education": "Bachelor's Degree",
+        "industry": "Computer Software",
+        "function": "Information Technology",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Somnoware is a software platform to manage sleep wellness for healthcare providers and their customers. It provides a single integrated platform for any stakeholder to use for screening, diagnosing, treating and tracking sleep health issues.We are on a mission to simplify sleep. Research studies conclude that better sleep is key to better health.\u00a0 We believe the future of sleep wellness requires not increasingly complex and fragmented solutions but in a rather seamless platform that applies innovations found in the latest consumer technologies like itunes and facebook.\u00a0Founded in late 2011, Somnoware is a young fast growing company based in Charlotte, NC with offices in Trivandrum and Chennai, India.\u00a0 \u00a0 We like big thinkers with small egos who believe in our goal to revolutionize the path to better sleep health. Our vision is to fundamentally change how individuals measure, track and treat sleep.\u00a0",
+        "description": "About the job:The Software Clinical Specialist has the primary responsibility of being the in-house subject matter expert on clinical sleep data. He/she would be very comfortable with latest technologies and would have worked on multiple sleep softwares. \u00a0Great day time postion for RPsgTs.\u00a0Primary Responsibilities:\u00a0Trains customers on the proper use of the sleep center management softwareActs as the subject matter expert on the Somnoware product, assessing customer needs and making recommendations on proper product use and applicationAttends functional support calls and addresses the customer\u2019s questions and concernsUnderstands sleep physiology and has a good knowledge of sleep study and sleep reporting and can communicate with physicians to solve their problems regarding the software.Prepares and delivers product demos and presentationsUnderstands and articulates complex business issues, and addresses them with appropriate solutionsResearches, records and provides appropriate feedback to customers with regard to product complaints and events associated with the operation of the productEstablishes and cultivates long-term relationships and asks questions that provoke discussions about the customer\u2019s business and the industry that leads to a positive sales outcomeDevelops tools, including presentations, demonstrations, etc.Develops relationships with industry thought leaders and participates in trade association activities to gain market insight.Guides customers through complex online demonstrationsRepresents the company at conferences and onsite demonstrationsAbout Somnoware:Somnoware is a software platform to manage sleep wellness for healthcare providers and their customers. It provides a single integrated platform for any stakeholder to use for screening, diagnosing, treating and tracking sleep health issues.We are on a mission to simplify sleep. Research studies conclude that better sleep is key to better health.\u00a0 We believe the future of sleep wellness requires not increasingly complex and fragmented solutions but in a rather seamless platform that applies innovations found in the latest consumer technologies like itunes and facebook.\u00a0Founded in 2011, Somnoware is based in Charlotte, NC.\u00a0We like big thinkers with small egos who believe in our goal to revolutionize the path to better sleep health. Our vision is to fundamentally change forever how individuals measure, track and treat sleep.\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-6",
+      "state": {
+        "title": "Operating Room Director  ",
+        "location": "US, MA, salem",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Hospital & Health Care",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 1,
+        "company_profile": "",
+        "description": "Apply using below link#URL_0243c9ffa14e848cbe0f7ddece5deea7c4633fb782960f66e5240a57b802e9aa#The Operating Room Director is responsible for directing the operations of the Operating Rooms and Sterile Processing functions to achieve excellent care for the surgical patient. This person is accountable for strategic planning, implementation, staffing, development of policies and procedures, evaluation of effectiveness of plans through quality, service, and financial performance analysis. Serves as liaison to medical staff leadership to achieve strategic growth initiatives and attainment of patient safety and quality goals. Supervises managers and support staff of the peri-operative areas and assures excellent working relationships and team-building within the areas and with key stakeholders in other service and business areas."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-7",
+      "state": {
+        "title": "Customer Service Representative ",
+        "location": "US, NY, New York",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Associate",
+        "required_education": "High School or equivalent",
+        "industry": "Consumer Services",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "Novitex Enterprise Solutions, formerly Pitney Bowes Management Services, delivers innovative document and communications management solutions that help companies around the world drive business process efficiencies, increase productivity, reduce costs and improve customer satisfaction. For almost 30 years, clients have turned to us to integrate and optimize their enterprise-wide business processes to empower employees, increase productivity and maximize results. As a trusted partner, we continually focus on delivering secure, technology-enabled document and communications solutions that improve our clients' work processes, enhance their customer interactions and drive growth.",
+        "description": "The Customer Service Representative will be based in New York, NY. The right candidate will be an integral part of our talented team, supporting our continued growth.Responsibilities:Perform various Mail Center activities (sorting, metering, folding, inserting, delivery, pickup, etc.)Lift heavy boxes, files or paper when neededMaintain the highest levels of customer care while demonstrating a friendly and cooperative attitudeDemonstrate flexibility in satisfying customer demands in a high volume, production environmentConsistently adhere to business procedure guidelinesAdhere to all safety proceduresTake direction from supervisor or site managerMaintain all logs and reporting documentation; attention to detailParticipate in cross-training and perform other duties as assigned (Filing, outgoing shipments, etc)Operating mailing, copy or scanning equipmentShipping &amp; ReceivingHandle time-sensitive material like confidential, urgent packagesPerform other tasks as assignedScanning incoming mail to recipientsPerform file purges and pullsCreate files and ship filesProvide backfill when neededEnter information daily into spreadsheetsIdentify charges and match them to billingSort and deliver mail, small packages\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-8",
+      "state": {
+        "title": "Front-End Developer",
+        "location": "US, IN, Bloomington",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "",
+        "description": "RideAmigos needs a great Front-End Developer to work with us on our \"cloud-based\" software as a service offering. \u00a0We are a rapidly growing company working on innovation in the transportation space. \u00a0In short, we do cool things. \u00a0This is an on-site position, full-time with flexible hours. \u00a0You will be working on our platform, applying your skills and experience to enhance our product. \u00a0You won't be designing how things look, but you will be making sure they look they way they should! \u00a0Our users need you to provide them a solid place to click... Don't let them down!!"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-9",
+      "state": {
+        "title": "Office Assistant",
+        "location": "US, TX, Austin",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "High School or equivalent",
+        "industry": "Nonprofit Organization Management",
+        "function": "Administrative",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Why CSD?CSD is not only a great place to work, but also to learn, grow and give back to the community. Our organization is made up of talented, motivated people from diverse cultural, educational and professional backgrounds. We believe in teamwork, shared ideas, and creating solutions together while respecting individuality and innovation. We seek out people who want to see their ideas put into action, are committed to making a difference and who believe that more is possible!\u00a0Who We AreHere, you will discover colleagues who have passion for our company, our community, customers and each other, and that are led by a team of outstanding people who believe that more is possible from each and every one of us.\u00a0",
+        "description": "This position will act as the primary receptionist for the Austin office and will be responsible for providing office staff with basic administrative support, maintaining a welcoming and creative space, and ensuring that office staff have the supplies necessary to effectively perform their responsibilities. \u00a0Some specific responsibilities include:\u00a0Maintaining building security by managing the access cards, office keys and ensuring that public doors are accessible during regular business hours;Overseeing office custodial services, including upkeep of the CSD Caf\u00e9 and ensuring that the Caf\u00e9 is cleaned and stocked;\u00a0Maintaining office supplies by checking stock to determine inventory levels, anticipating requirements, placing and expediting orders, verifying receipts, stocking items, and delivering supplies to work stations;Maintaining equipment by completing basic preventive maintenance, troubleshooting failures, calling for repairs, and monitoring equipment operation;Serving customers by answering questions, forwarding messages, confirming customer orders, keeping customers informed of order status, and assisting with office tours;Coordinating and preparing for meetings and special events by assisting with registrations and confirmations, reserving rooms, and arranging for refreshments and necessary equipment;Providing staff support by preparing bulk mailings, sending and receiving faxes and e-mails, coordinating and confirming conference room reservations, and distributes/sorts mail;Other office duties as assigned by supervisor."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-10",
+      "state": {
+        "title": "Administrative/Clerical",
+        "location": "US, IL, ",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "May answer telephone and/or greets visitors giving general information in response to inquiries. May deliver oral and written messages to unit members. May sort and distribute incoming mail; file correspondence, memoranda, reports and other materials alphabetically, numerically or by other prescribed method. Maintains routine clerical records, logs and data and compiles routine reports. Operates office equipment such as telephone/switchboard, copiers, calculators, personal computers, typewriters or other equipment found in work unit. May type routine letters, labels, reports and similar items from rough draft or clear copy. May complete or enter data to departmental forms, making routine calculations and checking information for accuracy; processes documents or forms according to instructions; deliver items to other offices or locations. Performs other duties as assigned."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-11",
+      "state": {
+        "title": "ACCOUNTANT",
+        "location": "GR, , ",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "Bachelor's Degree",
+        "industry": "Gambling & Casinos",
+        "function": "Accounting/Auditing",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Processes accounting transactions both per IFRS and local GAAPPerforms various accounting tasks, including bank and suppliers reconciliationsEnsures adherence to company\u2019s policies and proceduresProactively performs preventive quality controls and initiates corrective actions when necessaryProduces accounting reports"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-12",
+      "state": {
+        "title": "Hardware/Electrical Engineer",
+        "location": "US, TX, Houston",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Mid-Senior level",
+        "required_education": "Master's Degree",
+        "industry": "Oil & Energy",
+        "function": "Engineering",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "Aker Solutions is a global provider of products, systems and services to the oil and gas industry. Our engineering, design and technology bring discoveries into production and maximize recovery from each petroleum field. We employ approximately 28,000 people in about 30 countries. Go to #URL_0fa3f7c5e23a16de16a841e368006cae916884407d90b154dfef3976483a71ae# for more information on our business, people and values.",
+        "description": "Corporate overviewAker Solutions is a global provider of products, systems and services to the oil and gas industry. Our engineering, design and technology bring discoveries into production and maximize recovery from each petroleum field. We employ approximately 28,000 people in about 30 countries. Go to #URL_0fa3f7c5e23a16de16a841e368006cae916884407d90b154dfef3976483a71ae# for more information on our business, people and values.Aker Solutions is a leading global provider of engineering and technology, products and service solutions to the Oil &amp; Gas industry.At Aker Solutions we offer an ocean of opportunities. Our people are our biggest asset and our business relies on their abilities to win projects and execute them to the highest standards. We are committed to developing our people\u2019s capabilities through challenging tasks supported by excellent training and development opportunities.All our major achievements are team efforts. We are looking for dedicated team players who like to be part of a winning team, who meet challenges head on to serve our customers\u2019 needs.Responsibilities and tasksResponsibilities are carried out within a centralised structured environment whereby normal management reporting is to your immediate line manager.\u2022 Executing the development, qualification, implementation, test, and maintenance of hardware/electrical development workscopes.\u2022 Ensure allocated workscopes are produced within budget and timescale.\u2022 Assist with estimates of effort and best technical solution\u2022 Ensure all work activities are in accordance with Aker Solutions procedures.\u2022 Produce technical investigations and reports. \u2022 Working offshore/overseas as the role requires.\u2022 Identifying processes and patterns of work areas and recommending procedures to improve standardisation and consistency of approach to the Manager.\u2022 Monitoring trends and new products in the marketplace, which could benefit the company, and recommending to Manager/Lead.\u2022 Technical overview and control of suppliers supplying hardware/electrical services and equipment to assigned workscopes. Work with Manager to ensure ongoing, consistent and quality service from these suppliers.\u2022 Production of drawings/documentation for assigned workscopes within the SAP document approval cycle\u2022 Demonstrate commitment to operating System procedures and the processes of continuous improvement\u2022 In addition to the duties listed, the jobholder is required to perform other duties assigned by his/her Manager from time to time."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-13",
+      "state": {
+        "title": "Mechanical Engineer",
+        "location": "US, PA, Philadelphia",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "We Provide Full Time Permanent Positions for many medium to large US companies. We are interested in finding/recruiting high quality candidates in IT, Engineering, Manufacturing and other highly technical and non-technical jobs.",
+        "description": "(We have more than 1500+ Job openings in our website and some of them are relevant to this job. Feel free to search it in the website and apply directly. Just Click the \u201cApply Now\u201d and you will redirect to our main website where you can search for the other jobs.)Mechanical Engineer:SKILLS* Basic Concepts of MECHANICAL1. BASICS OF PRODUCTION2. ANALYTICAL SKILLS3. ABLE TO HANDLE THE WORK PRESSUREADVANTAGES:-1. OPPORTUNITY TO JOIN THE FASTEST GROWING ORGANIZATION.2. OPPORTUNITY TO LEARN WHILE YOU EARN.3. LUCRATIVE PACKAGESQualification:BE/BTECH (MECHANICAL)Visit - #URL_ec64af2b4fe2ca316e828f93b0cd098c22f8beba98dcac09d4dd7384b221a5e8#-#URL_2954b76adf23051d4bc35fc729f5a18c5de715ed82dfaee24b3aabbf3874ca57#"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-14",
+      "state": {
+        "title": "Position Finance Assistant",
+        "location": "AU, VIC, Melbourne",
+        "salary_range": "25000-30000",
+        "employment_type": "Part-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Banking",
+        "function": "Finance",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "We have positions available for confident, out-going, enthusiastic candidates to join our team of financial assistant.Role and activities:Understand requirements of customers and their challenges in finance domain Document the requirements, discuss and finalise scope of work Customise the finance software to suit the agreed scope of work"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-15",
+      "state": {
+        "title": "Customer Service Associate",
+        "location": "US, WA, Redmond",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "High School or equivalent",
+        "industry": "Computer Software",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "Novitex Enterprise Solutions, formerly Pitney Bowes Management Services, delivers innovative document and communications management solutions that help companies around the world drive business process efficiencies, increase productivity, reduce costs and improve customer satisfaction. For almost 30 years, clients have turned to us to integrate and optimize their enterprise-wide business processes to empower employees, increase productivity and maximize results. As a trusted partner, we continually focus on delivering secure, technology-enabled document and communications solutions that improve our clients' work processes, enhance their customer interactions and drive growth.",
+        "description": "The Customer Service Associate will be based in Redmond, WA. The right candidate will be an integral part of our talented team, supporting our continued growth.Duties and Responsibilities Include:Receive and log all incoming items, letters and packages, including certified, registered, return receipt,\u00a0UPS and DHL, Federal Express.Perform accurate and timely data entry to meet customer satisfactionMaintain all logs and reporting documentation.Assist with loading and unloading of deliveries as needed.Perform other duties as assigned.Adhere to business guidelines, company policies and safety regulationsProcessing incoming packages using internal receiving systemProblem solving issues with incoming packages such as needing additional packaging or tapeProviding customer service to customers via email in a professional mannerProviding customer service to customers that visit the department needing assistance with their shipmentsAttention to detail is required to ensure compliance to shipping regulations"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-16",
+      "state": {
+        "title": "Optical Sales",
+        "location": "US, CA, Cerritos",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Health, Wellness and Fitness",
+        "function": "Sales",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "New Optometric practice is seeking a full-time Optical/Sales for our Cerritos, California location.\u00a0Looking for a person with a dynamic personality who enjoys assisting the patient with their eyewear needs.\u00a0To apply for this position, please submit your application via this link:\u00a0#URL_dc6a4e8df8c88cf7bb611c27fadf835b2ea6d40cec837463b39bb6ba9bca8852#?i=MTkz\u00a0and select the Optical/Sales (Cerritos, California) position from the Job Opening drop-down menu."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-17",
+      "state": {
+        "title": "Customer Service Associate - On Call ",
+        "location": "US, OK, Tulsa",
+        "salary_range": "",
+        "employment_type": "Part-time",
+        "required_experience": "Entry level",
+        "required_education": "High School or equivalent",
+        "industry": "Computer Software",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "Novitex Enterprise Solutions, formerly Pitney Bowes Management Services, delivers innovative document and communications management solutions that help companies around the world drive business process efficiencies, increase productivity, reduce costs and improve customer satisfaction. For almost 30 years, clients have turned to us to integrate and optimize their enterprise-wide business processes to empower employees, increase productivity and maximize results. As a trusted partner, we continually focus on delivering secure, technology-enabled document and communications solutions that improve our clients' work processes, enhance their customer interactions and drive growth.",
+        "description": "The Customer Service Associate will be based in Tulsa, OK. The right candidate will be an integral part of our talented team, supporting our continued growth.Responsibilities:Perform various Mail Center activities (sorting, metering, folding, inserting, delivery, pickup, etc.)Lift heavy boxes, files or paper when neededMaintain the highest levels of customer care while demonstrating a friendly and cooperative attitudeDemonstrate flexibility in satisfying customer demands in a high volume, production environmentConsistently adhere to business procedure guidelinesPerform any and all duties as assigned by management within reprographic services.Establish operating procedures and quality standards.Test and evaluate new equipment and materials.Responsible for all aspects of equipment.Follow start-up, shut-down and clean-up procedures for equipment.Occasional performance of limited operations on more complex, automated equipment.Monitor operations and make mechanical adjustments as needed, to ensure proper quality output.Adhere to all safety proceduresTake direction from supervisor or site managerMaintain all logs and reporting documentation; attention to detailParticipate in cross-training and perform other duties as assigned (Filing, outgoing shipments, etc)Operating mailing, copy or scanning equipmentShipping &amp; ReceivingHandle time-sensitive material like confidential, urgent packagesScanning incoming mail to recipientsPerform file purges and pullsCreate files and ship filesProvide backfill when neededEnter information daily into spreadsheetsIdentify charges and match them to billingSort and deliver mail, small packages"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-18",
+      "state": {
+        "title": "Information Systems Support Specialist  ",
+        "location": "US, GA, ",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Information Services",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Apply using below link#URL_4cce87e142f289388ee47f4f3825ea3b2d7bbe9132f7ac0bc280c8ae8517c3df#Overview - Provides technical and usability support to all users regarding Information Systems with specific focus to Sage 100 ERP and related software.Responsibilities Include but not limited to:Handle usability questions from users regarding Sage 100.\u00a0 Example, How would I handle this scenario , or [blank] isn't workingRespond to error messages received by users.\u00a0 Troubleshoot problem, and develop a solution to prevent reoccurrence, if possible.\u00a0 Log the problems and solutions.Address all requests to update or create new Custom Crystal ReportsAddress all requests to update or create new Crystal FormsAddress all requests to update or create new KnowledgeSync AlertsAddress all requests to update or create new User Defined Fields (UDF's) and User Defined Tables (UDT's)Address all requests to update, perform, or create Visual Integrator Jobs for data manipulation in and out of the ERPMake recommendations for system wide functionality improvementsComplete and implement Sage 100 projects designated by the MAS Research PanelDevelop goals and Sage 100 improvement projectsCoordinate Sage 100 Update Patches and UpgradesLog user requests for future usability enhancementsIdentify areas where daily activities can be improved through Sage 100.\u00a0 Create operating efficiencies.Troubleshoot and resolve basic IT Help Desk requests for local and remote offices (ie printer functions, Operating System usability, Microsoft Office usability, Smart Phones)Coordinate diagnosis and resolution of advanced IT Help Desk requests with Outside IT Consulting PartnerMonitor Backup SoftwarePerform basic administrator for corporate phone systemPerforms other duties and assignments as directed by management.Skills and RequirementsMicrosoft Office SuiteBasic networkingSage 100 (MAS 90 or MAS 200)Crystal ReportsCustomer relationship management softwareRelational databasesAble to communicate clearlyRegular and punctual attendanceEducation/Experience Requirements4 year college degree5+ years' experience in similar environment"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-19",
+      "state": {
+        "title": "Secondary Science Teacher",
+        "location": "US, NY, Albany",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "Master's Degree",
+        "industry": "",
+        "function": "Education",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "The Albany Charter School Network is a family of charter schools in the City of Albany that works to prepare children for meaningful future lives \u2013 as purposeful, productive, and participatory citizens of New York, the United States, and the world.Our strong and unified movement of charter schools collaborates with parents to provide for all students a vibrant academic environment and dynamic learning experiences that create what we call \u201cFuture Life Opportunity\u201d \u2013 a pathway to success in college, career, and community life.The Albany Charter School Network and the schools that comprise our community are always looking for highly committed and highly skilled people to come and join us in the exciting and meaningful work of helping create Future Life Opportunity for this generation of students.Please take the time to look at the various open positions on our site. If there is a role for which you think you would be a great match, then we encourage you to learn more about it and submit an application.",
+        "description": "Do you have what it takes to cultivate the next generation of \u201cScientific Artists\u201d \u2013 students with both the disciplined expertise and creative imagination to contribute effectively to the betterment of the global society? If so, the Albany Charter School Network may be the place for you! We are looking for a Secondary Science Teacher to join our team of professionals committed to helping our students write like Frederick Douglass and reason like Albert Einstein.POSITION SUMMARYAs a Secondary Science Teacher, you will work collaboratively with other science instructional staff instructional staff and the instructional leader to champion a high-quality education for each and every student while cultivating success for future life opportunities in college, career, and community. You will participate in both horizontal and vertical planning to ensure every student\u2019s academic needs are met. You will also develop strategies for the design, delivery, modification, and extension of Common Core and New York State Standards-aligned curriculum and instruction, allowing all students to engage in active academic challenge and growth. As you work collaboratively with your peers to foster a thirst for lifelong learning, you will be responsible for your students\u2019 performance and your own personal and professional growth.ABOUT THE NETWORKThe Albany Charter School Network is\u2028 a family of charter schools in the city of Albany that works to prepare students for meaningful future lives \u2013 as purposeful, productive, and participatory citizens of New York, the United States, and the world. Our strong and unified movement of charter schools collaborates with parents to provide all students a vibrant academic environment and dynamic learning experience that create what we call \u201cFuture Life Opportunity\u201d \u2013 a pathway to success in college, career, and community life.\u00a0 We create this environment and these experiences with a focus on Choice, Reliability, Quality, and Growth.Choice: Engaged in the challenging and fulfilling work of learning for ourselves, and teaching others how to make informed decisions. \u00a0Reliability: Achieving high levels of student performance with low variability in academic and operational delivery within and between schools.Quality: Delivering excellent teaching and learning, and general school operations, through superior execution of research-based practices.Growth: Ensuring personal, academic, and professional growth for the Network community stakeholders and the Albany area as a whole.SECONDARY SCIENCE TEACHER JOB DESCRIPTION DETAILSPLAN Works with the instructional leader, school leadership team, and instructional staff to establish a Common Core and New York State Standards-oriented curriculum that engages students in active academic challenge and growth.Cultivates a culture of high-expectations-great-outcomes learning in which students can achieve the highest standards of success.PREPAREDevelops collaborative relationships with colleagues and school leadership to ensure quality teaching and learning for all students.Through professional development, serves as the lead learner while building knowledge and expertise in science.\u00a0PROCESSEngages in active classroom management to ensure students represent their peers and teachers with excellence.Develops and maintains open communication with parents and families.PREDICTUses predictive analysis to design, deliver, and modify teaching practices to support student growth and learning.Analyzes various student performance assessments, identifies areas of growth, and implements appropriate curriculum and instructional modifications to support student development and advancement."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-20",
+      "state": {
+        "title": "DIVISION ELECTRICAL ENGINEER",
+        "location": "US, TX, Houston",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Oil & Energy",
+        "function": "Engineering",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Responsibilities:Electrical and project engineering work involving support of Gypsum divisional operations through design, troubleshooting, project guidance, technological standardization and innovation, maintenance strategies, and energy efficiency activities. Involvement includes project scope development, project estimating, project review and management, electrical power systems design and implementation, and process control design and implementation.Work may involve project management, managing contractors, schedules, scope development, budgets, checkout, commissioning, start-up and various other engineering/management activities as required. Project work also includes updating of electrical and instrument drawings, including single lines and P&amp;ID\u2019s. The engineer will also assist in the evaluation of existing mill systems and processes to identify and implement solutions that will improve safety and quality, reduce cost and variability.Basic Qualifications:Bachelor\u2019s Degree or higher in Electrical Engineering and four (4) or more years of electrical engineering experience in an industrial manufacturing environmentWillingness to travel up to 50%Two (2) or more years of experience with Power DistributionExperience with Variable Frequency Drives (VFDs), 3-phase systems, Motor Control Centers and SwitchgearExperience with Project Management ExecutionExperience in applying NEC, NFPA 70E and OSHA requirements pertaining to Electrical Safe Work PracticesExperience with electrical studies and ARC Flash analysisPreferred Qualifications:Experience with 4160V and up to 15KV power systemsExperience with Rockwell Control Logix PLCs and PowerFlex VFDsEIT or PE Certification.About Expro:Expro provides services and products that measure. We improve, control and process flow from high-value oil and gas wells, from exploration and appraisal through to mature field production optimisation and enhancement.With a specific focus on offshore, deepwater and other technically challenging environments, we provide a range of mission critical services across three key areas:Well Test &amp; Appraisal ServicesSubsea, Completion &amp; Intervention ServicesProduction ServicesOur vision is to be the market leader in well flow management, using the industry\u2019s best people, to deliver the highest standards of safety, quality and personalised customer service.We provide a range of solutions including:Exploration &amp; Appraisal TestingSubsea Safety SystemsDrilling &amp; CompletionFlowback &amp; Clean-upProductionWell Integrity &amp; InterventionExpro\u2019s 40+ years of experience and innovation empowers the company to offer tailor-made solutions for customers across the energy sector. With over 5,400 employees in over 50 countries, Expro offers a truly global service solution."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-21",
+      "state": {
+        "title": "Customer Service Specialist",
+        "location": "US, TX, Austin",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Associate",
+        "required_education": "Bachelor's Degree",
+        "industry": "Individual & Family Services",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Why CSD?CSD is not only a great place to work, but also to learn, grow and give back to the community. Our organization is made up of talented, motivated people from diverse cultural, educational and professional backgrounds. We believe in teamwork, shared ideas, and creating solutions together while respecting individuality and innovation. We seek out people who want to see their ideas put into action, are committed to making a difference and who believe that more is possible!\u00a0Who We AreHere, you will discover colleagues who have passion for our company, our community, customers and each other, and that are led by a team of outstanding people who believe that more is possible from each and every one of us.\u00a0",
+        "description": "We call our customer service positions on the front-line\u00a0Interpreting Service Relations Specialists\u00a0who ensure quality delivery and optimal accessibility to CSD sign language Interpreting and other services.\u00a0The job ensures 100% uptime service coverage in our Austin TX Interpreting Service Relations Center, responding to inquiries\u00a0by phone/video phone, faxes, text, chats, email and web media.\u00a0This position coordinates high-touch service interactions with our client contacts, agences, service providers and consumer end users by coordinating interpreter assignments, fulfilling service requests and resolving issues while promoting CSD as the premier service provider in the markets we serve.\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-22",
+      "state": {
+        "title": "Administrative Assistant",
+        "location": "US, MD, Baltimore",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "Unspecified",
+        "industry": "Hospital & Health Care",
+        "function": "Administrative",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Administrative AssistantEssential Job Responsibilities:Answering and routing telephone calls to appropriate peopleScheduling appointmentsMaintain paper and electronic filing systems for records and messagesLimited courier responsibilitiesPerform any additional duties as assigned or requestedRequired Qualifications:At least two years of experience and knowledge to perform essential job functions assignedAble to work in a fast-pace environment and be able to multi-taskExcellent communication skills and computer knowledge (QuickBooks a plus)Well organized, highly dependable, and efficientMust have problem solving skills and be detailed orientedMaintain respect at all times for confidential informationStarting pay $25/HrBenefits:401K Plan with company matchingMedical, Dental, Vision coverageVacation PayDisability insuranceLong-term care insuranceGrowth Opportunities"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-23",
+      "state": {
+        "title": "Customer Service/Call Center",
+        "location": "US, FL, Jacksonville",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "At Command we care enough to consistently place the right candidates in the right jobs. We have more than 50 locally-managed branches throughout the United States that serve as trusted partners to businesses and job seekers. ",
+        "description": "At Command we care enough to consistently place the right candidates in the right jobs. We have more than 50 locally-managed branches throughout the United States that serve as trusted partners to businesses and job seekers."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-24",
+      "state": {
+        "title": "ICU RN  ",
+        "location": "US, NV, ",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Find more jobs at #URL_1efb08d6a6da1c56afb2d0c686e1ed0dc14d0fbcb22482369e8a69999aa0d278#Apply using below link#URL_1efb08d6a6da1c56afb2d0c686e1ed0dc14d0fbcb22482369e8a69999aa0d278#/jobs-united-states/917711/watkins-staffing/icu-rnICU RN (per diem) -- Las Vegas, NVRequirements: 2 - year minimum acute experience in a hospital setting. We're eager to fill positions immediately, please apply ASAP. Active Nevada State RN license.12 hour day/nights shifts available, 12 - 48 hours per week***Guaranteed HoursAdvantages of Per Diem Nursing:\u2022 Make extra money, depending on their commitment, which is the main advantage. \u2022 Pick your own schedules based on your commitment.\u2022 24 hours a week, 36 hours a week - one weekend a month and one holiday a year - these are the nurses making the big bucks, while providing sorely needed coverage.\u2022 In most cases staff nurses must work every other weekend, two holidays and can't necessarily pick their schedules.\u2022 Nothing can match the flexibility that comes with per diem shifts. Higher PayPer Diem shifts are paid at a higher rate. The flexibility to pick up shifts as needed, combined with higher wages allows you to maximize your earning potential.Bachelor's Degree or Associates Degree in Nursing is requiredMust possess U.S. hospital experience; recent specialty experience within 1 year.Active American Heart Association BLS, ACLS cardWeekly pay rates will be determine based on experience. ***Please Note: If you are proactively looking for an opportunity, or would like to view our MANY openings, you may follow the link and instructions below to create your profile:"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-25",
+      "state": {
+        "title": "Senior ColdFusion Developer ",
+        "location": "BE, BRU, Brussels",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Mid-Senior level",
+        "required_education": "Bachelor's Degree",
+        "industry": "Computer Software",
+        "function": "Information Technology",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "EUROPEAN DYNAMICS (#URL_c66532ffa1ce76ab447da6774719060c42c584edbf44d74cdb94fc4ac219ca45#) is a leading European Software, Information and Communication Technologies company, operating internationally (Athens, Brussels, Luxembourg, Copenhagen, Berlin, Rome, Stockholm, London, Nicosia, Helsinki, Valetta, etc). The company employs over 600 engineers and IT experts. We design and develop software applications using integrated, state-of-the-art technology. Our current IT and telecoms projects have a value exceeding 250 million EURO. EUROPEAN DYNAMICS is a renowned supplier of IT services to European Union Institutions, international organizations, European Agencies and national government Administrations all over Europe.",
+        "description": "We currently have a vacancy for a Senior ColdFusion Developer, fluent in English, to offer his/her services as an expert who will be based in Brussels, Belgium. The work will be carried out either in the company\u2019s premises or on site at the customer premises. In the context of the first assignment, the successful candidate will be integrated into the Development team of the company that will closely cooperate with a major client\u2019s IT team on site.Your tasks:Analysis of user requirements, design, data analysis and data modelling;Writing, testing, maintenance and integration of web applications;Configuration and source management of the developed objects;Provision of assistance with the deployment and configuration of the system;Provision of technical assistance and training the administrators, users and other team members;Production and update of the technical documentation in English."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-26",
+      "state": {
+        "title": "Call Center Representative",
+        "location": "US, TX, DALLAS",
+        "salary_range": "1000-2000",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "High School or equivalent",
+        "industry": "Telecommunications",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Answer Call Center incoming telephone calls, e-mail inquiries and instant message chats from clients and participants in a professional, courteous and timely manner.Improve client satisfaction by providing high quality Customer Service and timely follow up and resolution of participant issues.Identify benefit information and provide accurate and thorough information to all internal and external clients.Document all calls in the designated call log to ensure timely follow up and problem resolution.Answer all calls within two rings."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-27",
+      "state": {
+        "title": "Urgent Need : Postilion Switch Expert for UAE ",
+        "location": "AE, , ",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "VAM SYSTEMS\u00a0is a Business Consulting, IT Solutions and Services\u00a0company with operations in UAE, Qatar, Bahrain, USA, Australia, Singapore &amp; India. . We offers a comprehensive list of services in the field of IT infrastructure management, Cloud services, IT Consulting Services, Banking, Management Resources, Information Technology Development, Telecom, Aviation, Retail Management &amp; Government offerings.",
+        "description": "Greetings from VAM SYSTEMS\u2026..VAM SYSTEMS\u00a0is a Business Consulting, IT Technology Solutions and Services\u00a0company with operations in UAE, Qatar, Bahrain, USA, Australia, Singapore &amp; India. We offers a comprehensive list of services in the field of IT infrastructure management, Cloud services, IT Consulting Services, Banking, Management Resources, Information Technology Development, Telecom, Aviation, Retail Management &amp; Government offerings.VAM SYSTEMS is currently looking for Postilion Switch Expert for our UAE operations .Terms and conditions:\u00a0Joining time frame:\u00a0\u00a0 2 weeks (maximum 1 month).The selected candidates shall join VAM SYSTEMS \u2013 UAE\u00a0and shall be deputed to one of the leading Organizations in UAE.\u00a0\u00a0\u00a0\u00a0\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-28",
+      "state": {
+        "title": "Financial Assistant position",
+        "location": "AU, NSW, Sydney",
+        "salary_range": "",
+        "employment_type": "Part-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Financial Services",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 1,
+        "company_profile": "",
+        "description": "We have positions available for confident, out-going, enthusiastic candidates to join our team of financial assistant.Working days \u2013 from Monday to Friday;Weekends - Saturday, Sunday;Working time - from 8 am to 12 am.\u00a0 (Possible full time.)\u00a0With full-time and flexible part-time positions available, and full training provided you can pay your bills while making a huge difference to those who need it!Please send your CV to\u00a0 #EMAIL_0226e2f4fe7582986cb4d8285983a03f8444fb44d8a778c791fecb37fc1b810c#"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-29",
+      "state": {
+        "title": "I can't see a job for me but I'm really interested in working at Lost my Name",
+        "location": "GB, , ",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Lost My Name combines the power of storytelling with the possibilities of technology to make magical, personalised books and experiences for children. Our team of 15 (and growing) works out of a beautiful studio in Hackney, London. Our flagship title has sold tens of thousands of copies worldwide, and we're now working on our next generation of stories.",
+        "description": "We're always looking for smart, creative people who are excited about Lost my Name and think they could help us grow.If that sounds like you and you don't see a position advertised here that fits your experience that's not a problem - just fill in the form and tell us a bit about how you think you could help and we'll get back to you."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-30",
+      "state": {
+        "title": "Account Sales Managers $80-$130,000/yr",
+        "location": "US, NY, Syracuse",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Associate",
+        "required_education": "High School or equivalent",
+        "industry": "Financial Services",
+        "function": "Business Development",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "We have aggressive growth plans in place for the coming years. We provide a much needed service in facilitating the growth of small and medium size business with innovative financing products to their clients.We, at Oak Tree Financing, commit our energies, intellect and knowledge to helping small and medium size business owners and entrepreneurs with extraordinary financing solutions to clients. We believe in providing the highest possible level of service and delivering superior results. We are committed to their financial well-being. With 67% of the population having No Credit or Bad Credit our financing products have helped business owners increase their sales on average by 30%.",
+        "description": "We provide No Credit Check Financing to customers of Small and Medium size Businesses and can help 90% of the industries from Auto Mechanics to Dentists and Lawyers.We are seeking skilled Account Managers to grow with us and help us achieve our goals in this new and exciting industry.This is designed as a long-term position for an entrepreneurial individual to really build their book of business, along with their income.Our people enjoy a flexible work environment. High earnings with great incentives like corporate retreats and quick advancement opportunities."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-31",
+      "state": {
+        "title": "WF5 9TJ Office Administrator",
+        "location": "GB, , Wakefield",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "Vocational",
+        "industry": "",
+        "function": "Administrative",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Established on the principles that full time education is not for everyone Spectrum Learning is made up of a team of passionate consultants with the drive for putting people who wish to grow themselves through education whilst working into long term and relevant job roles.We also are official re-sellers for The Institute of Recruiters/ Study Course professional courses in HR Practice, In-House Recruitment and Agency RecruitmentIt is our mission to help anyone wishing to pursue an apprenticeship onto the right qualification and into the right job.We work closely with both the candidate and the employer to ensure when the learner is enrolled they are at the start of a long and successful career.We have great relationships with a number of national training providers to ensure we can cover any apprenticeship available.\u00a0\u00a0",
+        "description": "This is a fantastic opportunity for someone to work alongside a busy Managing Director.You will be working in a busy office and the role will involve:-Diary management-Booking travel-Organising events-Light market research-Meeting preparation-General office duties such as filing, faxing and answering the phoneExperience in office admin is essential.Candidates must be organised and efficient.\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-32",
+      "state": {
+        "title": "Service Associate",
+        "location": "US, TX, AUSTIN",
+        "salary_range": "25000-30000",
+        "employment_type": "Full-time",
+        "required_experience": "Entry level",
+        "required_education": "High School or equivalent",
+        "industry": "Retail",
+        "function": "Customer Service",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "The Accion\u00a0 story began more than 100 years ago in the Austin,Tx with one family owned establishment. Today, Accion\u00a0 has grown into a nationwide Organazation with over 260 stores. Accion success is attributed to our unique niche in the market offering current\u00a0 \u00a0finance\u00a0option at competitive prices paired with customer service and a personal shopping experience. Join the Accion story today!",
+        "description": "Accion\u00a0 is currently seeking a professional individual enthusiastic about customer service and fashion. We are looking for someone focused on creating an exceptional customer service and shopping experience for our Accion customer.\u00a0\u00a0\u00a0 Responsibilities:Welcome and greet customers, modeling a positive customer service spirit, exhibiting a friendly and helpful attitude with customers and associates.Answer customer questions regarding products and services; assist customers with buying decisions.Operate cash registers to complete customer transactions.Display merchandise and maintain a clean shopping area to maximize store appeal.Assist in the receiving and of new merchandise from vendors.Prepare merchandise for the selling floor.Assist in minimizing loss of company assets.Contribute to team efforts.\u00a0\u00a0"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-33",
+      "state": {
+        "title": "Outside Sales Professional-Flint",
+        "location": "US, MI, Flint",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "ABC Supply Co., Inc. is the nation\u2019s largest wholesale distributor of roofing and one of the largest distributors of siding, windows, and other exterior building products. Since our start in 1982, we've grown to become a national organization with over 450 locations in 45 states. Our mission is to be the biggest, best, and easiest service company distributing exterior building products. We fulfill that mission by stocking the brands and products contractors need at competitive prices, operating a state-of-the-art delivery system, and actively listening to our customers. We know that we will only be successful when our customers are successful. That\u2019s why we make good on our promises every day.",
+        "description": "As an Outside Sales Representative, you must have excellent sales talents as well as the willingness to learn the ABC Supply sales approach. It will also be very helpful to your role as an Outside Sales Representative if you have existing knowledge of exterior building product lines such as siding, roofing, and windows.\u00a0 This will not only to lend credibility to your sales presentations, but also to assist the Branch Manager in the selection of new product lines. It is also vital for your role as an Outside Sales Representative that you have empathy for your customers and their needs, and always provide them with the best possible service."
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-34",
+      "state": {
+        "title": "Retail Demonstrator",
+        "location": "US, WA, Seattle",
+        "salary_range": "",
+        "employment_type": "",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 1,
+        "company_profile": "",
+        "description": "Dyson demonstrators work part-time as members of the Field Sales team to engage consumers in an energetic and confident manner and provide them with knowledgeable information about Dyson products in select retail locations (i.e. Costco, Bed Bath andBeyond and Best Buy) or events across the United States. The most important part of a Demonstrators\u2019 job is to create a positive experience with the store and the consumers; assisting in the sale of Dyson products to achieve company specified sales goals. Demonstrations occur on Saturdays, Sundays and some weekday holidays. Demonstrators must work a minimum of 3 out of 4 weekends per month within an assigned market.\u00a0Pay: $18.50/hr\u00a0Duties and Responsibilities: \u2022\u00a0 Conduct planned demonstrations in assigned retail stores to achieve specified sales goals\u2022\u00a0 Capture consumers\u2019 attention to participate in high energy, captivating in-store demonstrations and model all aspects of Dyson\u2019s brand, culture, and passion for technology\u2022\u00a0 Be a credible product and brand expert by educating consumers on the benefits and features of Dyson products and actively listening to consumers to confidently recommend appropriate Dyson products and comfortably over objections\u2022\u00a0 Increase overall awareness and sales of Dyson products through in store and event demonstrations\u2022\u00a0 Actively monitor Dyson\u2019s online reporting system to contribute quality feedback and report/confirm attendance"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-35",
+      "state": {
+        "title": "Marketing Manager",
+        "location": "US, MN, Golden Valley",
+        "salary_range": "",
+        "employment_type": "Full-time",
+        "required_experience": "Associate",
+        "required_education": "Bachelor's Degree",
+        "industry": "Information Technology and Services",
+        "function": "Marketing",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "Virteva delivers managed IT services and project-based consulting services that optimize our customer\u2019s IT infrastructure and operations.\u00a0 Headquartered in the Twin Cities and serving customers worldwide, Virteva services help our customers say \u201cYes\u201d to the wide spectrum of information technology demanded by their business, employees and customers, securely and reliably, anyplace and anytime.\u00a0\u00a0",
+        "description": "JOB SUMMARY:The Marketing Manager will be responsible for the practical application of various marketing techniques as well as effective management of the company\u2019s marketing resources and activities. The Marketing Manager will be an ambitious hands-on individual who can create innovative strategies and execute on the plan.\u00a0 He/She will be extremely customer focused with 3-5 years\u2019 of experience with Marketing Management, and a passion to learn.\u00a0 The Marketing manager will perform the daily operational tasks that are necessary to create a stable and robust marketing plan, including, but not limited to: business development initiatives, marketing materials creation, managing vendors, budgeting, marketing events, marketing campaigns, and website design.\u00a0This position will report to the EVP of Sales &amp; Product Strategy.ESSENTIAL DUTIES AND RESPONSIBILITIES:Create and involvement marketing campaigns for a growing IT services company.Own the marketing plan and manage to a budget.Marketing plan will include, but not be limited to, demand generation, event management, content writing, SEO, developing and managing sales collateral, campaign management, and vendor management.Demand generation: focus on targeted marketing programs to drive awareness and interest in Virteva\u2019s services locally with the second phase being a national campaign with brand awareness.Lead cross-functional teams in the development and execution of marketing plan strategies.Analyze\u00a0business and consumer trends, identify key issues facing the business, and build and execute innovative marketing plans.Develop marketing collateral and training materials.Develop an overall communications and media/outreach strategy working closely with Sales and Delivery teams.Ensure complete and timely follow-through with all vendor contacts.Management of day-to-day operations in the Sales Portal system.Other duties as assigned.\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-36",
+      "state": {
+        "title": "Office/Personal Assistant (15-20 hours per week)",
+        "location": "CA, ON, Toronto",
+        "salary_range": "30000-35000",
+        "employment_type": "Part-time",
+        "required_experience": "",
+        "required_education": "",
+        "industry": "Executive Office",
+        "function": "Administrative",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Currently seeking an Office Assistant for our home office on a casual part time basis. This job involves personal and office assistance. Ideally, we are seeking someone who has previous experience in an administrative and/or assistant role.\u00a0"
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-37",
+      "state": {
+        "title": "Accounts Administrator - Temporary Role",
+        "location": "NZ, , ",
+        "salary_range": "",
+        "employment_type": "Temporary",
+        "required_experience": "Associate",
+        "required_education": "Unspecified",
+        "industry": "Information Technology and Services",
+        "function": "Administrative",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 0,
+        "company_profile": "EROAD was established to modernise New Zealand\u2019s paper-based RUC regime and in 2009 launched the world\u2019s first GPS/cellular-based road charging system.\u00a0Our solution can be readily and rapidly scaled and deployed across entire jurisdictions because it requires no roadside architecture, and uses a SaaS-based web service.We\u2019re now a world leader in our field and expanding rapidly as we enter new markets.Joining EROAD is a great career move. We look at potential when we\u2019re hiring, and your ability to grow with the role. We employ only the best, and ensure that our staff have the skills, training and technology to do their best work.How you\u2019ll fit in at EROAD is important as well. We\u2019re really proud of our company culture and finding people with the right attitude is just as essential as a great CV.Working at EROAD means learning from\u00a0people who are experts in their field. It also means working hard \u2013 we have to, to be able to grow as fast as we need to! But we encourage a healthy work/life balance and our low staff turnover tells us we\u2019ve probably got the balance right.We have staff from all over the globe \u2013 25 countries at last count \u2013 and we may just have the highest rate of boat/surfboard/windsurfer ownership of any technology company, anywhere.",
+        "description": "Temporary Contract Available in our busy Finance Team.Albany Based - Great OfficeFriendly, Busy Team\u00a0Fast-paced Kiwi CompanyEROAD is growing quickly - and we currently have the need for a temporary Accounts Administrator to help the team for approximately a month due to work-loads and holidays booked.\u00a0The Finance team is an integral part of the business - and we are looking for an experienced contractor to hit the ground running.\u00a0There is a lot happening at the moment, and it is essential that you have experience working in a busy environment. You will have previously worked within an accounts or finance team, and won't be easily phased. You also need to enjoy a challenge and have a can-do attitude.We are currently in a period of high-growth, in this role you will have the opportunity to be involved in a variety of tasks across the Finance team. We are interested in speaking with strong multi-taskers who enjoy working across multiple functions.\u00a0These roles involve a variety of accounting and administration tasks - the day will go fast as a member of this high performing team. \u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "jobs-test-38",
+      "state": {
+        "title": "Hiring for Software Web Applications Engineer",
+        "location": "US, RI, Middletown",
+        "salary_range": "90000-100000",
+        "employment_type": "Full-time",
+        "required_experience": "Mid-Senior level",
+        "required_education": "",
+        "industry": "Information Technology and Services",
+        "function": "Information Technology",
+        "telecommuting": 0,
+        "has_company_logo": 0,
+        "has_questions": 0,
+        "company_profile": "",
+        "description": "Position :Software Web Applications EngineerJob Type : Full TimeJob Location : United States-Rhode Island-MiddletownUs work status required : EAD ,Green Card,US Citizens Job Requirements:\u2022\u00a0\u00a0 \u00a0Minimum of five years recent experience in object oriented programming of \u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0 desktop, mobile and web applications is required\u2022\u00a0\u00a0 \u00a0Minimum of three years recent experience programming web applications using \u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0 PHP, Javascript, HTML5, JQuery, JSON, XML is required. \u2022\u00a0\u00a0 \u00a0Minimum of three years recent experience programming in Java or .Net required\u2022\u00a0\u00a0 \u00a0Experienced with Ruby, Rails, Sinatra, GIT, Hiroku/AWS, MySql, PostgreSQL, \u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0 UnitTest, JBuilder &amp; Passenger.\u2022\u00a0\u00a0 \u00a0Experienced with full software development life cycle including estimation, \u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0 requirements gathering, design, Test Driven Development (TDD), build and test \u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0 automation, release configuration, etc.\u2022\u00a0\u00a0 \u00a0Experienced with Linux, Windows and MacOS operating systems.\u2022\u00a0\u00a0 \u00a0Small embedded system and embedded Linux experience is a plusEducation:BS in Computer Science or Engineering (or equivalent)."
+      },
+      "label": "fraudulent"
+    },
+    {
+      "id": "jobs-test-39",
+      "state": {
+        "title": "English Teacher Abroad ",
+        "location": "US, IN, Greencastle",
+        "salary_range": "",
+        "employment_type": "Contract",
+        "required_experience": "",
+        "required_education": "Bachelor's Degree",
+        "industry": "Education Management",
+        "function": "",
+        "telecommuting": 0,
+        "has_company_logo": 1,
+        "has_questions": 1,
+        "company_profile": "We help teachers get safe &amp; secure jobs abroad :)",
+        "description": "Play with kids, get paid for it\u00a0Love travel? Jobs in Asia$1,500+ USD monthly ($200 Cost of living)Housing provided (Private/Furnished)Airfare ReimbursedExcellent for student loans/credit cardsGabriel Adkins : #URL_ed9094c60184b8a4975333957f05be37e69d3cdb68decc9dd9a4242733cfd7f7##URL_75db76d58f7994c7db24e8998c2fc953ab9a20ea9ac948b217693963f78d2e6b#12 month contract : Apply today\u00a0"
+      },
+      "label": "genuine"
+    },
+    {
+      "id": "clothing-test-0",
+      "state": {
+        "rating": 5,
+        "age": 57,
+        "helpful_votes": 1,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "I love this blouse, it looks great under a blazer dressed up and great with boyfriend jeans.\nit is loose and flowy, the neck line is low. i bought a medium and it is a little large but fits with the style of the top.\ni happen to love the fabric, it is soft and feels great on the skin. one of my favorite fabric combinations is rayon (viscose) and cotton."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-1",
+      "state": {
+        "rating": 5,
+        "age": 50,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "Love love love this blouse the cut outs at the top just add to it's elegance"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-2",
+      "state": {
+        "rating": 5,
+        "age": 39,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Jackets",
+        "category": "Jackets",
+        "review": "But tight around the chest, i ordered xs petite after trying on xxs petite and both are a tad tight on the chest area, kept xs petites as bigger would be too much fabric everywhere else. green color is classic, and the back is longer than the front. overall flattering if with the right outfit. i'm 30 dd and 115 lbs for reference."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-3",
+      "state": {
+        "rating": 4,
+        "age": 48,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "It is gorgeous, and yes, the side slits are very high, but i am still keeping and rocking it. i am a size 10-12 and got the large, probably could have got the medium, but after a few washings, i think the larger size will be ok. side slits high, but if the weather is good, and you have self tanner on legs, it looks great with shortie boots. i have gotten many cmpliments on it, just hope it still keeps its shape after a long day of wear. very pretty in cream, though, i do recommend it. i am 5'8,"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-4",
+      "state": {
+        "rating": 5,
+        "age": 54,
+        "helpful_votes": 0,
+        "division": "Intimates",
+        "department": "Intimate",
+        "category": "Swim",
+        "review": "This basketweave bikini top in fractals red by mara hoffman is my favorite right now. soft, fully lined, and reversible to pale pink as are the matching basketweave bikini bottoms. the pattern looks like a vibrant watercolor painting with some fuzzy edges. \r\n.\r\ni got the size 's' according to the size guide on the mara hoffman site. i'm 5'2\" currently 33-25-37ish without a bra on (bra size 30d, 32c, even a 28dd if i can find it). the front coverage is perfect. it also fits around the back, but i"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-5",
+      "state": {
+        "rating": 5,
+        "age": 48,
+        "helpful_votes": 3,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "A perfect go-to top. looks great with jeans - dark , faded or bright white. top it with a cardigan or wear it bare - it offers a flattering fit with its high-quality, textured fabric. i normally wear a small or medium top. an extra-small fits me perfectly."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-6",
+      "state": {
+        "rating": 5,
+        "age": 25,
+        "helpful_votes": 1,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "Bought this tank on a whim, but i'm so happy i did! so flattering, comfy and well made."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-7",
+      "state": {
+        "rating": 5,
+        "age": 28,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Fine gauge",
+        "review": "I got this in a petite xs; it's gorgeous and incredibly soft, great quality as well. my one little caveat is that it's very short; i'm 5'1 with a short torso and it still didn't get very far on me, but if you wear it with high-waited pants/skirt it's not a big deal"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-8",
+      "state": {
+        "rating": 5,
+        "age": 59,
+        "helpful_votes": 2,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "Very flattering and looks much better on than on the mannequin in store. i an in between small/medium and went with medium which was looser in back and did not show any lumps or bumps. great with jeans, pencil skirts and capris ."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-9",
+      "state": {
+        "rating": 5,
+        "age": 25,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "The blue lace with the white top underneath is very pretty. unfortunately i did not like how billowy it was below the bra line."
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "clothing-test-10",
+      "state": {
+        "rating": 3,
+        "age": 41,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "Cute dress but not for me.  the waist is too high and the sleeves are tight.  maybe on a different body type this dress would be perfect.  i returned it."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-11",
+      "state": {
+        "rating": 5,
+        "age": 59,
+        "helpful_votes": 2,
+        "division": "General",
+        "department": "Tops",
+        "category": "Sweaters",
+        "review": "This sweater does have a matching tie belt. it is detached, no belt loops. i'm guessing the previous reviewer accidentally threw it away with packing material. i loved this sweater on line. i could not bring myself to order it at full price. with tax it would have cost over $200, seemed too pricey for a sweater. when it was marked down to $99 with free shipping i couldn't hit buy fast enough. i was afraid it would sell out before i got through check out. my disappointment was the color. it is fa"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-12",
+      "state": {
+        "rating": 5,
+        "age": 34,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Bottoms",
+        "category": "Pants",
+        "review": "These pants are so comfortable and fit exactly as i expected. i love the variety of fun colors (i went with the gold). they are cooler than jeans, but just as versatile. i am 5'10\" and the length on me is the same as the model."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-13",
+      "state": {
+        "rating": 4,
+        "age": 53,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "The color and fabric are really soft and lovely. it runs big so you can get away with a size smaller of even 2 sizes smaller. it would look great paired with leggings and boots and a long sweater coat or with skinny jeans and sandals. this is going to be my new favorite."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-14",
+      "state": {
+        "rating": 2,
+        "age": 37,
+        "helpful_votes": 2,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "Material was a tad rough for my liking. the color did nothing for my olive complexion. given the price of this shirt (even with 20% off) i don't think it's worth it. if i'm spending $100+ on a blouse i need to love it and i do not love this one...going back."
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "clothing-test-15",
+      "state": {
+        "rating": 3,
+        "age": 56,
+        "helpful_votes": 20,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "I love the style of this top, and the longer length would be great with leggings and fitted shorts. it's somewhat fitted on the top yet it's a-line shape gives a full swing at the bottom. the ruffled v-neckline is pretty, and i like the longer length of the short sleeves. but with all these attributes, unfortunately they cut the armholes really big, so when you put your arms forward, the sleeves pull against your arms. i was trying to decide if i should keep it anyway, but for $98 dollars i thin"
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "clothing-test-16",
+      "state": {
+        "rating": 4,
+        "age": 29,
+        "helpful_votes": 4,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "It is a little boxy, but it?s not unflattering in my opinion. the sweatshirt material is soft, the ruffles keep their shape and position, and aren?t too overwhelming on my small frame. i like the small slits on the sides, they allow the sweater to drape nicely. it also hit at a flattering spot, a little below the hip. 5?1??, 100 lbs, and got the xxs petite. this fit true to size for me."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-17",
+      "state": {
+        "rating": 5,
+        "age": 36,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "Material is very soft and the cut is flattering. i got the yellow and pink. yellow is more of a brown color, but i still like it."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-18",
+      "state": {
+        "rating": 5,
+        "age": 56,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Sweaters",
+        "review": "This sweater runs oversized; very soft and comfortable and colors are spot on for fall. love the sleeve length."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-19",
+      "state": {
+        "rating": 4,
+        "age": 22,
+        "helpful_votes": 1,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "Ok so this top runs extremely large. for reference,i am a typical medium but i ended up purchasing an extra-small!!! besides the sizing issue, the style is super cute and perfect for any summer occasion whether casual or more formal. i definitely recommend! (ps. beware it does wrinkle easily lol...)"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-20",
+      "state": {
+        "rating": 3,
+        "age": 26,
+        "helpful_votes": 5,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "This top is not for a curvy figure. the embroidered part is gorgeous, very stunning, but the loose bottom part is awful. i am curvy and usually wear l or xl. this top was fitted at the top but very loose at the bottom, made me feel like i had a big tummy, and was a tad short. i am sending this back. this would look better on a more slender frame."
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "clothing-test-21",
+      "state": {
+        "rating": 5,
+        "age": 42,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "This top fits tts. the sweater part is cream, eyelet material is white. love it!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-22",
+      "state": {
+        "rating": 5,
+        "age": 29,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "Super soft, light fabric. this dress is perfect for work or the weekends. this brand is new to me but i'll definitely be checking out their stuff more in the future."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-23",
+      "state": {
+        "rating": 5,
+        "age": 42,
+        "helpful_votes": 2,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "The dress is absolutely beautiful. the fabric is light, the pattern is not overwhelming and has a zipper on the side to make it more fitted in the waist. the top is blousy, but i am only a c cup and it still was perfect. the bottom has an uneven cut that makes the dress very interesting. i love it. i am usually a size 2 or 4 and the size 4 was perfect."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-24",
+      "state": {
+        "rating": 3,
+        "age": 30,
+        "helpful_votes": 5,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Sweaters",
+        "review": "This sweater is incredibly soft and pretty, but there is just no way to get it to lay the way the model does in the picture. i found myself constantly tugging at the top to get it to stay off the shoulder - otherwise it just bunched up top and make a weird funnel neck. i really wanted it to work, but it was just so impractical."
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "clothing-test-25",
+      "state": {
+        "rating": 5,
+        "age": 55,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "I love this blouse! the details are beautiful and and it is so versatile! i can where it with jeans and boots or slim black pants and strappy sandals and get tons of compliments every time. one of my favorite retailer purchases ever!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-26",
+      "state": {
+        "rating": 2,
+        "age": 26,
+        "helpful_votes": 1,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "I wanted to love this as i love bright colored patterns. however, when i received the pattern was different than the one pictured and didn't appear as bright and the material was much different than i expected. could almost see through the shirt where it is white and is very thin.\n\nalso, i have a larger chest and a smaller waistline and the cut of the where the peplum began made me look larger than i actually am. i am a 36ddd and i normally where a size medium. a medium fit but like i said made"
+      },
+      "label": "not_recommended"
+    },
+    {
+      "id": "clothing-test-27",
+      "state": {
+        "rating": 5,
+        "age": 44,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Blouses",
+        "review": "I am obsessed with the off the shoulder trend this season. i were mind on the shoulders so its work appropriate, and you can still tuck it in. the length is perfect. the colors are awesome. t paired it with a pair of pilco cords. it easily work with a skirt or dress pants.\r\ni would highly recommend!!!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-28",
+      "state": {
+        "rating": 5,
+        "age": 38,
+        "helpful_votes": 1,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "I love this dress. it is a fun and flirty summer dress. i think it can be dressed up or worn casually. i am a 36c, 29\" waist, 40\" hips. i bought a size 8 and it fits me great. as others said, it is a little snug across the chest, but i think it is supposed to be. with the proper bra it fits very comfortably! i am going to wear it for mother's day brunch!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-29",
+      "state": {
+        "rating": 4,
+        "age": 23,
+        "helpful_votes": 3,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "This is a great dress that i wear to work, but would also wear to a cocktail party or wedding. it rides up a tiny but, but is long enough that i feel completely comfortable. it is tiny up top so i'd recommend ordering up if you have any chest - i'm 5'4\", 100lbs, bra size 32b and it was a two-person job to get the bodice zipped."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-30",
+      "state": {
+        "rating": 4,
+        "age": 40,
+        "helpful_votes": 4,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "I ordered the neutral one with the fine stripe. it will layer nicely with neutral colored sweaters and blazers. the fabric is soft. the quality is good. the neck is cool that you can wear it two ways. overall, it is a good top. i think it's a little clingy, which highlights every flaw, in the back especially. i wouldn't size up. i still think it fits tts."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-31",
+      "state": {
+        "rating": 4,
+        "age": 33,
+        "helpful_votes": 21,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "I purchased this in the store. i thought it was cute and unique. i like most things with a raw edge. i am 5'3\", 115 lbs and purchased an xs. i have worn it a couple of times and have received several compliments. my only complaint is that when i saw the pic online, i was annoyed. the top is much wider than the photo depicts. lying flat it measures 24\" side to side at the hem and 24-25\" from shoulder to hem. why take photos that misrepresent the item? there will only be more returns. so if you li"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-32",
+      "state": {
+        "rating": 4,
+        "age": 64,
+        "helpful_votes": 12,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "Just recd the neutral & navy in the size s, my usual size in tops at retailer. just a heads up - it's way oversized under the arms. in the fashion world probably falls under the category of a dolman style sleeve. also the fabric is nubby like/pilled look. similar fabric is the 'warm-up pullover' that i recently saw at the store. i have a feeling this may be a new trend. if you are ok w/ the oversized underarms & nubby fabric then order up. if hesitant, wait & visit the store... i love the look of"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-33",
+      "state": {
+        "rating": 5,
+        "age": 21,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Tops",
+        "category": "Sweaters",
+        "review": "I absolutley love this sweater. is is very cozy and warm and can be paired with many different outfits. i am upset i didn't get one in every color!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-34",
+      "state": {
+        "rating": 5,
+        "age": 40,
+        "helpful_votes": 1,
+        "division": "General",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "This dress fits like a dream and looks gorgeous on. i'm sure it will be a go to for many occasions."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-35",
+      "state": {
+        "rating": 5,
+        "age": 62,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Dresses",
+        "category": "Dresses",
+        "review": "I love this dress! easy breezy flowy comfortable & pink! fits a true medium ...would recommend to anyone. makes me a little flirty!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-36",
+      "state": {
+        "rating": 5,
+        "age": 74,
+        "helpful_votes": 0,
+        "division": "General Petite",
+        "department": "Bottoms",
+        "category": "Pants",
+        "review": "I tried a pair of the hyphen chinos on at retailer and loved them. they are comfortable and a great casual look. i bought two more pairs in different colors on line."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-37",
+      "state": {
+        "rating": 5,
+        "age": 60,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "Great tee! flows well and very soft. true to size!"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-38",
+      "state": {
+        "rating": 4,
+        "age": 56,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Knits",
+        "review": "I bought this in the white and it is super cute. more fitted at top, slightly belled at bottom and thankfully not see through"
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "clothing-test-39",
+      "state": {
+        "rating": 5,
+        "age": 83,
+        "helpful_votes": 0,
+        "division": "General",
+        "department": "Tops",
+        "category": "Sweaters",
+        "review": "I saw this and tried to wait for it to go on sale, but it sold so fast, i wanted the black and i check everyday until they had my size, i love this coat main because of the wait it goes around the neck since i am not a scarf person, this is very cute, im glad i got it, even at the full price."
+      },
+      "label": "recommended"
+    },
+    {
+      "id": "banking77-test-0",
+      "state": "Please delete my account.",
+      "label": "terminate_account"
+    },
+    {
+      "id": "banking77-test-1",
+      "state": "There's a debit on my account that I didn't do.",
+      "label": "direct_debit_payment_not_recognised"
+    },
+    {
+      "id": "banking77-test-2",
+      "state": "Where do I order a virtual card from?",
+      "label": "getting_virtual_card"
+    },
+    {
+      "id": "banking77-test-3",
+      "state": "Where is my card accepted?",
+      "label": "card_acceptance"
+    },
+    {
+      "id": "banking77-test-4",
+      "state": "If I want a physical card, do I have to pay anything?",
+      "label": "order_physical_card"
+    },
+    {
+      "id": "banking77-test-5",
+      "state": "What's the refund process?",
+      "label": "request_refund"
+    },
+    {
+      "id": "banking77-test-6",
+      "state": "I requested a refund and it is missing.",
+      "label": "Refund_not_showing_up"
+    },
+    {
+      "id": "banking77-test-7",
+      "state": "cash from this morning has not deposited",
+      "label": "balance_not_updated_after_cheque_or_cash_deposit"
+    },
+    {
+      "id": "banking77-test-8",
+      "state": "Fix your system. I can't make transfers, I've tried like 5 times already.",
+      "label": "failed_transfer"
+    },
+    {
+      "id": "banking77-test-9",
+      "state": "I need your help in deleting my account.",
+      "label": "terminate_account"
+    },
+    {
+      "id": "banking77-test-10",
+      "state": "I need help because I drunken blocked my card?",
+      "label": "pin_blocked"
+    },
+    {
+      "id": "banking77-test-11",
+      "state": "Is there any nearby ATM's?",
+      "label": "atm_support"
+    },
+    {
+      "id": "banking77-test-12",
+      "state": "Help me find my card pin!",
+      "label": "get_physical_card"
+    },
+    {
+      "id": "banking77-test-13",
+      "state": "I have friends that would like to top-up my account is that possible?",
+      "label": "topping_up_by_card"
+    },
+    {
+      "id": "banking77-test-14",
+      "state": "I had to pay in order to do a transfer",
+      "label": "transfer_fee_charged"
+    },
+    {
+      "id": "banking77-test-15",
+      "state": "What are the ways for others to transfer me money?",
+      "label": "receiving_money"
+    },
+    {
+      "id": "banking77-test-16",
+      "state": "My top-up was cancelled; will I receive a refund?",
+      "label": "top_up_reverted"
+    },
+    {
+      "id": "banking77-test-17",
+      "state": "I could not get my transfer to happen correctly and was wondering why?",
+      "label": "failed_transfer"
+    },
+    {
+      "id": "banking77-test-18",
+      "state": "Delete this account!",
+      "label": "terminate_account"
+    },
+    {
+      "id": "banking77-test-19",
+      "state": "Why is it asking me to verify my identity",
+      "label": "why_verify_identity"
+    },
+    {
+      "id": "banking77-test-20",
+      "state": "Can you delete my account please?",
+      "label": "terminate_account"
+    },
+    {
+      "id": "banking77-test-21",
+      "state": "Is my currency okay to add money with?",
+      "label": "supported_cards_and_currencies"
+    },
+    {
+      "id": "banking77-test-22",
+      "state": "Are PIN separately?",
+      "label": "get_physical_card"
+    },
+    {
+      "id": "banking77-test-23",
+      "state": "My card doesn't work.",
+      "label": "card_not_working"
+    },
+    {
+      "id": "banking77-test-24",
+      "state": "My transfer did not seem to work.",
+      "label": "failed_transfer"
+    },
+    {
+      "id": "banking77-test-25",
+      "state": "If I only have 1 other US card, can you take it?",
+      "label": "supported_cards_and_currencies"
+    },
+    {
+      "id": "banking77-test-26",
+      "state": "What methods can I use to add money to my account?",
+      "label": "transfer_into_account"
+    },
+    {
+      "id": "banking77-test-27",
+      "state": "How do I apply for a refund?",
+      "label": "request_refund"
+    },
+    {
+      "id": "banking77-test-28",
+      "state": "There is an extra charge on my app that I was not told about or I was aware of!",
+      "label": "extra_charge_on_statement"
+    },
+    {
+      "id": "banking77-test-29",
+      "state": "This company sucks! Can you terminate my account?",
+      "label": "terminate_account"
+    },
+    {
+      "id": "banking77-test-30",
+      "state": "My card was declined today when eating and I need to know what's wrong.",
+      "label": "card_not_working"
+    },
+    {
+      "id": "banking77-test-31",
+      "state": "I see a cash withdrawal that I did not perform.",
+      "label": "cash_withdrawal_not_recognised"
+    },
+    {
+      "id": "banking77-test-32",
+      "state": "I have a pending transfer",
+      "label": "pending_transfer"
+    },
+    {
+      "id": "banking77-test-33",
+      "state": "Why did my transfer not go through?",
+      "label": "failed_transfer"
+    },
+    {
+      "id": "banking77-test-34",
+      "state": "I transferred some money and it didint arrive",
+      "label": "transfer_not_received_by_recipient"
+    },
+    {
+      "id": "banking77-test-35",
+      "state": "Please advise what is the exchange rate",
+      "label": "exchange_rate"
+    },
+    {
+      "id": "banking77-test-36",
+      "state": "I finally got my new card and was very excited to use it today. However, my payment kept declining. What is happening?",
+      "label": "declined_card_payment"
+    },
+    {
+      "id": "banking77-test-37",
+      "state": "Can I use my card at any ATMs?",
+      "label": "atm_support"
+    },
+    {
+      "id": "banking77-test-38",
+      "state": "What's the limit on automatic top-up?",
+      "label": "automatic_top_up"
+    },
+    {
+      "id": "banking77-test-39",
+      "state": "What is the point of an identity check?",
+      "label": "why_verify_identity"
+    }
+  ]
+}

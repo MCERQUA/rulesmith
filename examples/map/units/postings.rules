@@ -1,0 +1,4 @@
+read has_company_logo in [0, 1]
+read length of company_profile in [0, 10000]
+when has_company_logo == 0 and length of company_profile == 0: fraudulent
+always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]

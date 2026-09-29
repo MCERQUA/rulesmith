@@ -1,0 +1,3 @@
+read rating in [-3, 9]
+when rating >= 4: recommended
+when rating < 3 or rating == 3: not_recommended
