@@ -1,27 +1,35 @@
-"""The Doom search chart, drawn from the searches' own reports.
+"""The game search chart, drawn from the searches' own reports.
 
-    python3 benchmarks/fitness.py runs/doom benchmarks/results/doom.json docs/assets/fitness.svg
+    python3 benchmarks/fitness.py runs/doom runs/chess \
+        benchmarks/results/games.json docs/assets/fitness.svg
 
-Every run directory `<task>-<seed>` under the first path holds a `report.json` from
-`rulesmith optimize` and, once the winner was scored, a `test.json`. The results file keeps
-what the chart needs from each, so the chart can be redrawn without the runs, and the chart
-shows the best validation score found so far against the metric calls spent finding it.
+Every run directory `<task>-<seed>` under the run paths holds a `report.json` from
+`rulesmith optimize` and, once the winner was scored, a `test.json`. The results file, the
+second to last argument, keeps what the chart needs from each, so the chart can be redrawn
+without the runs; the chart, the last argument, shows the best validation score found so far
+against the metric calls spent finding it: episodes for Doom, games for chess.
 """
 
 import json
 import sys
 from pathlib import Path
 
-TASKS = {"basic": "basic: kill one monster", "e1m1": "E1M1: play a full level"}
+TASKS = {
+    "basic": "basic: kill one monster",
+    "e1m1": "E1M1: play a full level",
+    "chess": "chess: survive Stockfish at skill 0",
+}
 COLORS = ["#1d4ed8", "#b45309", "#15803d", "#7e22ce"]
 PANEL, HEIGHT, LEFT, TOP, GAP = 420, 300, 48, 56, 40
 PLOT_HEIGHT = HEIGHT - TOP - 64
 
 
-def collect(runs: Path) -> dict:
+def collect(runs: list[Path]) -> dict:
     """What the chart and the write-up need from every finished search."""
     found = []
-    for report_path in sorted(runs.glob("*-*/report.json")):
+    for report_path in sorted(
+        path for runs_dir in runs for path in runs_dir.glob("*-*/report.json")
+    ):
         task, _, seed = report_path.parent.name.rpartition("-")
         if task not in TASKS or not seed.isdigit():
             continue
@@ -43,6 +51,8 @@ def collect(runs: Path) -> dict:
                 "resolved_models": report["resolved_models"],
             }
         )
+    # By task, in the order the chart draws them, then seed, whichever directory a run is in.
+    found.sort(key=lambda run: (list(TASKS).index(run["task"]), run["seed"]))
     return {"runs": found}
 
 
@@ -130,13 +140,14 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
     return out
 
 
-def main(runs: Path, results: Path, svg: Path) -> None:
+def main(*paths: Path) -> None:
+    *runs, results, svg = paths
     found = collect(runs)
     if not found["runs"]:
-        raise SystemExit(f"no finished searches under {runs}")
+        raise SystemExit(f"no finished searches under {', '.join(map(str, runs))}")
     results.write_text(json.dumps(found, indent=2) + "\n")
     svg.write_text(chart(found))
 
 
 if __name__ == "__main__":
-    main(*map(Path, sys.argv[1:4]))
+    main(*map(Path, sys.argv[1:]))

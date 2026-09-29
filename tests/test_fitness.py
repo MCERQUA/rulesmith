@@ -40,18 +40,21 @@ def test_the_chart_and_results_come_from_the_reports(tmp_path):
     runs = tmp_path / "runs"
     write_run(runs, "basic-0", [0.33, 0.9, 0.7], [0, 40, 90], test=0.94)
     write_run(runs, "basic-1", [0.33], [0])
-    write_run(runs, "chess-search", [0.2], [0])
-    fitness.main(runs, tmp_path / "doom.json", tmp_path / "fitness.svg")
-    results = json.loads((tmp_path / "doom.json").read_text())
-    # Only the Doom searches, with what was found and where the winner scored on test.
+    write_run(runs, "old-search", [0.2], [0])
+    games = tmp_path / "games"
+    write_run(games, "chess-0", [0.25, 0.3], [0, 500], test=0.22)
+    fitness.main(runs, games, tmp_path / "games.json", tmp_path / "fitness.svg")
+    results = json.loads((tmp_path / "games.json").read_text())
+    # Every game search, from every run directory, with what was found and its test score.
     assert [(r["task"], r["seed"], r["test"]) for r in results["runs"]] == [
         ("basic", 0, 0.94),
         ("basic", 1, None),
+        ("chess", 0, 0.22),
     ]
     svg = (tmp_path / "fitness.svg").read_text()
-    assert svg.count("<polyline") == 2
+    assert svg.count("<polyline") == 3 and "chess: survive Stockfish" in svg
     # A dot per improvement: the seed, then the candidate that beat it, not the one that did not.
-    assert svg.count("<circle") == 3
+    assert svg.count("<circle") == 5
     assert "seed 0 0.90, test 0.94" in svg and "seed 1 0.33" in svg
     assert re.search(r"<text[^>]*>basic: kill one monster</text>", svg)
 
