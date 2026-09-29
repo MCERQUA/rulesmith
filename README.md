@@ -424,8 +424,10 @@ flowchart TD
     n2(("fraudulent"))
     n3{{"judge<br/>choice: Is this job posting a scam?"}}
     n4(["decision<br/>first rule that answers"])
-    n0 -.->|"has_company_logo == 0 and length of company_profile == 0"| n2
-    n1 -.-> n2
+    c0["has_company_logo == 0 and length of company_profile == 0"]
+    n0 --> c0
+    n1 --> c0
+    c0 -.-> n2
     n2 -->|"1"| n4
     n3 -->|"2"| n4
     o0(("label"))
@@ -436,6 +438,8 @@ flowchart TD
     class n0,n1 read
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n2 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0 condition
 ```
 
 Rule 1 reads two fields and, when the posting has no logo and an empty company
@@ -686,8 +690,10 @@ flowchart TD
     n5(("queue_normal"))
     n6(["decision<br/>first rule that answers"])
     n1 -.->|"severity >= 3"| n2
-    n0 -.->|"severity >= 2 and variables.customer_tier >= 2"| n3
-    n1 -.-> n3
+    c0["severity >= 2 and variables.customer_tier >= 2"]
+    n0 --> c0
+    n1 --> c0
+    c0 -.-> n3
     n1 -.->|"severity >= 2"| n4
     n2 -->|"1"| n6
     n3 -->|"2"| n6
@@ -701,6 +707,8 @@ flowchart TD
     class n0 read
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n2,n3,n4,n5 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0 condition
 ```
 
 </details>
@@ -738,12 +746,16 @@ flowchart TD
     n8(("ship"))
     n9(["decision<br/>first rule that answers"])
     n0 -.->|"order.total >= 500"| n3
-    n2 -.->|"customer.orders >= 5 and order.total < 500"| n4
-    n0 -.-> n4
+    c0["customer.orders >= 5 and order.total < 500"]
+    n2 --> c0
+    n0 --> c0
+    c0 -.-> n4
     n0 -.->|"order.total < 50"| n5
     n3 -.->|"suspicious >= 0.7"| n6
-    n1 -.->|"suspicious >= 0.3 and order.country == rest"| n7
-    n3 -.-> n7
+    c1["suspicious >= 0.3 and order.country == rest"]
+    n1 --> c1
+    n3 --> c1
+    c1 -.-> n7
     n4 -->|"1"| n9
     n5 -->|"2"| n9
     n6 -->|"3"| n9
@@ -757,6 +769,8 @@ flowchart TD
     class n0,n1,n2 read
     classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
     class n4,n5,n6,n7,n8 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0,c1 condition
 ```
 
 </details>
@@ -865,10 +879,11 @@ flowchart TD
 The amber hexagon is the **judge**: the one step that calls a model, Jev or
 Ruling, whichever `--backend` runs the graph. The graph itself names no
 backend. Its box shows the name the rules test it by, `team`, so the dashed
-arrow `team == billing` reads as "the judge answered billing". The gray box on
-a dashed arrow is its condition, not a step: the rule at the arrow's end fires
-when the condition holds, and a condition that reads two values is written once,
-on the first of its arrows. Green circles
+arrow `team == billing` reads as "the judge answered billing". A condition is
+written in gray, and is a test rather than a step: on the dashed arrow itself
+when it reads one value, and as a box of its own, fed by each value it reads,
+when it reads several. Either way the rule at the dashed arrow's end fires when
+the condition holds. Green circles
 are the answers rules give, and the numbers on the arrows into `decision` are
 the order the rules are tried in. The first that answers decides; `sales` has
 no condition, so it answers whenever the two before it do not. A graph that

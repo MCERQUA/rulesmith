@@ -100,3 +100,18 @@ def test_the_arrows_into_a_list_of_rules_are_numbered_in_the_order_they_are_trie
     ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
     ranked = dict(re.findall(r'^\s*(\w+) -->\|"(\d+)"\| ', drawn, re.MULTILINE))
     assert [ranked[ids[source]] for source in plan.nodes["decision"].sources] == ["1", "2", "3"]
+
+
+def test_a_condition_over_two_values_is_drawn_between_both_and_the_rule():
+    # On one arrow, a condition reading two values looks like it belongs to one of them.
+    plan = compile_rules(
+        "read logo in [0, 1]\nread length of profile in [0, 9999]\n"
+        "when logo == 0 and length of profile == 0: scam\nalways: real"
+    )
+    drawn = mermaid(plan)
+    ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
+    (condition,) = [id_ for id_, text in boxes(drawn).items() if "logo == 0 and" in text]
+    fed = re.findall(rf"^\s*(\w+) --> {condition}$", drawn, re.MULTILINE)
+    assert sorted(fed) == sorted(ids[name] for name in ("read_logo", "read_length_profile"))
+    assert re.search(rf"^\s*{condition} -\.-> {ids['rule_1']}$", drawn, re.MULTILINE)
+    assert guards(drawn) == []

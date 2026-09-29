@@ -40,6 +40,7 @@ KINDS = {
 }
 STYLES = {
     "judge": "fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917",
+    "condition": "fill:#e5e7eb,stroke:#6b7280,color:#1c1917",
     "read": "fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917",
     "rule": "fill:#bbf7d0,stroke:#15803d,color:#1c1917",
 }
@@ -89,6 +90,7 @@ def mermaid(plan: Plan) -> str:
     # Mermaid joins boxes that share an id, and a node may be named like an output or anything
     # else, so ids are positions and the names go in the labels.
     ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}
+    conditions: list[str] = []
     for name, node in plan.nodes.items():
         open_shape, close_shape = SHAPES[type(node)]
         lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')
@@ -102,20 +104,28 @@ def mermaid(plan: Plan) -> str:
         for source in sorted(feeds(node)):
             lines.append(f"    {ids[source]} --> {ids[name]}")
         # A rule is often a bare value with a condition on it, so the guard has no data edge to
-        # ride on. Draw it as its own dashed arrow from whatever the condition reads.
+        # ride on. Over one value it is written on a dashed arrow from that value; over several
+        # it is a box of its own fed by each, or it would look as if it belonged to one of them.
         if node.when is not None:
             guard = safe(render_condition(node.when, reads, plan))
-            # Written once, on the first arrow; repeated on each, a long condition buries the
-            # drawing, and the other arrows still show what else it reads.
-            first, *others = sorted(tested(node.when))
-            lines.append(f'    {ids[first]} -.->|"{guard}"| {ids[name]}')
-            lines += [f"    {ids[source]} -.-> {ids[name]}" for source in others]
+            sources = sorted(tested(node.when))
+            if len(sources) == 1:
+                lines.append(f'    {ids[sources[0]]} -.->|"{guard}"| {ids[name]}')
+                continue
+            box = f"c{len(conditions)}"
+            conditions.append(box)
+            lines.append(f'    {box}["{guard}"]')
+            lines += [f"    {ids[source]} --> {box}" for source in sources]
+            lines.append(f"    {box} -.-> {ids[name]}")
     for index, (output, source) in enumerate(plan.outputs.items()):
         lines.append(f'    o{index}(("{safe(output)}"))')
         if isinstance(source, NodeInput):
             lines.append(f"    {ids[source.node]} --> o{index}")
-    for kind, types in KINDS.items():
-        members = [ids[name] for name, node in plan.nodes.items() if isinstance(node, types)]
+    styled = {
+        kind: [ids[name] for name, node in plan.nodes.items() if isinstance(node, types)]
+        for kind, types in KINDS.items()
+    } | {"condition": conditions}
+    for kind, members in styled.items():
         if members:
             lines.append(f"    classDef {kind} {STYLES[kind]}")
             lines.append(f"    class {','.join(members)} {kind}")
