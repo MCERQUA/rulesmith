@@ -63,6 +63,40 @@
       "resolved_models": []
     },
     {
+      "task": "e1m1",
+      "seed": 1,
+      "budget": 200,
+      "metric_calls": 200,
+      "validation_scores": [
+        0.21635244395643707,
+        0.31523912781570085,
+        0.2377510161682476,
+        0.260112784281322,
+        0.2960412862873782,
+        0.2714187715442471,
+        0.2801109104246887,
+        0.31042924415856055
+      ],
+      "discovered_at": [
+        0,
+        16,
+        44,
+        78,
+        88,
+        110,
+        138,
+        172
+      ],
+      "seed_validation_score": 0.21635244395643707,
+      "validation_score": 0.31523912781570085,
+      "test": 0.2625982859441521,
+      "reflection_model": "openrouter/qwen/qwen3.8-27b",
+      "backend": "ruling",
+      "resolved_models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ]
+    },
+    {
       "task": "chess",
       "seed": 0,
       "budget": 1000,

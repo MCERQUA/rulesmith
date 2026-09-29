@@ -14,34 +14,49 @@ flowchart LR
 
 ## Results
 
-![Search fitness: best validation score after each search round](assets/fitness.svg)
+![Search fitness: best validation score after each candidate, by metric calls spent](assets/fitness.svg)
 
-Each line stops where its run was stopped, and the panels are not comparable:
-each is a different task, and the duel panel is drawn on its own scale, where
-0.5 is a drawn match. Generation 2 is the jump that produced `duel-hunter`.
-Details and caveats are in the sections below.
+The chart is drawn by `benchmarks/fitness.py` from the searches' own reports,
+summarized in [benchmarks/results/games.json](../benchmarks/results/games.json).
+Every search in it ran with the same proposer, `openrouter/qwen/qwen3.8-27b`,
+and a local Ruling judge (`Qwen3.5-4B-4bit`, one option ordering per question);
+Doom searches had 200 episodes each and chess 1,000 games. A dot is a candidate
+that beat everything before it, a line ends where its search's budget ran out,
+and the label carries the winner's test score. The panels are not comparable:
+each is a different task, and each is scaled to its own scores.
 
-**`basic`** — kill one monster. From a graph that only strafes left, three
-rounds found one that strafes toward the monster and fires when it is centered.
-It kills the monster on all 12 of the task's seeds, including the 3 held out for
-test.
+**`basic`** — kill one monster. `benchmarks/doom.sh`, from the task's own
+baseline, a graph that only strafes left. Three search seeds found the same
+answer, strafe toward the monster and fire when it is centered, after 15, 15
+and 39 episodes: 0.33 → 0.97 on validation and 0.94 on the three held-out test
+seeds, every time. That is the task's ceiling, since every action costs reward.
 [gif](assets/doom/basic-seed12.gif) · [all 12](assets/doom/basic-reel.mp4)
 
-| Judge | Validation | Test |
-| --- | --- | --- |
-| Qwen3.6-35B-A3B via Ruling (local) | 0.33 → 0.97 | 0.94 |
-| Jev (`jev-1.13.0`, hosted) | 0.33 → 0.97 | 0.94 |
+**E1M1** — play a full level. `benchmarks/doom.sh`, from
+[e1m1-target.json](../examples/doom/graphs/e1m1-target.json), a hand-written
+graph that follows the route and asks the judge only whether a blocked way ahead
+is a door. Search seed 1, 200 episodes:
 
-**E1M1** — play a full level. Claude Sonnet 5 proposing, local 4B judge, a route
-to the exit computed from the map. The winner is 27 nodes of reads, no judge
-calls, and it finishes the level.
-[exit in 75 s](assets/doom/e1m1-exit.mp4) · [all five clears](assets/doom/e1m1-reel.mp4)
-· [rule by rule](#the-e1m1-exit-graph)
+| Search seed | Validation, seed → best | Test | Exited | Episode length |
+| --- | --- | --- | --- | --- |
+| 1 | 0.22 → 0.32 | 0.26 | 1 of 6 | 108–259 steps |
 
-| Seeds | Exited | Died | Best time |
-| --- | --- | --- | --- |
-| 1–6 (used by search) | 3 | 3 | 75 s |
-| 7–12 (held out) | 2 | 4 | 89 s |
+What search found is worth reading with the reward in mind. The starting graph
+survives the whole four minutes and scores 0.22; the winner runs the route,
+kills four or five monsters and usually dies inside 40 seconds, and scores
+more, because progress along the route and kills pay better than staying
+alive. It reached the exit on one held-out seed. Search seeds 0 and 2, given
+the same budget, are not in the chart: an episode of the starting graph asks
+the judge on nearly every step, about 1,400 calls, so each takes ten minutes on
+a local judge, and a 200-episode search fits the driver's ten-hour deadline
+only if search finds a graph that asks less early on, as seed 1 did at its
+16th episode. A seed that runs out of time leaves no report, and the chart
+shows only what finished rather than padding it with shorter runs.
+
+The graph in [the E1M1 exit graph](#the-e1m1-exit-graph) below, which exits
+on 5 of 12 seeds, came from an earlier run with Claude Sonnet 5 proposing,
+whose logs are not in the repo; it is a past result, not one the driver
+reproduces.
 
 **Arena** — graphs play each other, ranked by Elo from round-robin deathmatches.
 
