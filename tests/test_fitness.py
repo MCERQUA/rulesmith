@@ -66,6 +66,19 @@ def test_the_chart_and_results_come_from_the_reports(tmp_path):
     assert re.search(r"<text[^>]*>basic: kill one monster</text>", svg)
 
 
+def test_a_continuation_is_drawn_as_the_same_search_running_on(tmp_path):
+    runs = tmp_path / "runs"
+    write_run(runs, "basic-0", [0.33, 0.9], [0, 40], test=0.94)
+    # Seeded from the first winner, so its seed scores what the first ended on.
+    write_run(runs, "basic-0-more", [0.9, 0.95], [0, 100], test=0.96)
+    (found,) = fitness.collect([runs])["runs"]
+    assert found["stages"] == 2 and found["budget"] == 400 and found["metric_calls"] == 400
+    assert found["discovered_at"] == [0, 40, 200, 300]
+    assert found["validation_score"] == 0.95 and found["test"] == 0.96
+    svg = fitness.chart({"runs": [found]})
+    assert "seed 0 0.95, test 0.96" in svg and svg.count("<polyline") == 1
+
+
 @given(st.lists(st.floats(0, 1), min_size=2, max_size=8), st.floats(1, 20))
 def test_labels_are_spread_apart_without_reordering(positions, step):
     placed = fitness.spread(positions, step)

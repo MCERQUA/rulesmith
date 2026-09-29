@@ -4,10 +4,13 @@
         benchmarks/results/games.json docs/assets/fitness.svg --tasks basic,e1m1
 
 Every run directory `<task>-<seed>` under the run paths holds a `report.json` from
-`rulesmith optimize` and, once the winner was scored, a `test.json`. The results file keeps
-what the chart needs from every search found, so a chart can be redrawn without the runs; the
-chart shows, for the tasks asked for (all of them by default), the best validation score found
-so far against the metric calls spent finding it: episodes for Doom, games for chess.
+`rulesmith optimize` and, once the winner was scored, a `test.json`. A directory
+`<task>-<seed>-more` beside it is a continuation, a second search seeded from the first's
+winner, drawn as the same line running on with its budget added to the first's. The results
+file keeps what the chart needs from every search found, so a chart can be redrawn without
+the runs; the chart shows, for the tasks asked for (all of them by default), the best
+validation score found so far against the metric calls spent finding it: episodes for Doom,
+games for chess.
 """
 
 import argparse
@@ -64,24 +67,49 @@ def collect(runs: list[Path]) -> dict:
         report = json.loads(report_path.read_text())
         test_path = report_path.parent / "test.json"
         found.append(
-            {
-                "task": task,
-                "seed": int(seed),
-                "budget": report["search"]["max_metric_calls"],
-                "metric_calls": report["metric_calls"],
-                "validation_scores": report["validation_scores"],
-                "discovered_at": report["discovered_at"],
-                "seed_validation_score": report["seed_validation_score"],
-                "validation_score": report["validation_score"],
-                "test": json.loads(test_path.read_text())["score"] if test_path.exists() else None,
-                "reflection_model": report["reflection_model"],
-                "backend": report["backend"],
-                "resolved_models": report["resolved_models"],
-            }
+            continued(
+                report_path.parent,
+                {
+                    "task": task,
+                    "seed": int(seed),
+                    "budget": report["search"]["max_metric_calls"],
+                    "metric_calls": report["metric_calls"],
+                    "validation_scores": report["validation_scores"],
+                    "discovered_at": report["discovered_at"],
+                    "seed_validation_score": report["seed_validation_score"],
+                    "validation_score": report["validation_score"],
+                    "test": json.loads(test_path.read_text())["score"]
+                    if test_path.exists()
+                    else None,
+                    "reflection_model": report["reflection_model"],
+                    "backend": report["backend"],
+                    "resolved_models": report["resolved_models"],
+                },
+            )
         )
     # By task, in the order the chart draws them, then seed, whichever directory a run is in.
     found.sort(key=lambda run: (list(TASKS).index(run["task"]), run["seed"]))
     return {"runs": found}
+
+
+def continued(run_dir: Path, run: dict) -> dict:
+    """The run with its continuation, if one finished beside it, as one search: the second
+    search's candidates found after the first's budget, its winner's test score, and both
+    budgets together."""
+    more = run_dir.parent / f"{run_dir.name}-more"
+    if not (more / "report.json").exists():
+        return run
+    report = json.loads((more / "report.json").read_text())
+    offset = run["metric_calls"]
+    run["validation_scores"] = run["validation_scores"] + report["validation_scores"]
+    run["discovered_at"] = run["discovered_at"] + [offset + at for at in report["discovered_at"]]
+    run["metric_calls"] += report["metric_calls"]
+    run["budget"] += report["search"]["max_metric_calls"]
+    run["validation_score"] = max(run["validation_score"], report["validation_score"])
+    if (more / "test.json").exists():
+        run["test"] = json.loads((more / "test.json").read_text())["score"]
+    run["stages"] = 2
+    return run
 
 
 def best_so_far(run: dict) -> list[tuple[int, float]]:
