@@ -19,9 +19,10 @@ flowchart LR
 The chart is drawn by `benchmarks/fitness.py` from the searches' own reports,
 summarized in [benchmarks/results/games.json](../benchmarks/results/games.json).
 Every search in it ran with the same proposer, `openrouter/qwen/qwen3.8-27b`,
-a local Ruling judge (`Qwen3.5-4B-4bit`, one option ordering per question) and
-200 episodes; the [chess searches](chess.md#against-stockfish) have a chart of
-their own from the same file. A dot is a candidate
+a local Ruling judge (`Qwen3.5-4B-4bit`, one option ordering per question),
+`basic` with 200 episodes a seed and E1M1 with 600; the
+[chess searches](chess.md#against-stockfish) have a chart of their own from the
+same file. A dot is a candidate
 that beat everything before it, a line ends where its search's budget ran out,
 and the label carries the winner's test score. The panels are not comparable:
 each is a different task, and each is scaled to its own scores.
@@ -36,25 +37,31 @@ seeds, every time. That is the task's ceiling, since every action costs reward.
 **E1M1** — play a full level. `benchmarks/doom.sh`, from
 [e1m1-target.json](../examples/doom/graphs/e1m1-target.json), a hand-written
 graph that follows the route and asks the judge only whether a blocked way ahead
-is a door. Three search seeds, 200 episodes each:
+is a door. Search seeds with 600 episodes each; a first round of 200 episodes a
+seed had stopped while every seed was still improving, so the budget was tripled:
 
-| Search seed | Validation, seed → best | Test | Exited | Judge calls in the winner | Episode length |
+| Search seed | Validation, seed → best | Test | Exited | Judge calls in the winner | Last improvement at |
 | --- | --- | --- | --- | --- | --- |
-| 0 | 0.22 → 0.31 | 0.28 | 1 of 6 | none | 93–336 steps |
-| 1 | 0.22 → 0.32 | 0.26 | 1 of 6 | the door question | 108–259 steps |
-| 2 | 0.22 → 0.27 | 0.26 | 0 of 6 | the door question | 89–200 steps |
+| 0 | 0.22 → 0.29 | 0.24 | 0 of 6 | none | episode 534 |
+| 1 | 0.22 → 0.35 | 0.28 | 1 of 6 | none | episode 570 |
+| 2 | running | | | | |
+
+Both finished seeds were still finding improvements past episode 500, so 600 is
+not the ceiling either. The 200-episode round scored 0.31, 0.32 and 0.27 on
+validation; with three times the budget seed 1 went past its plateau and seed 0
+landed lower than its own shorter run, since the proposer samples at
+temperature 1 and the same search seed does not retrace the same path.
 
 What search found is worth reading with the reward in mind. The starting graph
 survives the whole four minutes and scores 0.22; every winner runs the route,
-kills three to ten monsters and usually dies inside a minute, and scores more,
-because progress along the route and kills pay better than staying alive. Two
-of the three reached the exit on one held-out seed each. The seeds agree on
-the shape of the answer and differ on the judge: seed 0's winner asks nothing,
-the other two keep the door question. How long each search took, from an hour
-and a half to three and a half hours, turned on how soon its candidates stopped
-asking the judge on nearly every step: an episode of the starting graph makes
-about 1,400 judge calls and takes ten minutes on a local judge, and one whose
-graph asks rarely takes seconds.
+kills several monsters and usually dies inside a minute, and scores more,
+because progress along the route and kills pay better than staying alive. Seed
+1 reached the exit on one held-out seed. Both winners dropped the judge
+entirely. How long a search takes turns on how soon its candidates stop asking
+the judge on nearly every step: an episode of the starting graph makes about
+1,400 judge calls and takes ten minutes on a local judge, and one whose graph
+asks rarely takes seconds, so the same 600-episode budget has run from three
+hours to most of a day.
 
 The graph in [the E1M1 exit graph](#the-e1m1-exit-graph) below, which exits
 on 5 of 12 seeds, came from an earlier run with Claude Sonnet 5 proposing,
