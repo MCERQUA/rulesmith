@@ -415,7 +415,8 @@ flowchart LR
 ```
 
 A graph search found for the [job-postings benchmark](docs/benchmarks.md), drawn
-with `rulesmith draw`:
+with `rulesmith draw` (the [legend](#look-at-what-a-graph-does) is with that
+command):
 
 ```mermaid
 flowchart TD
@@ -918,18 +919,20 @@ flowchart TD
     class c0,c1 condition
 ```
 
-The amber hexagon is the **judge**: the one step that calls a model, Jev or
-Ruling, whichever `--backend` runs the graph. The graph itself names no
-backend. Its box shows the name the rules test it by, `team`, so the gray
-box `team == billing` reads as "the judge answered billing". A gray box is a
-condition, a test rather than a step: solid arrows bring it each value it reads,
-and its dashed arrow leads to the rule that fires when it holds. Green circles
-are the answers rules give, and the numbers on the arrows into `decision` are
-the order the rules are tried in. The first that answers decides; `sales` has
-no condition, so it answers whenever the two before it do not. The thick arrow
-leads to the graph's output. A graph that
-reads fields, like the [job-postings one](#how-it-works) above, draws each
-reading as a blue slanted box: a value taken from the input for free.
+Legend, the same in every drawing:
+
+| Drawn as | What it is | Cost |
+| --- | --- | --- |
+| Amber hexagon, `judge` | A question to the model, Jev or Ruling, whichever `--backend` runs the graph; the graph itself names no backend | One model call |
+| Blue slanted box, `read` | A value taken from the input by path | Free |
+| Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
+| Green circle | The answer a rule gives when its condition holds | Free |
+| Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
+| Thick arrow | Leads to a graph output | |
+
+Here the judge is named `team`, the name the rules test it by, so the gray box
+`team == billing` reads as "the judge answered billing". `sales` has no
+condition, so it answers whenever the two rules before it do not.
 
 **`ablate`** answers what each reading, judgment and name is worth. It replays the
 decisions the graph already made with one input switched off and counts how many
