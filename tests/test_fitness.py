@@ -59,6 +59,21 @@ def test_the_chart_and_results_come_from_the_reports(tmp_path):
     assert re.search(r"<text[^>]*>basic: kill one monster</text>", svg)
 
 
+@given(st.lists(st.floats(0, 1), min_size=2, max_size=8), st.floats(1, 20))
+def test_labels_are_spread_apart_without_reordering(positions, step):
+    placed = fitness.spread(positions, step)
+    order = sorted(range(len(positions)), key=positions.__getitem__)
+    gaps = [placed[b] - placed[a] for a, b in zip(order, order[1:], strict=False)]
+    assert all(gap >= step - 1e-9 for gap in gaps)
+    assert all(placed[i] >= positions[i] for i in range(len(positions)))
+
+
+def test_a_panel_is_fitted_to_the_scores_it_shows():
+    runs = [{"validation_scores": [0.17, 0.26]}, {"validation_scores": [0.22, 0.27]}]
+    assert fitness.y_range(runs) == (0.1, 0.35)
+    assert fitness.y_range([{"validation_scores": [0.33, 0.97]}]) == (0.25, 1.0)
+
+
 @given(st.lists(st.floats(0, 1), min_size=1, max_size=20))
 def test_the_best_so_far_only_ever_rises(scores):
     run = {"validation_scores": scores, "discovered_at": list(range(len(scores)))}

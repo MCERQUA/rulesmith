@@ -11,6 +11,7 @@ against the metric calls spent finding it: episodes for Doom, games for chess.
 """
 
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -20,8 +21,10 @@ TASKS = {
     "chess": "chess: survive Stockfish at skill 0",
 }
 COLORS = ["#1d4ed8", "#b45309", "#15803d", "#7e22ce"]
-PANEL, HEIGHT, LEFT, TOP, GAP = 420, 300, 48, 56, 40
+PANEL, HEIGHT, LEFT, TOP, GAP = 460, 300, 48, 56, 40
 PLOT_HEIGHT = HEIGHT - TOP - 64
+# Room to the right of each plot for the end labels, and how far apart they must sit.
+LABEL_WIDTH, LABEL_STEP = 170, 14
 
 
 def collect(runs: list[Path]) -> dict:
@@ -87,19 +90,41 @@ def chart(results: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def y_range(runs: list[dict]) -> tuple[float, float]:
+    """The scores a panel shows, fitted to its runs in steps of 0.05 with a step of room, so a
+    task scored in a narrow band still shows its moves; the ticks say what the band is."""
+    scores = [score for run in runs for score in run["validation_scores"]]
+    low = max(0.0, math.floor(min(scores) / 0.05 - 1) * 0.05)
+    high = min(1.0, math.ceil(max(scores) / 0.05 + 1) * 0.05)
+    return round(low, 2), round(high, 2)
+
+
+def spread(positions: list[float], step: float) -> list[float]:
+    """The positions, each at least `step` below the one above it, so labels never overlap."""
+    order = sorted(range(len(positions)), key=positions.__getitem__)
+    placed, last = list(positions), None
+    for index in order:
+        placed[index] = positions[index] if last is None else max(positions[index], last + step)
+        last = placed[index]
+    return placed
+
+
 def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
-    plot_width = PANEL - 90
-    budget = max(max(run["budget"], run["metric_calls"]) for run in runs)
+    plot_width = PANEL - LABEL_WIDTH
+    budget = max(run["budget"] for run in runs)
+    span = max(budget, max(run["metric_calls"] for run in runs))
+    low, high = y_range(runs)
     y_bottom = TOP + 20 + PLOT_HEIGHT
 
     def x(calls: float) -> float:
-        return x0 + plot_width * calls / budget
+        return x0 + plot_width * calls / span
 
     def y(score: float) -> float:
-        return y_bottom - PLOT_HEIGHT * score
+        return y_bottom - PLOT_HEIGHT * (score - low) / (high - low)
 
     out = [f'<text x="{x0}" y="{TOP + 4}" font-weight="600" fill="#1c1917">{TASKS[task]}</text>']
-    for tick in (0, 0.25, 0.5, 0.75, 1):
+    ticks = [low + (high - low) * k / 4 for k in range(5)]
+    for tick in ticks:
         out.append(
             f'<line x1="{x0}" y1="{y(tick):.1f}" x2="{x0 + plot_width}" y2="{y(tick):.1f}" '
             'stroke="#e7e5e4"/>'
@@ -108,6 +133,7 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
             f'<text x="{x0 - 6}" y="{y(tick) + 4:.1f}" text-anchor="end" fill="#57534e">'
             f"{tick:.2f}</text>"
         )
+    # Ticks on the budget the runs were given; a run may overshoot it by one round.
     for tick in range(0, budget + 1, max(1, budget // 4)):
         out.append(
             f'<text x="{x(tick):.1f}" y="{y_bottom + 16}" text-anchor="middle" fill="#57534e">'
@@ -117,7 +143,10 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
         f'<text x="{x0 + plot_width / 2:.1f}" y="{y_bottom + 34}" text-anchor="middle" '
         'fill="#57534e">metric calls</text>'
     )
-    for run in sorted(runs, key=lambda run: run["seed"]):
+    ordered = sorted(runs, key=lambda run: run["seed"])
+    finals = [best_so_far(run)[-1][1] for run in ordered]
+    label_ys = spread([y(final) + 4 for final in finals], LABEL_STEP)
+    for run, label_y in zip(ordered, label_ys, strict=True):
         color = COLORS[run["seed"] % len(COLORS)]
         points = best_so_far(run)
         # A step line: the best stays until the next candidate beats it, then jumps.
@@ -134,7 +163,7 @@ def panel(x0: int, task: str, runs: list[dict]) -> list[str]:
         final = points[-1][1]
         tested = f", test {run['test']:.2f}" if run["test"] is not None else ""
         out.append(
-            f'<text x="{x(run["metric_calls"]) + 6:.1f}" y="{y(final) + 4:.1f}" fill="{color}">'
+            f'<text x="{x(run["metric_calls"]) + 6:.1f}" y="{label_y:.1f}" fill="{color}">'
             f"seed {run['seed']} {final:.2f}{tested}</text>"
         )
     return out
