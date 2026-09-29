@@ -865,7 +865,10 @@ flowchart TD
 The amber hexagon is the **judge**: the one step that calls a model, Jev or
 Ruling, whichever `--backend` runs the graph. The graph itself names no
 backend. Its box shows the name the rules test it by, `team`, so the dashed
-arrow `team == billing` reads as "the judge answered billing". Green circles
+arrow `team == billing` reads as "the judge answered billing". The gray box on
+a dashed arrow is its condition, not a step: the rule at the arrow's end fires
+when the condition holds, and a condition that reads two values is written once,
+on the first of its arrows. Green circles
 are the answers rules give, and the numbers on the arrows into `decision` are
 the order the rules are tried in. The first that answers decides; `sales` has
 no condition, so it answers whenever the two before it do not. A graph that
