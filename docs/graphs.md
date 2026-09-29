@@ -124,19 +124,113 @@ required categorical value whose possible values are all task labels.
 
 ## Looking at a graph
 
+Two commands for reading a graph rather than running it.
+
+**`draw`** writes it as a Mermaid flowchart, which is the readable form for the
+graphs rules cannot express: solid arrows carry values, a gray box is a
+condition, and a dashed arrow leads from a condition to the rule it gates.
+
 ```sh
-uv run rulesmith draw plan.json
-uv run rulesmith ablate task.json plan.json --split validation --backend ruling
+uv run rulesmith draw examples/rules/routing.rules
 ```
 
-`draw` writes the graph as a Mermaid flowchart. A `call` is an amber hexagon
-labeled `judge`, a `read` a blue slanted box, a `value` or `threshold` a green
-circle, and a `coalesce` a rounded box whose inputs are numbered in the order
-they are tried. Solid arrows carry values, a gray box is a condition fed by each
-value it reads, a dashed arrow leads from a condition to the node it gates, and a
-thick arrow leads to an output. `ablate` suppresses each
-`read` and `call` in turn over a split's states and reports how many decisions
-change. The judge answers each state once; the replays reuse those answers.
+Output, as GitHub renders it:
+
+```mermaid
+flowchart TD
+    n0{{"judge: team<br/>choice: Which team should answer this ticket?"}}
+    n1(("billing"))
+    n2(("technical"))
+    n3(("sales"))
+    n4(["decision<br/>first that answers"])
+    c0["team == billing"]
+    n0 --> c0
+    c0 -.-> n1
+    c1["team == technical"]
+    n0 --> c1
+    c1 -.-> n2
+    n1 -->|"1"| n4
+    n2 -->|"2"| n4
+    n3 -->|"3"| n4
+    o0(("label"))
+    n4 ==> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n0 judge
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n1,n2,n3 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0,c1 condition
+```
+
+Legend, the same in every drawing:
+
+| | Drawn as | What it is | Cost |
+| --- | --- | --- | --- |
+| <img src="assets/legend/judge.svg" width="64" height="36" alt=""> | Amber hexagon, `judge` | A question to the model, Jev or Ruling, whichever `--backend` runs the graph; the graph itself names no backend | One model call |
+| <img src="assets/legend/read.svg" width="64" height="36" alt=""> | Blue slanted box, `read` | A value taken from the input by path | Free |
+| <img src="assets/legend/condition.svg" width="64" height="36" alt=""> | Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
+| <img src="assets/legend/rule.svg" width="64" height="36" alt=""> | Green circle | The answer a rule gives when its condition holds | Free |
+| <img src="assets/legend/list.svg" width="64" height="36" alt=""> | Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
+| <img src="assets/legend/value.svg" width="64" height="36" alt=""> | Solid arrow | Carries a value | |
+| <img src="assets/legend/gate.svg" width="64" height="36" alt=""> | Dashed arrow | Gates: leads from a condition to what fires when it holds | |
+| <img src="assets/legend/output.svg" width="64" height="36" alt=""> | Thick arrow | Leads to a graph output | |
+
+Here the judge is named `team`, the name the rules test it by, so the gray box
+`team == billing` reads as "the judge answered billing". `sales` has no
+condition, so it answers whenever the two rules before it do not.
+
+**`ablate`** answers what each reading, judgment and name is worth. It replays the
+decisions the graph already made with one input switched off and counts how many
+change, so it needs no fresh model calls beyond the first pass:
+
+```sh
+uv run rulesmith ablate task.json plan.json --split validation \
+  --backend ruling --output runs/ablation.json
+```
+
+Output, for the graph built in the quickstart:
+
+```json
+{
+  "states": 3,
+  "effects": [
+    {
+      "node": "intent",
+      "kind": "ask",
+      "changed": 2,
+      "share": 0.6667,
+      "reason": ""
+    }
+  ]
+}
+```
+
+The command reads its states from a task's examples. A Doom or chess task keeps
+seeds instead, so for those, record the observations a graph saw and pass them to
+`effects(plan, states)` in `rulesmith.ablate`. Run that way against the
+best graph the chess league produced,
+[league-best.json](../examples/chess/graphs/league-best.json), over 116 positions
+from one game (a past run; the script that recorded the positions is not in the
+repo):
+
+```
+reading                       changed   share   why not
+capture.best_gain                  99     85%
+hanging.worst                       9      8%
+king.in_check                       3      3%
+check.available                     1      1%
+king.can_castle                     0      0%   present in 116 of 116 states and changes no decision
+```
+
+That last line is a rule the graph carries and never uses: `king.can_castle` is
+there in every position, and the two rules above it fire first every time
+castling is legal. A zero row means one of three things and the report says
+which, because they are different problems: a path the state never has is a
+typo, a rule an earlier one always beats is dead weight, and a threshold real
+data never trips is a number chosen badly.
+
+Search spends its budget rewriting whatever is in the graph, so rules that
+cannot matter are rules the proposer wastes proposals on.
 
 ## Writing a graph by hand
 

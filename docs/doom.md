@@ -306,7 +306,7 @@ cannot separate them cannot select between them either.
 
 [duel-jev.json](../examples/doom/graphs/duel-jev.json) is also included for
 comparison. It uses a judge call to choose combat actions, so running it requires
-a configured [backend](../README.md#backends).
+a configured [backend](cli.md#backends).
 
 ## Graphs
 

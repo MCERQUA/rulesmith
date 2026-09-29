@@ -90,7 +90,7 @@ Reports also record resolved model IDs, dependency versions, settings, and
 task/seed hashes.
 
 Search drops any rule counts the starting graph carries (see
-[measuring rules](../README.md#how-sure-a-rule-is)), since they describe that
+[measuring rules](rules.md#how-sure-a-rule-is)), since they describe that
 graph and not its rewrites. Run `rulesmith calibrate` on the graph search returns.
 
 ## From Python
@@ -162,60 +162,5 @@ shows the pipeline works end to end, not a benchmark result.
 
 ## What search writes
 
-A candidate is a rule list, not graph JSON. It compiles to the graph language and
-renders back from it, so the runtime, the validators and the saved `plan.json` are
-unchanged: only the surface a proposer writes is different.
-
-```
-read variables.HEALTH in [0, 200]
-read compass.2.bearing in [-180, 180]
-ask threat = "Fight or fall back?" [fight: "Ammo and health allow it."] [flee: "They do not."] when variables.HEALTH < 40
-when variables.HEALTH >= 25 and threat == "fight": ATTACK
-when compass.2.bearing >= 45: TURN_LEFT
-always: MOVE_FORWARD
-```
-
-- **Readings** declare what the program may look at: `read <path> in [low, high]`,
-  `read <path> one of [a, b]`, `read length of <path> in [low, high]` for how long a text or list is (tested as
-  `length of <path> < 20`), `read <name> = <path> in [low, high]` to give a
-  reading a name the rules use instead of its path, or `ask <name> = "question" [label: "when it applies"] ...`
-  for a judgment, which may end `when <condition>` to be asked only then. A judgment
-  reads the whole input unless it names what it is shown with `given [a, b]`;
-  `observation` in that list is the whole input. `[task labels]` in place of the
-  labels, as in `ask intent = "Which intent is this?" [task labels]`, asks over
-  every task label as the task's `descriptions` describe it. A choice over exactly
-  those, in the task's order, is shown to the proposer in this short form.
-- **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
-  An action is a label, a conditional such as
-  `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`, or an ask without a name, whose
-  answer is the label: `always: ask "Fight or fall back?" [ATTACK: "Ammo and health allow it."] [MOVE_BACKWARD: "They do not."]`.
-- **Conditions** join with `and` and `or`, group with parentheses, invert with `not`,
-  name a reading to test that it has a value, or compare one with `>=`, `>`, `<=`, `<`
-  or `==`, against a number, a quoted label, or another reading
-  (`capture.best_gain > hanging.worst`). The graph compares with three of those;
-  `<=` and `>` compile to the same thing said longhand. `threat.confidence` is how
-  sure the judgment `threat` was.
-- **Names** stand for a condition the rules test more than once:
-  `let armed = ammo >= 1 and health >= 25`, then `when armed: ATTACK`. A name is
-  declared before the rules that use it and cannot reuse a reading's or judgment's
-  name. It compiles to a node, so it comes back as `armed` when the graph is
-  rendered, not as the condition written out again. `let` also computes a number:
-  `let margin = 2 * gain - worst + 1` adds, subtracts and scales readings.
-- **Votes** settle several choice judgments into one value:
-  `vote verdict = agree of [first, second]` or `vote verdict = majority of [a, b, c]`.
-- **Outputs** beyond the label each get a rule list of their own, after the
-  label's, under an `output <name>:` heading. Search scores the label only.
-- **Measurements** are what `rulesmith calibrate` writes and search never invents.
-  A judgment may end `calibrated 1.8`, the temperature fitted to how sure it
-  should read; a rule may end `calibrated 37/40 of 100`, how many of the labeled
-  examples it decided and how many rightly. Search drops a starting graph's rule
-  measurements, since they describe that graph and not its rewrites, and the
-  proposer is told to keep a temperature as written.
-- The two parts, readings and rules, are revised separately and may be merged
-  between candidates. A rules part may declare any reading its rules need.
-- A program beyond rules is proposed as whole-graph JSON, which is accepted as the
-  complete program.
-
-Why: in past runs, two fifths of proposals against a 36-node graph scored zero, not because the
-graphs played badly but because the JSON came back malformed. Every searched graph
-had the same shape anyway, so that shape became the surface.
+A rule list, not graph JSON: the language is in [Rules](rules.md), with its
+[reference](rules.md#reference).
