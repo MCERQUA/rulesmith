@@ -921,14 +921,16 @@ flowchart TD
 
 Legend, the same in every drawing:
 
-| Drawn as | What it is | Cost |
-| --- | --- | --- |
-| Amber hexagon, `judge` | A question to the model, Jev or Ruling, whichever `--backend` runs the graph; the graph itself names no backend | One model call |
-| Blue slanted box, `read` | A value taken from the input by path | Free |
-| Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
-| Green circle | The answer a rule gives when its condition holds | Free |
-| Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
-| Thick arrow | Leads to a graph output | |
+| | Drawn as | What it is | Cost |
+| --- | --- | --- | --- |
+| <img src="docs/assets/legend/judge.svg" width="64" height="36" alt=""> | Amber hexagon, `judge` | A question to the model, Jev or Ruling, whichever `--backend` runs the graph; the graph itself names no backend | One model call |
+| <img src="docs/assets/legend/read.svg" width="64" height="36" alt=""> | Blue slanted box, `read` | A value taken from the input by path | Free |
+| <img src="docs/assets/legend/condition.svg" width="64" height="36" alt=""> | Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
+| <img src="docs/assets/legend/rule.svg" width="64" height="36" alt=""> | Green circle | The answer a rule gives when its condition holds | Free |
+| <img src="docs/assets/legend/list.svg" width="64" height="36" alt=""> | Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
+| <img src="docs/assets/legend/value.svg" width="64" height="36" alt=""> | Solid arrow | Carries a value | |
+| <img src="docs/assets/legend/gate.svg" width="64" height="36" alt=""> | Dashed arrow | Gates: leads from a condition to what fires when it holds | |
+| <img src="docs/assets/legend/output.svg" width="64" height="36" alt=""> | Thick arrow | Leads to a graph output | |
 
 Here the judge is named `team`, the name the rules test it by, so the gray box
 `team == billing` reads as "the judge answered billing". `sales` has no
