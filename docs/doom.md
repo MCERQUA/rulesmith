@@ -35,23 +35,25 @@ seeds, every time. That is the task's ceiling, since every action costs reward.
 **E1M1** — play a full level. `benchmarks/doom.sh`, from
 [e1m1-target.json](../examples/doom/graphs/e1m1-target.json), a hand-written
 graph that follows the route and asks the judge only whether a blocked way ahead
-is a door. Search seed 1, 200 episodes:
+is a door. Three search seeds, 200 episodes each:
 
-| Search seed | Validation, seed → best | Test | Exited | Episode length |
-| --- | --- | --- | --- | --- |
-| 1 | 0.22 → 0.32 | 0.26 | 1 of 6 | 108–259 steps |
+| Search seed | Validation, seed → best | Test | Exited | Judge calls in the winner | Episode length |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 0.22 → 0.31 | 0.28 | 1 of 6 | none | 93–336 steps |
+| 1 | 0.22 → 0.32 | 0.26 | 1 of 6 | the door question | 108–259 steps |
+| 2 | 0.22 → 0.27 | 0.26 | 0 of 6 | the door question | 89–200 steps |
 
 What search found is worth reading with the reward in mind. The starting graph
-survives the whole four minutes and scores 0.22; the winner runs the route,
-kills four or five monsters and usually dies inside 40 seconds, and scores
-more, because progress along the route and kills pay better than staying
-alive. It reached the exit on one held-out seed. Search seeds 0 and 2, given
-the same budget, are not in the chart: an episode of the starting graph asks
-the judge on nearly every step, about 1,400 calls, so each takes ten minutes on
-a local judge, and a 200-episode search fits the driver's ten-hour deadline
-only if search finds a graph that asks less early on, as seed 1 did at its
-16th episode. A seed that runs out of time leaves no report, and the chart
-shows only what finished rather than padding it with shorter runs.
+survives the whole four minutes and scores 0.22; every winner runs the route,
+kills three to ten monsters and usually dies inside a minute, and scores more,
+because progress along the route and kills pay better than staying alive. Two
+of the three reached the exit on one held-out seed each. The seeds agree on
+the shape of the answer and differ on the judge: seed 0's winner asks nothing,
+the other two keep the door question. How long each search took, from an hour
+and a half to three and a half hours, turned on how soon its candidates stopped
+asking the judge on nearly every step: an episode of the starting graph makes
+about 1,400 judge calls and takes ten minutes on a local judge, and one whose
+graph asks rarely takes seconds.
 
 The graph in [the E1M1 exit graph](#the-e1m1-exit-graph) below, which exits
 on 5 of 12 seeds, came from an earlier run with Claude Sonnet 5 proposing,

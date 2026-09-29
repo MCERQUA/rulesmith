@@ -64,6 +64,46 @@
     },
     {
       "task": "e1m1",
+      "seed": 0,
+      "budget": 200,
+      "metric_calls": 200,
+      "validation_scores": [
+        0.21635244395643707,
+        0.2494866891396004,
+        0.2121511849750113,
+        0.2228009758919669,
+        0.21572889965861386,
+        0.27634013670023866,
+        0.20486020375828362,
+        0.31141640008073634,
+        0.2584485868633763,
+        0.2933081420642706,
+        0.2158447150833846
+      ],
+      "discovered_at": [
+        0,
+        10,
+        20,
+        30,
+        46,
+        56,
+        72,
+        88,
+        128,
+        138,
+        190
+      ],
+      "seed_validation_score": 0.21635244395643707,
+      "validation_score": 0.31141640008073634,
+      "test": 0.2761808477404648,
+      "reflection_model": "openrouter/qwen/qwen3.8-27b",
+      "backend": "ruling",
+      "resolved_models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ]
+    },
+    {
+      "task": "e1m1",
       "seed": 1,
       "budget": 200,
       "metric_calls": 200,
@@ -90,6 +130,42 @@
       "seed_validation_score": 0.21635244395643707,
       "validation_score": 0.31523912781570085,
       "test": 0.2625982859441521,
+      "reflection_model": "openrouter/qwen/qwen3.8-27b",
+      "backend": "ruling",
+      "resolved_models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ]
+    },
+    {
+      "task": "e1m1",
+      "seed": 2,
+      "budget": 200,
+      "metric_calls": 204,
+      "validation_scores": [
+        0.21635244395643707,
+        0.21683552550886756,
+        0.22091876769914487,
+        0.21546310176891187,
+        0.21572889965861386,
+        0.2407726574846408,
+        0.2682688269726883,
+        0.2275930457224575,
+        0.2740987035501885
+      ],
+      "discovered_at": [
+        0,
+        10,
+        32,
+        42,
+        112,
+        128,
+        156,
+        190,
+        200
+      ],
+      "seed_validation_score": 0.21635244395643707,
+      "validation_score": 0.2740987035501885,
+      "test": 0.25639290678222443,
       "reflection_model": "openrouter/qwen/qwen3.8-27b",
       "backend": "ruling",
       "resolved_models": [

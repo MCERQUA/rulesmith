@@ -92,5 +92,5 @@ for task in $TASKS; do
 done
 kill $stopper 2>/dev/null
 rm -f $LOGS/driver.pid
-uv run python3 benchmarks/fitness.py $LOGS benchmarks/results/doom.json docs/assets/fitness.svg \
-  && note "all finished; chart rebuilt" || note "chart not rebuilt; see above"
+uv run python3 benchmarks/fitness.py runs/doom runs/chess benchmarks/results/games.json \
+  docs/assets/fitness.svg && note "all finished; chart rebuilt" || note "chart not rebuilt; see above"

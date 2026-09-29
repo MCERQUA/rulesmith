@@ -43,15 +43,29 @@
 <line x1="548" y1="76.0" x2="838" y2="76.0" stroke="#e7e5e4"/>
 <text x="542" y="80.0" text-anchor="end" fill="#57534e">0.40</text>
 <text x="548.0" y="272" text-anchor="middle" fill="#57534e">0</text>
-<text x="620.5" y="272" text-anchor="middle" fill="#57534e">50</text>
-<text x="693.0" y="272" text-anchor="middle" fill="#57534e">100</text>
-<text x="765.5" y="272" text-anchor="middle" fill="#57534e">150</text>
-<text x="838.0" y="272" text-anchor="middle" fill="#57534e">200</text>
+<text x="619.1" y="272" text-anchor="middle" fill="#57534e">50</text>
+<text x="690.2" y="272" text-anchor="middle" fill="#57534e">100</text>
+<text x="761.2" y="272" text-anchor="middle" fill="#57534e">150</text>
+<text x="832.3" y="272" text-anchor="middle" fill="#57534e">200</text>
 <text x="693.0" y="290" text-anchor="middle" fill="#57534e">metric calls</text>
-<polyline points="548.0,208.2 571.2,208.2 571.2,137.0 838.0,137.0" fill="none" stroke="#b45309" stroke-width="2"/>
+<polyline points="548.0,208.2 562.2,208.2 562.2,184.4 627.6,184.4 627.6,165.0 673.1,165.0 673.1,139.8 832.3,139.8" fill="none" stroke="#1d4ed8" stroke-width="2"/>
+<circle cx="548.0" cy="208.2" r="3.5" fill="#1d4ed8"/>
+<circle cx="562.2" cy="184.4" r="3.5" fill="#1d4ed8"/>
+<circle cx="627.6" cy="165.0" r="3.5" fill="#1d4ed8"/>
+<circle cx="673.1" cy="139.8" r="3.5" fill="#1d4ed8"/>
+<text x="838.3" y="155.0" fill="#1d4ed8">seed 0 0.31, test 0.28</text>
+<polyline points="548.0,208.2 570.7,208.2 570.7,137.0 832.3,137.0" fill="none" stroke="#b45309" stroke-width="2"/>
 <circle cx="548.0" cy="208.2" r="3.5" fill="#b45309"/>
-<circle cx="571.2" cy="137.0" r="3.5" fill="#b45309"/>
-<text x="844.0" y="141.0" fill="#b45309">seed 1 0.32, test 0.26</text>
+<circle cx="570.7" cy="137.0" r="3.5" fill="#b45309"/>
+<text x="838.3" y="141.0" fill="#b45309">seed 1 0.32, test 0.26</text>
+<polyline points="548.0,208.2 562.2,208.2 562.2,207.9 593.5,207.9 593.5,204.9 730.0,204.9 730.0,190.6 769.8,190.6 769.8,170.8 832.3,170.8 832.3,166.6 838.0,166.6" fill="none" stroke="#15803d" stroke-width="2"/>
+<circle cx="548.0" cy="208.2" r="3.5" fill="#15803d"/>
+<circle cx="562.2" cy="207.9" r="3.5" fill="#15803d"/>
+<circle cx="593.5" cy="204.9" r="3.5" fill="#15803d"/>
+<circle cx="730.0" cy="190.6" r="3.5" fill="#15803d"/>
+<circle cx="769.8" cy="170.8" r="3.5" fill="#15803d"/>
+<circle cx="832.3" cy="166.6" r="3.5" fill="#15803d"/>
+<text x="844.0" y="170.6" fill="#15803d">seed 2 0.27, test 0.26</text>
 <text x="1048" y="60" font-weight="600" fill="#1c1917">chess: survive Stockfish at skill 0</text>
 <line x1="1048" y1="256.0" x2="1338" y2="256.0" stroke="#e7e5e4"/>
 <text x="1042" y="260.0" text-anchor="end" fill="#57534e">0.05</text>
