@@ -20,7 +20,7 @@ The chart is drawn by `benchmarks/fitness.py` from the searches' own reports,
 summarized in [benchmarks/results/games.json](../benchmarks/results/games.json).
 Every search in it ran with the same proposer, `openrouter/qwen/qwen3.8-27b`,
 a local Ruling judge (`Qwen3.5-4B-4bit`, one option ordering per question),
-`basic` with 200 episodes a seed and E1M1 with 600; the
+`basic` with 200 episodes a seed and E1M1 with 600 and then up to 1,400 more; the
 [chess searches](chess.md#against-stockfish) have a chart of their own from the
 same file. A dot is a candidate
 that beat everything before it, a line ends where its search's budget ran out,
@@ -38,7 +38,8 @@ seeds, every time. That is the task's ceiling, since every action costs reward.
 [e1m1-target.json](../examples/doom/graphs/e1m1-target.json), a hand-written
 graph that follows the route and asks the judge only whether a blocked way ahead
 is a door. Search seeds with 600 episodes each; a first round of 200 episodes a
-seed had stopped while every seed was still improving, so the budget was tripled:
+seed had stopped while every seed was still improving, so the budget was tripled,
+and each winner was then searched further from where it stood:
 
 | Search seed | Validation, seed → best | Test | Exited | Judge calls in the winner | Last candidate kept at |
 | --- | --- | --- | --- | --- | --- |
@@ -54,6 +55,30 @@ plateau, seed 2 matched its shorter run, and seed 0 landed lower than its own,
 since the proposer samples at temperature 1 and the same search seed does not
 retrace the same path.
 
+Each 600-episode winner was then made the starting graph of a new search with
+1,400 more episodes. Seed 1 spent its whole budget; seeds 0 and 2 were stopped
+after their current round, with `gepa.stop`, to leave proposer credits for it,
+and can be resumed:
+
+| Search seed | More episodes | Validation, from → best | Test | Exited |
+| --- | --- | --- | --- | --- |
+| 0 | 182, stopped | 0.29 → 0.29 | 0.24 | 0 of 6 |
+| 1 | 1,400 | 0.35 → 0.44 | 0.38 | 2 of 6 |
+| 2 | 254, stopped | 0.27 → 0.39 | 0.31 | 0 of 6 |
+
+Seed 1's continuation found its one improvement at its 86th episode, a rewrite
+of the stuck rules: declare stuck after 8 visits to a cell instead of 12, turn
+onto the route while moving forward instead of backing up, read health, and back
+off from a fight below 10. It kept 34 more candidates in the 1,300 episodes
+after that and none scored higher. That winner reaches the exit on two of the
+six held-out seeds, the first exits from any search here past 200 episodes,
+scoring 0.58 on those two and 0.22 to 0.30 on the rest. Seed 2's continuation
+traded its strategy: the graph that survived four minutes gave way to one that
+runs the route, kills two to five monsters and dies within 200 steps on every
+test seed, and scores more for it. Seed 0's 182 episodes kept one candidate, no
+better than its start. The continuation of seed 1 took six hours, most of it
+proposer time, at about a dollar an hour of proposer calls.
+
 What search found is worth reading with the reward in mind. The starting graph
 survives the whole four minutes and scores 0.22. Seeds 0 and 1 found graphs
 that run the route, kill several monsters and usually die inside a minute, and
@@ -61,7 +86,7 @@ score more, because progress along the route and kills pay better than staying
 alive. Seed 2 found the other way to score: a graph that survives the full four
 minutes on five of six test seeds and scores its points on the way. None of the
 three reaches the exit on a held-out seed; the 200-episode round's winners for
-seeds 0 and 1 each did, once. Exits are counted by the environment, from the
+seeds 0 and 1 each did, once, and seed 1's continuation does twice. Exits are counted by the environment, from the
 exit bonus paid in an episode's final step, since a fast death after a long run
 scores like an exit without being one. All three winners dropped the judge
 entirely. How long a search takes turns on how soon
