@@ -143,6 +143,18 @@ scored 2.51. That is the honest finding about this judge, not a failure of the
 fit: on the score scale a 4B model does not separate blocked from outage by
 more than a few hundredths, and no single line on it will.
 
+The benchmark data gives the fit a larger test. A one-question graph over the
+jobs postings, `ask scam = "Is this job posting a scam?"` and `when scam >=
+0.5: fraudulent`, fitted on 200 training postings: the judge almost never says
+scam, half the scams in the test rows get 0.04 or less, so the line moves to
+0.057, and on 300 test postings accuracy goes from 0.59 to 0.64 (McNemar
+p = 0.016), on 100 validation postings from 0.66 to 0.67. The same graph over
+the clothing reviews keeps its line: the judge already puts recommended
+reviews at 0.98 and the rest at 0.06, and 0.92 on test is what it was. The fit
+corrects a judge's scale where it is off and leaves it where it is right; it
+does not turn a direct question into the searched graph, which scores 0.80 on
+the same postings.
+
 ## How sure a rule is
 
 Every decision reports `decided_by`, the rule or judgment that settled it, and a
