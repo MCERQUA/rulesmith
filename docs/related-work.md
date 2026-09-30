@@ -19,6 +19,15 @@ idea, and a couple of these got there first.
 - [From Code to Play](https://arxiv.org/abs/2412.04057) benchmarks eleven models
   on program-policy search across 29 game tasks.
 
+DSPy's experimental [decision types](https://dspy.ai/current/api/experimental/DecisionTypes/)
+put the same typed questions, a probability, a score and a choice, on a DSPy
+predictor's outputs, each with one threshold, one set of cuts or one set of
+weights, and [ReAnchor](https://dspy.ai/current/api/experimental/ReAnchor/)
+fits those settings from the probabilities the model produced, with a fold check.
+`rulesmith calibrate` fits the lines a graph's rules draw the same way; the
+difference is that here a judgment is a node and any number of rules can draw a
+line on it, so the settings belong to the rules rather than to the question.
+
 On the runtime side, [decision-circuits](https://github.com/Barneyjm/decision-circuits)
 pairs typed questions with deterministic gates, though you build its circuits
 in Python instead of declaring them, and [GoRules ZEN](https://github.com/gorules/zen) executes

@@ -1,6 +1,7 @@
 """Calibrating a judge's probabilities, and passing an example to a person."""
 
 import json
+import re
 
 import pytest
 from hypothesis import given
@@ -9,7 +10,7 @@ from pydantic import ValidationError
 from test_cli import invoke, write
 from test_graph import task_data
 
-from rulesmith.calibrate import fit_temperature
+from rulesmith.calibrate import cuts, fit_cutoffs, fit_temperature
 from rulesmith.graph import Plan, Task
 from rulesmith.optimize import Labels
 from rulesmith.rules import compile_rules, render_rules
@@ -150,3 +151,151 @@ def test_the_proposer_is_told_how_to_pass_an_example_on():
     data["abstain"] = {"label": "human", "cost": 0.3}
     prompt = proposer_prompt(Task.model_validate(data), SearchConfig())
     assert "human" in prompt and "0.3" in prompt
+
+
+def stated(request) -> float:
+    """The number an example's state is, however the judge was handed it."""
+    return float(re.search(r"[0-9.]+", json.dumps(request["state"])).group())
+
+
+def noul_by_state(provider):
+    """The judge's probability is whatever the example's state says it is, so a task can lay out
+    exactly where the judge stands on each example."""
+
+    def answer(request):
+        provider.body["answers"] = {"scam": {"type": "noul", "noul": stated(request)}}
+
+    provider.on_request = answer
+
+
+def scam_task(
+    positives: list[float], negatives: list[float], validation=((0.23, "genuine"),)
+) -> Task:
+    examples = [
+        {"id": f"p{i}", "state": str(p), "label": "fraudulent"} for i, p in enumerate(positives)
+    ]
+    examples += [
+        {"id": f"n{i}", "state": str(p), "label": "genuine"} for i, p in enumerate(negatives)
+    ]
+    data = task_data() | {"labels": ["fraudulent", "genuine"], "train": examples}
+    data["validation"] = [
+        {"id": f"v{i}", "state": str(p), "label": label} for i, (p, label) in enumerate(validation)
+    ]
+    data["test"] = [{"id": "t", "state": "0.99", "label": "fraudulent"}]
+    return Task.model_validate(data)
+
+
+SCAM_RULES = 'ask scam = "Is this a scam?"\nwhen scam >= 0.5: fraudulent\nalways: genuine'
+
+
+def test_a_cutoff_moves_to_where_the_judge_separates_the_labels(provider, client):
+    noul_by_state(provider)
+    # The judge is timid: scams sit at 0.3 to 0.45, real postings below 0.25. The rule's line at
+    # 0.5 misses every scam; between 0.25 and 0.3 it gets them all.
+    task = scam_task([0.3, 0.35, 0.4, 0.45, 0.42], [0.1, 0.15, 0.2, 0.25, 0.22])
+    fitted, report = fit_cutoffs(compile_rules(SCAM_RULES), task, client, "fixture")
+    cutoff = fitted.nodes[report[0]["rule"]].when.value
+    assert 0.25 < cutoff < 0.3
+    assert report[0]["kept"] and report[0]["train_before"] == 0.5 and report[0]["train_after"] == 1
+    assert "scam >= " in render_rules(fitted) and "0.5" not in render_rules(fitted)
+
+
+def test_one_example_is_not_evidence_enough_to_move_a_cutoff(provider, client):
+    noul_by_state(provider)
+    # Every example is on the right side of 0.5 but one scam at 0.4. A line at 0.325 would get it,
+    # and nothing else supports that line: held out, that example is the only one that changes.
+    task = scam_task([0.95, 0.9, 0.85, 0.8, 0.4], [0.1, 0.15, 0.2, 0.25, 0.05])
+    fitted, report = fit_cutoffs(compile_rules(SCAM_RULES), task, client, "fixture")
+    assert fitted.nodes[report[0]["rule"]].when.value == 0.5
+    assert not report[0]["kept"] and report[0]["tried"] > 1
+
+
+def test_confidence_and_threshold_cutoffs_are_fitted_too(provider, client):
+    def answer(request):
+        sure = stated(request)
+        provider.body["answers"] = {
+            "route": {
+                "type": "choice",
+                "choice": "accept",
+                "confidence": sure,
+                "probabilities": {"accept": sure, "review": 1 - sure},
+            }
+        }
+
+    provider.on_request = answer
+    plan = Plan.model_validate(
+        {
+            "nodes": {
+                "route": {
+                    "type": "call",
+                    "inputs": {"text": {"type": "state"}},
+                    "question": {
+                        "type": "choice",
+                        "instructions": "Accept or review?",
+                        "criteria": {"accept": "Fine.", "review": "Check."},
+                    },
+                },
+                "sure": {"type": "confidence", "source": "route"},
+                "settled": {
+                    "type": "threshold",
+                    "source": "sure",
+                    "cutoff": 0.9,
+                    "above": "accept",
+                    "below": "review",
+                },
+            },
+            "outputs": {"label": {"type": "node", "node": "settled"}},
+        }
+    )
+    # Accepted requests draw 0.6 to 0.8 from the judge, the ones to review 0.51 to 0.58; a
+    # threshold at 0.9 sends everything to review.
+    data = task_data() | {
+        "train": [
+            *[
+                {"id": f"a{i}", "state": str(p), "label": "accept"}
+                for i, p in enumerate([0.6, 0.7, 0.8, 0.75, 0.65])
+            ],
+            *[
+                {"id": f"r{i}", "state": str(p), "label": "review"}
+                for i, p in enumerate([0.51, 0.55, 0.58, 0.53, 0.52])
+            ],
+        ]
+    }
+    task = Task.model_validate(data)
+    assert [cut.node for cut in cuts(plan)] == ["settled"]
+    fitted, report = fit_cutoffs(plan, task, client, "fixture")
+    assert 0.58 < fitted.nodes["settled"].cutoff < 0.6 and report[0]["tests"] == "sure"
+
+
+def test_the_cli_writes_fitted_cutoffs_and_reports_the_validation_change(tmp_path, provider):
+    noul_by_state(provider)
+    task = scam_task(
+        [0.3, 0.35, 0.4, 0.45, 0.42],
+        [0.1, 0.15, 0.2, 0.25, 0.22],
+        validation=[(0.38, "fraudulent"), (0.12, "genuine"), (0.6, "fraudulent")],
+    )
+    task_file = write(tmp_path / "task.json", task.model_dump(mode="json"))
+    plan = tmp_path / "plan.rules"
+    plan.write_text(SCAM_RULES)
+    output = tmp_path / "calibrated.rules"
+    result = invoke(
+        "calibrate",
+        task_file,
+        plan,
+        "--backend",
+        "ruling",
+        "--base-url",
+        provider.url,
+        "--output",
+        output,
+    )
+    assert result.returncode == 0, result.stderr
+    fitted = compile_rules(output.read_text())
+    cutoff = fitted.nodes[
+        [n for n, node in fitted.nodes.items() if node.when is not None][0]
+    ].when.value
+    assert 0.25 < cutoff < 0.3
+    printed = json.loads(result.stdout)
+    assert printed["cutoffs"][0]["to"] == cutoff
+    # Validation is reported, never fitted on: two of three were right before, all three after.
+    assert printed["validation"] == {"before": pytest.approx(2 / 3), "after": 1}

@@ -105,7 +105,9 @@ task/seed hashes.
 
 Search drops any rule counts the starting graph carries (see
 [measuring rules](rules.md#how-sure-a-rule-is)), since they describe that
-graph and not its rewrites. Run `rulesmith calibrate` on the graph search returns.
+graph and not its rewrites. Run `rulesmith calibrate` on the graph search returns:
+it also moves each line a rule draws on a judgment to where the training examples
+put it, a numeric fit search would otherwise pay proposer calls and examples for.
 
 ## From Python
 

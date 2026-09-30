@@ -104,6 +104,22 @@ temperature per choice question over the task's labels, from its answers on the
 training examples, and writes it into the question (`... [ATTACK: "..."]
 calibrated 1.8`). The answers stay the same; how sure they read changes.
 
+The line a rule draws on a judgment, the 0.7 in `threat.confidence >= 0.7`, is
+a number the proposer wrote, and search only moves it by rewriting the rule and
+paying examples to score the rewrite. `calibrate` fits it instead: for every
+`>=` or `<` a rule draws on a probability, a score's expected level or a
+confidence, and every threshold node on one, it tries each line between two
+answers the judge actually gave on the training examples and keeps the one that
+gets the most of them right. A move is kept only when it also wins held out: the
+training examples are dealt into five folds, the line is chosen without each
+fold and scored on it, and those scores together must beat the line as written,
+so one example on the far side of a line does not move it. The questions and
+the words of the rules stay as they were; lines drawn on readings, `rating >=
+4`, are what the rule says about the input and are not touched. Each line tried
+is reported under `cutoffs`, with its old and new place and the training
+accuracy before and after, and `validation` gives the accuracy on the
+validation examples before and after the fit, which the fit never sees.
+
 ## How sure a rule is
 
 Every decision reports `decided_by`, the rule or judgment that settled it, and a
@@ -474,7 +490,8 @@ always: MOVE_FORWARD
   label's, under an `output <name>:` heading. Search scores the label only.
 - **Measurements** are what `rulesmith calibrate` writes and search never invents.
   A judgment may end `calibrated 1.8`, the temperature fitted to how sure it
-  should read; a rule may end `calibrated 37/40 of 100`, how many of the labeled
+  should read; a rule's line on a judgment may have been moved to where the
+  labeled examples put it; a rule may end `calibrated 37/40 of 100`, how many of the labeled
   examples it decided and how many rightly. Search drops a starting graph's rule
   measurements, since they describe that graph and not its rewrites, and the
   proposer is told to keep a temperature as written.

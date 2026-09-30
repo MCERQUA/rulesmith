@@ -3,23 +3,35 @@ that says 0.97 and is right three times in five is overconfident, and a rule tes
 `confidence >= 0.9` on it means nothing. One temperature per question, fitted on labeled examples,
 makes its probabilities say what they claim. A rule claims nothing at all until it is measured:
 counted on labeled examples, its decisions are as sure as it was right, and inputs that reach it
-far more or less often than those did are no longer the inputs it was measured on."""
+far more or less often than those did are no longer the inputs it was measured on. Where a rule
+draws its line on a judgment, `scam >= 0.5`, is a number the proposer guessed; fitted here, it is
+the line between the judge's answers that gets the most labeled examples right and holds up on
+examples held out of the fit."""
 
 import math
 from collections import Counter
+from dataclasses import dataclass
 
 from rulesmith.graph import (
+    All,
+    Any,
     Call,
     Choice,
     Coalesce,
+    Compare,
+    Condition,
+    Confidence,
     Measured,
     NodeInput,
+    Not,
+    Noul,
     Plan,
+    Score,
     Task,
     Threshold,
     Value,
 )
-from rulesmith.runtime import DecisionProgram, GraphExecutionError, calibrated
+from rulesmith.runtime import DecisionProgram, GraphExecutionError, calibrated, sureness
 
 # Temperatures tried, evenly spaced in log from a fifth to five: calibration corrects a judge's
 # confidence, it does not invert it.
@@ -78,6 +90,192 @@ def calibrate(plan: Plan, task: Task, client, model: str) -> tuple[Plan, dict[st
         for name, temperature in temperatures.items()
     }
     return Plan.model_validate(plan.model_copy(update={"nodes": nodes}).model_dump()), temperatures
+
+
+@dataclass(frozen=True)
+class Cut:
+    """One numeric line a rule draws on a judgment: a `>=` or `<` in a rule's condition, reached
+    by `path` through its and/or/not groups, or a threshold node's cutoff (`path` None). `tests`
+    is the judgment or confidence the line is drawn on."""
+
+    node: str
+    path: tuple[int, ...] | None
+    tests: str
+
+    def value(self, plan: Plan) -> float:
+        if self.path is None:
+            return plan.nodes[self.node].cutoff
+        return descend(plan.nodes[self.node].when, self.path).value
+
+    def moved(self, plan: Plan, value: float) -> Plan:
+        """The plan with this line drawn at `value` and nothing else changed."""
+        data = plan.model_dump()
+        node = data["nodes"][self.node]
+        if self.path is None:
+            node["cutoff"] = value
+        else:
+            condition = node["when"]
+            for index in self.path:
+                condition = (
+                    condition["conditions"][index]
+                    if "conditions" in condition
+                    else condition["condition"]
+                )
+            condition["value"] = value
+        return Plan.model_validate(data)
+
+
+def descend(condition: Condition, path: tuple[int, ...]) -> Compare:
+    for index in path:
+        condition = (
+            condition.conditions[index]
+            if isinstance(condition, (All, Any))
+            else condition.condition
+        )
+    return condition
+
+
+def cuts(plan: Plan) -> list[Cut]:
+    """Every line a rule draws on a number the judge produced: a probability, a score's expected
+    level, or how sure a judgment was. Lines drawn on readings are what the rule says about the
+    input, not about the judge, and stay where they were written."""
+    judged = {
+        name
+        for name, node in plan.nodes.items()
+        if (isinstance(node, Call) and isinstance(node.question, (Noul, Score)))
+        or isinstance(node, Confidence)
+    }
+
+    def compares(condition: Condition, path: tuple[int, ...]):
+        if isinstance(condition, Compare):
+            if condition.op != "eq" and condition.node in judged:
+                yield path, condition.node
+        elif isinstance(condition, Not):
+            yield from compares(condition.condition, (*path, 0))
+        elif isinstance(condition, (All, Any)):
+            for index, child in enumerate(condition.conditions):
+                yield from compares(child, (*path, index))
+
+    found = []
+    for name, node in plan.nodes.items():
+        if isinstance(node, Threshold) and node.source in judged:
+            found.append(Cut(name, None, node.source))
+        if getattr(node, "when", None) is not None:
+            found += [Cut(name, path, tests) for path, tests in compares(node.when, ())]
+    return found
+
+
+FOLDS = 5
+
+
+def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[dict]]:
+    """The plan with every cut moved to where it gets the most training examples right, one cut
+    at a time, holding the questions and the rules' words still. A move is kept only when it
+    also wins held out: the training examples are dealt into folds, the best line is chosen
+    without each fold in turn and scored on it, and those scores together must beat the line as
+    it stands. One example on the far side of a line is not evidence to move it; a few are.
+    Each kept move is reported with the line's old and new place and the training accuracy
+    before and after; a refused one, with the same and `kept` false."""
+    examples = [e for e in task.train if e.label is not None]
+    lines = cuts(plan)
+    if not examples or not lines:
+        return plan, []
+    seen = observed(plan, examples, client, model)
+    report = []
+    for _ in range(3):
+        moved = False
+        for cut in lines:
+            current = cut.value(plan)
+            candidates = midpoints(seen.get(cut.tests, []))
+            if not candidates:
+                continue
+            scores = {
+                value: correct(cut.moved(plan, value), examples, client, model)
+                for value in candidates
+            }
+            scores[current] = correct(plan, examples, client, model)
+            best = choose(scores, current)
+            kept = best != current and held_out_wins(scores, current, len(examples))
+            report.append(
+                {
+                    "rule": cut.node,
+                    "tests": cut.tests,
+                    "from": current,
+                    "to": best if kept else current,
+                    "tried": len(candidates),
+                    "train_before": sum(scores[current]) / len(examples),
+                    "train_after": sum(scores[best if kept else current]) / len(examples),
+                    "kept": kept,
+                }
+            )
+            if kept:
+                plan = cut.moved(plan, best)
+                moved = True
+        if not moved:
+            break
+    return plan, report
+
+
+def observed(plan: Plan, examples: list, client, model: str) -> dict[str, list[float]]:
+    """The numbers each judgment and confidence took on the examples, the values a line can be
+    drawn between."""
+    program = DecisionProgram(plan, client, model)
+    seen: dict[str, list[float]] = {}
+    for example in examples:
+        try:
+            answers = program(state=example.state).answers
+        except GraphExecutionError as failure:
+            answers = failure.prediction.answers
+        for name, node in plan.nodes.items():
+            if (
+                isinstance(node, Call)
+                and name in answers
+                and isinstance(node.question, (Noul, Score))
+            ):
+                seen.setdefault(name, []).append(answers[name]["value"])
+            if isinstance(node, Confidence) and node.source in answers:
+                seen.setdefault(name, []).append(sureness(answers[node.source]))
+    return seen
+
+
+def midpoints(values: list[float]) -> list[float]:
+    """A line between each pair of neighboring values, rounded where rounding still separates
+    them: any line between the same two answers decides the same examples, and a short number
+    reads as a choice rather than an accident."""
+    distinct = sorted(set(values))
+    found = []
+    for low, high in zip(distinct, distinct[1:], strict=False):
+        exact = (low + high) / 2
+        short = round(exact, 4)
+        found.append(short if low < short < high else exact)
+    return found
+
+
+def correct(plan: Plan, examples: list, client, model: str) -> list[bool]:
+    return [record["correct"] for record in outcomes(plan, examples, client, model)]
+
+
+def choose(scores: dict[float, list[bool]], current: float, fold: int | None = None) -> float:
+    """The line with the most right answers, outside `fold` if one is named; among equals, the
+    one nearest to where the line stands, so a tie never moves it."""
+
+    def total(value: float) -> int:
+        return sum(right for index, right in enumerate(scores[value]) if index % FOLDS != fold)
+
+    return max(scores, key=lambda value: (total(value), -abs(value - current)))
+
+
+def held_out_wins(scores: dict[float, list[bool]], current: float, count: int) -> bool:
+    """Whether choosing the line without each fold and scoring it on that fold beats, over all the
+    folds, the line as it stands."""
+    folds = min(FOLDS, count)
+    held_out = 0
+    for fold in range(folds):
+        chosen = choose(scores, current, fold)
+        held_out += sum(
+            right for index, right in enumerate(scores[chosen]) if index % FOLDS == fold
+        )
+    return held_out > sum(scores[current])
 
 
 def outcomes(plan: Plan, examples: list, client, model: str) -> list[dict]:

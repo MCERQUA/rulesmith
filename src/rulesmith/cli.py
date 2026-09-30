@@ -17,7 +17,7 @@ import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from rulesmith.ablate import effects
-from rulesmith.calibrate import calibrate, drift, measure
+from rulesmith.calibrate import calibrate, correct, drift, fit_cutoffs, measure
 from rulesmith.diagram import mermaid
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Graph, Plan, Task
@@ -221,7 +221,8 @@ def parser() -> argparse.ArgumentParser:
     arena.add_argument("--output", type=Path, required=True)
     provider_arguments(arena)
     fit = commands.add_parser(
-        "calibrate", help="Fit how sure each judgment should read, from the labeled examples"
+        "calibrate",
+        help="Fit how sure each judgment reads and where rules draw lines on it, from the labels",
     )
     fit.add_argument("task", type=Path)
     fit.add_argument("plan", type=Path)
@@ -421,7 +422,8 @@ def opponent_of(args: argparse.Namespace) -> str | None:
 
 
 def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
-    """A plan whose choice questions over the task's labels read as sure as they are right."""
+    """A plan whose choice questions read as sure as they are right, whose rules draw their lines
+    on judgments where the labeled examples put them, and whose rules are counted."""
     task = load_task(cli, args.task)
     if not isinstance(task, Task):
         cli.error("calibrate fits judgments against a labeled task's examples")
@@ -429,10 +431,14 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         cli.error(f"output already exists: {args.output}")
     plan = read_plan(cli, args.plan, task)
     model, judge_client = judge(args, True)
+    held_out = [e for e in task.validation if e.label is not None]
     with judge_client as client:
-        # Both passes ask the same questions; the second rereads the first's answers.
+        # Every pass asks the same questions; the later ones reread the first's answers.
         remembered = Remembered(client)
         fitted, temperatures = calibrate(plan, task, remembered, model)
+        before = correct(fitted, held_out, remembered, model)
+        fitted, cutoffs = fit_cutoffs(fitted, task, remembered, model)
+        after = correct(fitted, held_out, remembered, model)
         fitted = measure(fitted, task, remembered, model)
     written = (
         render_rules(fitted, task.criteria())
@@ -446,9 +452,14 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         for name, node in fitted.nodes.items()
         if getattr(node, "measured", None) is not None
     }
-    print(
-        dump({"temperatures": temperatures, "rules": counted, "output": str(args.output)}), end=""
-    )
+    report = {"temperatures": temperatures, "cutoffs": cutoffs, "rules": counted}
+    if held_out:
+        # Validation is scored, never fitted on, so this is what the fit is worth on fresh examples.
+        report["validation"] = {
+            "before": sum(before) / len(held_out),
+            "after": sum(after) / len(held_out),
+        }
+    print(dump(report | {"output": str(args.output)}), end="")
 
 
 def read_plan(
