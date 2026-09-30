@@ -34,12 +34,11 @@ retrieval, and tasks where worked examples in the prompt carry the accuracy.
 rulesmith searches over rules and questions, not demonstrations, so it has
 nothing to add there.
 
-The [benchmarks](docs/benchmarks.md) bear this out on five public datasets.
-Where fields carry the signal, rulesmith ties or beats DSPy with 5% to 68% of
-its model calls, including DSPy's own typed classifier on the same judge. Where
-the input is a single piece of free text, it adds nothing over one direct
-question: it ties DSPy on Banking77, and DSPy beats it on TREC, with chain of
-thought or by rewriting the question the judge reads.
+The [benchmarks](docs/benchmarks.md) bear this out on five public datasets,
+against DSPy's text classifiers and its typed classifier on the same judge.
+Where fields carry the signal, rulesmith ties or beats them with a fraction of
+the model calls. Where the input is one piece of free text, it adds nothing
+over a direct question, and DSPy can beat it by rewriting that question.
 
 ## Installation
 
@@ -193,7 +192,7 @@ The rest, from loading rules to running search from Python, is in
 - [Optimization](docs/optimization.md): how search runs, its settings, reports, testing, and limits.
 - [Command line](docs/cli.md): every command, the flags they share, and the backends.
 - [Python](docs/python.md): running and building graphs from code.
-- [Benchmarks](docs/benchmarks.md): rulesmith against DSPy, TF-IDF and direct calls on five public datasets.
+- [Benchmarks](docs/benchmarks.md): rulesmith against DSPy, its typed classifier on the same judge, TF-IDF and direct calls on five public datasets.
 - [Doom](docs/doom.md): a graph that plays, scored by episode reward, and the league it came from.
 - [Chess](docs/chess.md): labels as policies, hundreds of games a minute, and the baseline ladder.
 - [Related work](docs/related-work.md): what got here first, and what is different.
@@ -211,7 +210,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-544 passed, 6 skipped, 1 warning in 419.24s (0:06:59)
+545 passed, 6 skipped in 283.11s (0:04:43)
 All checks passed!
 56 files already formatted
 ```
