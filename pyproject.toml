@@ -19,7 +19,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "dspy==3.3.1",
+    "dspy==3.4.0",
     "gepa==0.1.4",
     "pydantic>=2.11,<3",
     "typesafe-sdk>=0.6,<0.7",

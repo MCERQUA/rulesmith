@@ -297,6 +297,108 @@ def dspy_answers(program: dspy.Module, task: Task, student: dspy.LM) -> tuple[li
     return answers, time.perf_counter() - started
 
 
+def typed_program(task: Task, judge_url: str, judge: str, timeout: float) -> dspy.Predict:
+    """DSPy's own typed classifier on the judge: one choice question over the labels, asked as
+    the direct call asks it, with the task description in the state for DSPy's GEPA to rewrite.
+    DSPy's decision types are experimental, so they are imported where they are used."""
+    from dspy.experimental import Choice, TypeSafe
+
+    options = tuple((label, task.descriptions[label]) for label in task.labels)
+    signature = dspy.make_signature(
+        {
+            "text": (str, dspy.InputField()),
+            "label": (Choice[options], dspy.OutputField(desc=task.description)),
+        },
+        task.description,
+    )
+    program = dspy.Predict(signature)
+    program.set_lm(TypeSafe(judge, api_key="local-no-auth", base_url=judge_url, timeout=timeout))
+    return program
+
+
+def typed_answers(program: dspy.Module, task: Task) -> tuple[list[Answer], float]:
+    """A typed DSPy program's answers on the test split, each one judge call, as sure as the
+    judge said. The judge is asked afresh: DSPy's cache, which the fit relies on, would make a
+    row asked during search cost nothing here."""
+    program = program.deepcopy()
+    lm = next(predict for _, predict in program.named_predictors()).lm.copy(cache=False)
+    program.set_lm(lm)
+    answers, started = [], time.perf_counter()
+    for example in dspy_examples(task.test):
+        before = len(lm.history)
+        label = program(text=example.text).label
+        usage = [entry.get("usage") or {} for entry in lm.history[before:]]
+        answers.append(
+            Answer(
+                correct=label is not None and label.value == example.label,
+                confidence=None if label is None else label.confidence,
+                calls=len(usage),
+                input_tokens=sum(u.get("prompt_tokens", 0) for u in usage),
+                output_tokens=sum(u.get("completion_tokens", 0) for u in usage),
+                invalid=label is None,
+            )
+        )
+    return answers, time.perf_counter() - started
+
+
+def typed_metric(gold, predicted, trace=None, pred_name=None, pred_trace=None):
+    answered = None if predicted.label is None else predicted.label.value
+    right = answered == gold.label
+    return dspy.Prediction(
+        score=float(right),
+        feedback="Correct." if right else f"Expected {gold.label}, answered {answered}.",
+    )
+
+
+def fitted_weights(program: dspy.Module, task: Task) -> tuple[dspy.Module, dict]:
+    """The program with its option weights fitted by DSPy's ReAnchor on the training examples,
+    and what the fit did: the training and validation scores before and after, and whether any
+    weight was kept."""
+    from dspy.experimental import ReAnchor
+
+    optimizer = ReAnchor(typed_metric, num_threads=DSPY_THREADS)
+    fitted = optimizer.compile(
+        program, trainset=dspy_examples(task.train), valset=dspy_examples(task.validation)
+    )
+    report = optimizer.report
+    return fitted, {
+        "train_before": report["train_score_before"],
+        "train_after": report["train_score"],
+        "validation_before": report.get("val_score_before"),
+        "validation_after": report.get("val_score"),
+        "kept": any("skipped" not in row for row in report["fitted"]),
+    }
+
+
+def dspy_typed(
+    seed: int,
+    task: Task,
+    judge_url: str,
+    judge: str,
+    reflection: dspy.LM,
+    budget: int,
+    timeout: float,
+) -> dict:
+    """The fair DSPy comparison: its typed classifier on the same judge as the graphs, the
+    instructions the judge reads rewritten by DSPy's GEPA on the same budget as search, then
+    the option weights fitted by ReAnchor. What a graph gets from being a graph is what is left
+    over this."""
+    program = Failsafe(typed_program(task, judge_url, judge, timeout))
+    optimizer = dspy.GEPA(
+        metric=typed_metric,
+        max_metric_calls=budget,
+        reflection_lm=reflection,
+        seed=seed,
+        num_threads=DSPY_THREADS,
+    )
+    tuned = optimizer.compile(
+        program, trainset=dspy_examples(task.train), valset=dspy_examples(task.validation)
+    )
+    fitted, reanchor = fitted_weights(tuned, task)
+    answers, seconds = typed_answers(fitted, task)
+    return result("dspy-typed", seed, answers, seconds, reanchor=reanchor)
+
+
 class Failsafe(dspy.Module):
     """A DSPy program whose failure on one example is an answer of None, scored zero, as DSPy's
     GEPA means a failed example to be. Its integration instead crashes the whole optimization
@@ -453,6 +555,8 @@ class Models:
     reflection: dspy.LM | None = None
     budget: int = 0
     call_cost: float = 0
+    judge_url: str = ""
+    timeout: float = 10
 
 
 def run(
@@ -515,6 +619,16 @@ def measure(method: str, seed: int, task: Task, dataset: Dataset, resources: Mod
             resources.proposer,
             resources.budget,
             resources.call_cost,
+        )
+    if method == "dspy-typed":
+        return dspy_typed(
+            seed,
+            task,
+            resources.judge_url,
+            resources.judge,
+            resources.reflection,
+            resources.budget,
+            resources.timeout,
         )
     return dspy_baseline(
         seed,
@@ -701,6 +815,8 @@ def main() -> None:
     for method, role in needed.items():
         if method in args.methods and lms[role] is None:
             root.error(f"{method} needs --{role}-model")
+    if "dspy-typed" in args.methods and not (lms["reflection"] or lms["proposer"]):
+        root.error("dspy-typed needs --reflection-model or --proposer-model")
     dataset = DATASETS[args.dataset]
     if "handwritten" in args.methods and dataset.handwritten is None:
         root.error(f"{dataset.name} has no hand-written rules to run")
@@ -717,6 +833,8 @@ def main() -> None:
             reflection=lms["reflection"] or lms["proposer"],
             budget=args.budget,
             call_cost=args.call_cost,
+            judge_url=args.judge_base_url,
+            timeout=args.timeout,
         )
         deadline = time.time() + args.hours * 3600 if args.hours else math.inf
         run(dataset, args.seeds, args.methods, sizes, args.output, models, resources, deadline)
@@ -875,7 +993,7 @@ CHANNELS = {
     "tech": "tech",
     "world": "world",
 }
-METHODS = ("majority", "tfidf", "direct", "handwritten", "search", "dspy", "dspy-cot")
+METHODS = ("majority", "tfidf", "direct", "handwritten", "search", "dspy", "dspy-cot", "dspy-typed")
 DATASETS: dict[str, Dataset] = {
     "banking77": Dataset(
         "banking77",

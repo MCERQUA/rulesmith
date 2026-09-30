@@ -17,6 +17,7 @@ from rulesmith.bench import (
     direct_plan,
     dspy_answers,
     elo_against,
+    fitted_weights,
     graph_answers,
     majority,
     mcnemar,
@@ -28,6 +29,8 @@ from rulesmith.bench import (
     selective,
     summarize,
     tfidf,
+    typed_answers,
+    typed_program,
 )
 from rulesmith.graph import Task
 
@@ -292,3 +295,28 @@ def test_each_result_names_the_models_that_produced_it(tmp_path):
     run(toy(), [0], ["majority"], sizes, output, {"proposer": "first"})
     runs = run(toy(), [0, 1], ["majority"], sizes, output, {"proposer": "second"})
     assert [r["models"]["proposer"] for r in runs] == ["first", "second"]
+
+
+def test_the_typed_dspy_baseline_asks_the_judge_the_direct_question_and_is_fitted(provider):
+    # DSPy's own typed classifier on the same judge: one choice question over the labels, the
+    # task's description as the question, and ReAnchor fitting the option weights.
+    task = sample(toy(), 6, 3, 6, 0)
+    provider.answers = {
+        "label": {
+            "type": "choice",
+            "choice": "billing",
+            "confidence": 0.7,
+            "probabilities": {"billing": 0.7, "technical": 0.2, "sales": 0.1},
+        }
+    }
+    program = typed_program(task, provider.url, "fixture-model", 10)
+    answers, _ = typed_answers(program, task)
+    asked = provider.requests[-1][1]["questions"]["label"]
+    assert asked["type"] == "choice" and asked["instructions"] == task.description
+    assert set(asked["criteria"]) == set(task.labels)
+    assert [a.correct for a in answers] == [e.label == "billing" for e in task.test]
+    assert all(a.calls == 1 and a.confidence == 0.7 and not a.invalid for a in answers)
+    # The same answer for every example gives the weights nothing to fit; the report says so.
+    fitted, summary = fitted_weights(program, task)
+    assert summary["kept"] is False and summary["train_before"] == summary["train_after"]
+    assert typed_answers(fitted, task)[0] == answers
