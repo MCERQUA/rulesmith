@@ -172,10 +172,10 @@ Legend, the same in every drawing:
 | <img src="assets/legend/condition.svg" width="64" height="36" alt=""> | Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
 | <img src="assets/legend/rule.svg" width="64" height="36" alt=""> | Green circle | The answer a rule gives when its condition holds | Free |
 | <img src="assets/legend/list.svg" width="64" height="36" alt=""> | Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
-| <img src="assets/legend/unit.svg" width="64" height="36" alt=""> | Violet rounded box inside a framed box | A unit: another graph run on what it is handed, answering with one of its outputs. The frame holds the unit's own graph; drawn closed, the unit is a double-edged box instead | Whatever its graph asks |
+| <img src="assets/legend/unit.svg" width="64" height="36" alt=""> | Violet rounded box inside a framed box | A unit: another graph run on what it is handed, answering with one of its outputs. The frame holds the unit's own graph, and the unit's gate and input arrive at the frame; drawn closed, the unit is a double-edged box instead | Whatever its graph asks |
 | <img src="assets/legend/value.svg" width="64" height="36" alt=""> | Solid arrow | Carries a value | |
 | <img src="assets/legend/gate.svg" width="64" height="36" alt=""> | Dashed arrow | Gates: leads from a condition to what fires when it holds | |
-| <img src="assets/legend/output.svg" width="64" height="36" alt=""> | Thick arrow | Leads to a graph output | |
+| <img src="assets/legend/output.svg" width="64" height="36" alt=""> | Thick arrow | Leads to a graph output, or, inside a unit, to the violet box the unit answers through | |
 
 Here the judge is named `team`, the name the rules test it by, so the gray box
 `team == billing` reads as "the judge answered billing". `sales` has no
@@ -261,6 +261,7 @@ ticket and hands billing tickets to
 flowchart TD
     n0{{"judge: team<br/>choice: Which team should answer this ticket?"}}
     subgraph n1_unit["billing: a graph of its own"]
+    n1(["billing<br/>answers with its label"])
     n1_n0[/"read charge.amount"/]
     n1_n1{{"judge: genuine<br/>noul: The message describes a mistake the customer..."}}
     n1_n2(("auto_refund"))
@@ -272,16 +273,13 @@ flowchart TD
     n1_c0 -.-> n1_n2
     n1_n2 -->|"1"| n1_n4
     n1_n3 -->|"2"| n1_n4
-    n1_o0(("label"))
-    n1_n4 ==> n1_o0
-    n1(["billing<br/>answers with its label"])
-    n1_o0 --> n1
+    n1_n4 ==> n1
     end
     n2(("engineer"))
     n3(["decision<br/>first that answers"])
     c0["team == billing"]
     n0 --> c0
-    c0 -.-> n1
+    c0 -.-> n1_unit
     n1 -->|"1"| n3
     n2 -->|"2"| n3
     o0(("label"))
@@ -326,8 +324,8 @@ unit that could not answer answers nothing, and the rules after it decide.
 `validate` on a map checks every hand-off across its files, refusing a rule
 that tests a unit's answer against a value the unit never gives, and lists the
 units it loaded under `units`. `draw` opens every unit, as above; `draw --closed`
-draws each as one box named for what it answers with, which is how a map of
-many units reads as a map.
+draws each as one double-edged box, which is how a map of many units reads as
+a map.
 
 Units are the piece a map of many decisions is built from: a directory of unit
 files and the maps that name them. A unit is searched in place against a task of

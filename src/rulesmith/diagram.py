@@ -10,6 +10,7 @@ from rulesmith.graph import (
     Merge,
     NodeInput,
     Plan,
+    Present,
     Read,
     Sum,
     Switch,
@@ -18,7 +19,7 @@ from rulesmith.graph import (
     Vote,
     tested,
 )
-from rulesmith.rules import GENERATED, number, path_of, render_condition
+from rulesmith.rules import GENERATED, name_of, number, path_of, render_condition
 
 SHAPES = {
     Read: ("[/", "/]"),
@@ -101,34 +102,49 @@ def mermaid(plan: Plan, closed: bool = False) -> str:
     return "\n".join(lines)
 
 
+def guard(condition, reads: dict[str, Read], plan: Plan) -> str:
+    """A condition as its box says it. In rules a bare name tests that the node answered, which
+    reads fine after `when`; alone in a box it needs the verb."""
+    if isinstance(condition, Present):
+        return f"{name_of(condition.node, reads, plan)} is present"
+    return render_condition(condition, reads, plan)
+
+
 def draw(
-    plan: Plan, prefix: str, lines: list[str], styled: dict[str, list[str]], closed: bool = False
+    plan: Plan,
+    prefix: str,
+    lines: list[str],
+    styled: dict[str, list[str]],
+    closed: bool = False,
+    exit: tuple[str, str] | None = None,
 ) -> None:
     """One plan's nodes, edges and outputs, with ids under `prefix` so a unit's graph and the
-    graph around it never share an id."""
+    graph around it never share an id. `exit` names the output that is a unit's answer and the
+    id of the unit's exit node, which stands in for that output's circle."""
     reads = {name: node for name, node in plan.nodes.items() if isinstance(node, Read)}
     # Mermaid joins boxes that share an id, and a node may be named like an output or anything
     # else, so ids are positions and the names go in the labels.
     ids = {name: f"{prefix}n{index}" for index, name in enumerate(plan.nodes)}
     conditions: list[str] = []
+    # What a unit's gate and input attach to: the unit's whole box, since the condition decides
+    # whether any of it runs.
+    whole: dict[str, str] = {}
     for name, node in plan.nodes.items():
         if isinstance(node, Graph):
-            box = f'{ids[name]}(["{safe(name)}<br/>answers with its {node.output}"])'
             if closed:
                 # The double-edged box is the usual sign for a step that is a program of its
                 # own, which a closed unit is.
                 lines.append(f'    {ids[name]}[["{safe(name)}<br/>a graph of its own"]]')
-                handed = ids[name]
+                whole[name] = ids[name]
             else:
-                handed = f"{ids[name]}_unit"
-                lines.append(f'    subgraph {handed}["{safe(name)}: a graph of its own"]')
-                draw(node.plan, f"{ids[name]}_", lines, styled, closed)
-                lines.append(f"    {box}")
-                answer = list(node.plan.outputs).index(node.output)
-                lines.append(f"    {ids[name]}_o{answer} --> {ids[name]}")
+                whole[name] = f"{ids[name]}_unit"
+                lines.append(f'    subgraph {whole[name]}["{safe(name)}: a graph of its own"]')
+                answers = f"{safe(name)}<br/>answers with its {node.output}"
+                lines.append(f'    {ids[name]}(["{answers}"])')
+                draw(node.plan, f"{ids[name]}_", lines, styled, closed, (node.output, ids[name]))
                 lines.append("    end")
             if isinstance(node.input, NodeInput):
-                lines.append(f"    {ids[node.input.node]} --> {handed}")
+                lines.append(f"    {ids[node.input.node]} --> {whole[name]}")
             continue
         open_shape, close_shape = SHAPES[type(node)]
         lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')
@@ -146,18 +162,22 @@ def draw(
         # what it gates: written on one arrow, a condition over two values looked as if it
         # belonged to one of them.
         if node.when is not None:
-            guard = safe(render_condition(node.when, reads, plan))
             sources = sorted(tested(node.when))
             box = f"{prefix}c{len(conditions)}"
             conditions.append(box)
-            lines.append(f'    {box}["{guard}"]')
+            lines.append(f'    {box}["{safe(guard(node.when, reads, plan))}"]')
             lines += [f"    {ids[source]} --> {box}" for source in sources]
-            lines.append(f"    {box} -.-> {ids[name]}")
+            lines.append(f"    {box} -.-> {whole.get(name, ids[name])}")
     for index, (output, source) in enumerate(plan.outputs.items()):
-        lines.append(f'    {prefix}o{index}(("{safe(output)}"))')
+        # A unit's answer leaves through its exit node; every other output is a circle.
+        if exit is not None and output == exit[0]:
+            target = exit[1]
+        else:
+            target = f"{prefix}o{index}"
+            lines.append(f'    {target}(("{safe(output)}"))')
         # Thick, so what the graph answers stands apart from what feeds what.
         if isinstance(source, NodeInput):
-            lines.append(f"    {ids[source.node]} ==> {prefix}o{index}")
+            lines.append(f"    {ids[source.node]} ==> {target}")
     for kind, types in KINDS.items():
         styled.setdefault(kind, []).extend(
             ids[name] for name, node in plan.nodes.items() if isinstance(node, types)

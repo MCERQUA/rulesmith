@@ -130,3 +130,32 @@ def test_the_example_map_loads_with_its_unit_in_a_file_of_its_own():
     plan = load(path)
     assert any(node.type == "graph" for node in plan.nodes.values())
     assert json.loads(path.read_text())["nodes"]["billing"]["path"] == "units/billing.rules"
+
+
+def test_a_gate_on_a_unit_points_at_the_whole_unit_and_its_answer_leaves_once():
+    drawn = mermaid(Plan.model_validate(support_map()))
+    # The condition gates the unit as a whole, so its dashed arrow lands on the unit's box,
+    # not on a node inside it.
+    gate = next(line for line in drawn.splitlines() if line.strip().startswith("c0 -.->"))
+    assert gate.strip().endswith("_unit")
+    # The unit's chosen output is its exit node; drawing it as an output circle as well said the
+    # same thing twice, so the map's own output is the only circle left.
+    assert drawn.count('(("label"))') == 1
+    assert "==> n1" in drawn
+
+
+def test_a_presence_test_says_so():
+    plan = Plan.model_validate(
+        {
+            "nodes": {
+                "rating": {"type": "read", "path": ["rating"], "bounds": [1, 5]},
+                "reviewed": {
+                    "type": "value",
+                    "value": "reviewed",
+                    "when": {"type": "present", "node": "rating"},
+                },
+            },
+            "outputs": {"label": {"type": "node", "node": "reviewed"}},
+        }
+    )
+    assert '["rating is present"]' in mermaid(plan)

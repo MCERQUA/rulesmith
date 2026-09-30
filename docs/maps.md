@@ -53,6 +53,7 @@ with `rulesmith draw`, each unit opened; `--closed` would show each as one box:
 flowchart TD
     n0[/"read has_company_logo"/]
     subgraph n1_unit["postings: a graph of its own"]
+    n1(["postings<br/>answers with its label"])
     n1_n0[/"read has_company_logo"/]
     n1_n1[/"read length of company_profile"/]
     n1_n2(("fraudulent"))
@@ -64,13 +65,11 @@ flowchart TD
     n1_c0 -.-> n1_n2
     n1_n2 -->|"1"| n1_n4
     n1_n3 -->|"2"| n1_n4
-    n1_o0(("label"))
-    n1_n4 ==> n1_o0
-    n1(["postings<br/>answers with its label"])
-    n1_o0 --> n1
+    n1_n4 ==> n1
     end
     n2[/"read rating"/]
     subgraph n3_unit["reviews: a graph of its own"]
+    n3(["reviews<br/>answers with its label"])
     n3_n0[/"read rating"/]
     n3_n1(("recommended"))
     n3_n2(("not_recommended"))
@@ -83,27 +82,22 @@ flowchart TD
     n3_c1 -.-> n3_n2
     n3_n1 -->|"1"| n3_n3
     n3_n2 -->|"2"| n3_n3
-    n3_o0(("label"))
-    n3_n3 ==> n3_o0
-    n3(["reviews<br/>answers with its label"])
-    n3_o0 --> n3
+    n3_n3 ==> n3
     end
     subgraph n4_unit["intents: a graph of its own"]
+    n4(["intents<br/>answers with its label"])
     n4_n0{{"judge<br/>choice: Which intent does this online banking..."}}
     n4_n1(["decision<br/>first that answers"])
     n4_n0 -->|"1"| n4_n1
-    n4_o0(("label"))
-    n4_n1 ==> n4_o0
-    n4(["intents<br/>answers with its label"])
-    n4_o0 --> n4
+    n4_n1 ==> n4
     end
     n5(["decision<br/>first that answers"])
-    c0["has_company_logo"]
+    c0["has_company_logo is present"]
     n0 --> c0
-    c0 -.-> n1
-    c1["rating"]
+    c0 -.-> n1_unit
+    c1["rating is present"]
     n2 --> c1
-    c1 -.-> n3
+    c1 -.-> n3_unit
     n1 -->|"1"| n5
     n3 -->|"2"| n5
     n4 -->|"3"| n5
