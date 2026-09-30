@@ -186,7 +186,7 @@ The rest, from loading rules to running search from Python, is in
 
 - [Quickstart](docs/quickstart.md): the full walk-through, with every command's output.
 - [Tasks](docs/tasks.md): the task file, drafting labels, structured inputs, costs, and graders.
-- [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration, and worked examples.
+- [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration and fitted cutoffs, and worked examples.
 - [Graph format](docs/graphs.md): the JSON behind each node, execution, composing graphs from graphs, and drawing and ablating one.
 - [Maps](docs/maps.md): units in their own files behind a router, searched in place, and the first map scored end to end on public data.
 - [Optimization](docs/optimization.md): how search runs, its settings, reports, testing, and limits.
@@ -210,7 +210,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-538 passed, 6 skipped, 1 warning in 317.60s (0:05:17)
+544 passed, 6 skipped, 1 warning in 419.24s (0:06:59)
 All checks passed!
 56 files already formatted
 ```
