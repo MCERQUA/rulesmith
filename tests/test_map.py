@@ -146,9 +146,10 @@ def test_a_map_can_be_drawn_with_its_units_closed(tmp_path):
     closed = invoke("draw", map_file, "--closed")
     assert opened.returncode == 0 and closed.returncode == 0, closed.stderr
     assert "subgraph" in opened.stdout and "genuine" in opened.stdout
-    # Closed, a unit is one box named for what it answers with, and its insides are not drawn.
+    # Closed, a unit is one double-edged box, the sign for a program of its own, and its
+    # insides are not drawn.
     assert "subgraph" not in closed.stdout and "genuine" not in closed.stdout
-    assert "billing" in closed.stdout and "answers with its label" in closed.stdout
+    assert '[["billing<br/>a graph of its own"]]' in closed.stdout
 
 
 def test_a_map_whose_only_judge_calls_are_inside_a_unit_still_gets_a_judge(tmp_path, provider):

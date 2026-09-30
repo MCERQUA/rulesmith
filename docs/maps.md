@@ -46,15 +46,57 @@ data only so every number can be rerun. Each unit is the graph search found on
 one of the [benchmark](benchmarks.md) datasets, and the router costs nothing: a
 posting has `has_company_logo`, a review has `rating`, and a message has
 neither, so the first two units are gated on a field being present and the
-third is the fallback, asked only when neither of the others answered.
+third is the fallback, asked only when neither of the others answered. Drawn
+with `rulesmith draw`, each unit opened; `--closed` would show each as one box:
 
 ```mermaid
 flowchart TD
     n0[/"read has_company_logo"/]
+    subgraph n1_unit["postings: a graph of its own"]
+    n1_n0[/"read has_company_logo"/]
+    n1_n1[/"read length of company_profile"/]
+    n1_n2(("fraudulent"))
+    n1_n3{{"judge<br/>choice: Is this job posting a scam?"}}
+    n1_n4(["decision<br/>first that answers"])
+    n1_c0["has_company_logo == 0 and length of company_profile == 0"]
+    n1_n0 --> n1_c0
+    n1_n1 --> n1_c0
+    n1_c0 -.-> n1_n2
+    n1_n2 -->|"1"| n1_n4
+    n1_n3 -->|"2"| n1_n4
+    n1_o0(("label"))
+    n1_n4 ==> n1_o0
     n1(["postings<br/>answers with its label"])
+    n1_o0 --> n1
+    end
     n2[/"read rating"/]
+    subgraph n3_unit["reviews: a graph of its own"]
+    n3_n0[/"read rating"/]
+    n3_n1(("recommended"))
+    n3_n2(("not_recommended"))
+    n3_n3(["decision<br/>first that answers"])
+    n3_c0["rating >= 4"]
+    n3_n0 --> n3_c0
+    n3_c0 -.-> n3_n1
+    n3_c1["rating < 3 or rating == 3"]
+    n3_n0 --> n3_c1
+    n3_c1 -.-> n3_n2
+    n3_n1 -->|"1"| n3_n3
+    n3_n2 -->|"2"| n3_n3
+    n3_o0(("label"))
+    n3_n3 ==> n3_o0
     n3(["reviews<br/>answers with its label"])
+    n3_o0 --> n3
+    end
+    subgraph n4_unit["intents: a graph of its own"]
+    n4_n0{{"judge<br/>choice: Which intent does this online banking..."}}
+    n4_n1(["decision<br/>first that answers"])
+    n4_n0 -->|"1"| n4_n1
+    n4_o0(("label"))
+    n4_n1 ==> n4_o0
     n4(["intents<br/>answers with its label"])
+    n4_o0 --> n4
+    end
     n5(["decision<br/>first that answers"])
     c0["has_company_logo"]
     n0 --> c0
@@ -67,12 +109,16 @@ flowchart TD
     n4 -->|"3"| n5
     o0(("label"))
     n5 ==> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n1_n3,n4_n0 judge
     classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
-    class n0,n2 read
+    class n1_n0,n1_n1,n3_n0,n0,n2 read
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n1_n2,n3_n1,n3_n2 rule
     classDef unit fill:#ede9fe,stroke:#7c3aed,color:#1c1917
     class n1,n3,n4 unit
     classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
-    class c0,c1 condition
+    class n1_c0,n3_c0,n3_c1,c0,c1 condition
 ```
 
 The files are in [examples/map](../examples/map): the map

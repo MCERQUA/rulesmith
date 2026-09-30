@@ -115,7 +115,9 @@ def draw(
         if isinstance(node, Graph):
             box = f'{ids[name]}(["{safe(name)}<br/>answers with its {node.output}"])'
             if closed:
-                lines.append(f"    {box}")
+                # The double-edged box is the usual sign for a step that is a program of its
+                # own, which a closed unit is.
+                lines.append(f'    {ids[name]}[["{safe(name)}<br/>a graph of its own"]]')
                 handed = ids[name]
             else:
                 handed = f"{ids[name]}_unit"

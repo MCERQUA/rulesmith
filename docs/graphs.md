@@ -172,7 +172,7 @@ Legend, the same in every drawing:
 | <img src="assets/legend/condition.svg" width="64" height="36" alt=""> | Gray box | A condition: a test, not a step. Solid arrows bring it each value it reads; its dashed arrow leads to what it gates | Free |
 | <img src="assets/legend/rule.svg" width="64" height="36" alt=""> | Green circle | The answer a rule gives when its condition holds | Free |
 | <img src="assets/legend/list.svg" width="64" height="36" alt=""> | Rounded box, `first that answers` | The rule list. Its arrows are numbered in the order the rules are tried; the first that answers decides | Free |
-| <img src="assets/legend/unit.svg" width="64" height="36" alt=""> | Violet rounded box inside a framed box | A unit: another graph run on what it is handed, answering with one of its outputs. The frame holds the unit's own graph | Whatever its graph asks |
+| <img src="assets/legend/unit.svg" width="64" height="36" alt=""> | Violet rounded box inside a framed box | A unit: another graph run on what it is handed, answering with one of its outputs. The frame holds the unit's own graph; drawn closed, the unit is a double-edged box instead | Whatever its graph asks |
 | <img src="assets/legend/value.svg" width="64" height="36" alt=""> | Solid arrow | Carries a value | |
 | <img src="assets/legend/gate.svg" width="64" height="36" alt=""> | Dashed arrow | Gates: leads from a condition to what fires when it holds | |
 | <img src="assets/legend/output.svg" width="64" height="36" alt=""> | Thick arrow | Leads to a graph output | |
