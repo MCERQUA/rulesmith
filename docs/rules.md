@@ -120,6 +120,29 @@ is reported under `cutoffs`, with its old and new place and the training
 accuracy before and after, and `validation` gives the accuracy on the
 validation examples before and after the fit, which the fit never sees.
 
+On the [triage graph](../examples/rules/triage.rules) against a
+[hand-written task](../examples/triage-task.json) of forty tickets, with a local
+Ruling judge:
+
+```sh
+uv run rulesmith calibrate examples/triage-task.json examples/rules/triage.rules \
+  --backend ruling --max-workers 1 --output runs/triage.rules
+```
+
+```
+when severity >= 2.5465: page_oncall calibrated 4/4 of 32
+```
+
+The judge never scores an outage a full 3 on the four-level scale; the six in
+training land between 2.58 and 2.98, with two it misjudges lower, so the line at
+3 paged nobody. Moved to 2.55, between the highest ticket labeled merely blocked
+and the lowest outage, it pages four of the six, and training accuracy goes
+from 0.67 to 0.83. Validation accuracy stays at 0.625: its two outages score
+2.53 and 2.54, a hair under the line, because one blocked ticket in training
+scored 2.51. That is the honest finding about this judge, not a failure of the
+fit: on the score scale a 4B model does not separate blocked from outage by
+more than a few hundredths, and no single line on it will.
+
 ## How sure a rule is
 
 Every decision reports `decided_by`, the rule or judgment that settled it, and a

@@ -1,0 +1,415 @@
+{
+ "description": "Triage a support ticket by how badly the customer is blocked and their tier. Hand-written examples to exercise the triage graph; not a benchmark.",
+ "labels": [
+  "page_oncall",
+  "escalate",
+  "queue_urgent",
+  "queue_normal"
+ ],
+ "train": [
+  {
+   "id": "t39",
+   "state": {
+    "ticket": "Full outage confirmed on your own status page for the last hour; we are dead in the water.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t01",
+   "state": {
+    "ticket": "Could you add a dark mode? Not urgent, just a preference.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t34",
+   "state": {
+    "ticket": "Every customer of ours is locked out and your login service is returning errors globally.",
+    "variables": {
+     "customer_tier": 2
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t28",
+   "state": {
+    "ticket": "All scheduled jobs for our account have been stuck in 'queued' since midnight.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_urgent"
+  },
+  {
+   "id": "t20",
+   "state": {
+    "ticket": "Nobody on our team can log in since this morning; password reset emails never arrive.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_urgent"
+  },
+  {
+   "id": "t35",
+   "state": {
+    "ticket": "Database appears to be corrupted: records are missing for all accounts, not just ours, per your community forum.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t18",
+   "state": {
+    "ticket": "Single sign-on works for most users, but three people have to log in twice.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t04",
+   "state": {
+    "ticket": "Tooltips on the dashboard sometimes flicker when I move the mouse quickly.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t23",
+   "state": {
+    "ticket": "The export we need for tomorrow's audit fails every time with 'internal error'.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_urgent"
+  },
+  {
+   "id": "t06",
+   "state": {
+    "ticket": "The logo on the login page is a little blurry on my monitor.",
+    "variables": {
+     "customer_tier": 2
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t15",
+   "state": {
+    "ticket": "Two of our five integrations show stale data; the others are fine.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t36",
+   "state": {
+    "ticket": "Total service outage during our biggest sales event of the year; nothing loads for anyone.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t05",
+   "state": {
+    "ticket": "Would be nice if exports remembered my last column order.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t17",
+   "state": {
+    "ticket": "The dashboard loads, but charts render slowly and sometimes need a refresh.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t32",
+   "state": {
+    "ticket": "Customer data from another company is appearing in our account. This is a security incident.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t00",
+   "state": {
+    "ticket": "The font in the settings page looks slightly different from the rest of the app.",
+    "variables": {
+     "customer_tier": 2
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t02",
+   "state": {
+    "ticket": "There is a typo on the billing page: 'recieve' instead of 'receive'.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t21",
+   "state": {
+    "ticket": "Checkout returns a server error for every customer; we cannot take orders.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "escalate"
+  },
+  {
+   "id": "t10",
+   "state": {
+    "ticket": "Report generation takes about three minutes now; it used to take thirty seconds.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t16",
+   "state": {
+    "ticket": "Uploads over 50 MB fail intermittently; retrying usually succeeds.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t24",
+   "state": {
+    "ticket": "Payments are being declined for all cards since the last deploy; we are losing sales.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_urgent"
+  },
+  {
+   "id": "t14",
+   "state": {
+    "ticket": "Notifications are delayed by ten to fifteen minutes since yesterday.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t33",
+   "state": {
+    "ticket": "The platform is down worldwide; our monitoring shows 100% error rates across all regions for the last forty minutes.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t22",
+   "state": {
+    "ticket": "Our API key was revoked without notice and all our integrations are down.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_urgent"
+  }
+ ],
+ "validation": [
+  {
+   "id": "t30",
+   "state": {
+    "ticket": "Your status page says all systems operational, but the entire platform is unreachable for us and every other customer we have asked.",
+    "variables": {
+     "customer_tier": 2
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t25",
+   "state": {
+    "ticket": "Our production webhook endpoint stopped receiving events entirely two hours ago.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_urgent"
+  },
+  {
+   "id": "t27",
+   "state": {
+    "ticket": "We cannot publish anything; every save fails with a permissions error we did not change.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "escalate"
+  },
+  {
+   "id": "t37",
+   "state": {
+    "ticket": "Your DNS is not resolving for the whole product; the site is unreachable from every network we tried.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t13",
+   "state": {
+    "ticket": "CSV export works but drops the last column on files over 10,000 rows.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t03",
+   "state": {
+    "ticket": "The weekly digest email arrived an hour later than usual this week.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t11",
+   "state": {
+    "ticket": "Search results are missing items created in the last hour, though they show up eventually.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t09",
+   "state": {
+    "ticket": "The changelog link in the footer points to last month's release notes.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  }
+ ],
+ "test": [
+  {
+   "id": "t26",
+   "state": {
+    "ticket": "The admin console shows a blank page for every user in our organization.",
+    "variables": {
+     "customer_tier": 2
+    }
+   },
+   "label": "escalate"
+  },
+  {
+   "id": "t12",
+   "state": {
+    "ticket": "The mobile app crashes occasionally when I rotate the screen, but relaunching works.",
+    "variables": {
+     "customer_tier": 3
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t29",
+   "state": {
+    "ticket": "Data sync to our warehouse has failed completely; downstream reports are empty.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_urgent"
+  },
+  {
+   "id": "t19",
+   "state": {
+    "ticket": "API responses are slower than usual, around two seconds instead of two hundred milliseconds.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t38",
+   "state": {
+    "ticket": "Mass data deletion in progress: files are disappearing from every workspace in our organization and others report the same.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t31",
+   "state": {
+    "ticket": "Complete outage: the API, the web app and the mobile app all return 503 for everyone.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "page_oncall"
+  },
+  {
+   "id": "t07",
+   "state": {
+    "ticket": "Our team would like a keyboard shortcut for the search box.",
+    "variables": {
+     "customer_tier": 0
+    }
+   },
+   "label": "queue_normal"
+  },
+  {
+   "id": "t08",
+   "state": {
+    "ticket": "Minor: the date picker shows Sunday first, we prefer Monday.",
+    "variables": {
+     "customer_tier": 1
+    }
+   },
+   "label": "queue_normal"
+  }
+ ]
+}

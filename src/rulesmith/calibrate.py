@@ -174,14 +174,17 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
     also wins held out: the training examples are dealt into folds, the best line is chosen
     without each fold in turn and scored on it, and those scores together must beat the line as
     it stands. One example on the far side of a line is not evidence to move it; a few are.
-    Each kept move is reported with the line's old and new place and the training accuracy
-    before and after; a refused one, with the same and `kept` false."""
+    The report has a row per line: where it was and where it ended, how many places were tried,
+    the training accuracy just before and after its move, and whether it moved."""
     examples = [e for e in task.train if e.label is not None]
     lines = cuts(plan)
     if not examples or not lines:
         return plan, []
     seen = observed(plan, examples, client, model)
-    report = []
+    started = {cut: cut.value(plan) for cut in lines}
+    tried = dict.fromkeys(lines, 0)
+    after = correct(plan, examples, client, model)
+    change: dict[Cut, tuple[list[bool], list[bool]]] = {}
     for _ in range(3):
         moved = False
         for cut in lines:
@@ -189,30 +192,32 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
             candidates = midpoints(seen.get(cut.tests, []))
             if not candidates:
                 continue
+            tried[cut] += len(candidates)
             scores = {
                 value: correct(cut.moved(plan, value), examples, client, model)
                 for value in candidates
             }
-            scores[current] = correct(plan, examples, client, model)
+            scores[current] = after
             best = choose(scores, current)
-            kept = best != current and held_out_wins(scores, current, len(examples))
-            report.append(
-                {
-                    "rule": cut.node,
-                    "tests": cut.tests,
-                    "from": current,
-                    "to": best if kept else current,
-                    "tried": len(candidates),
-                    "train_before": sum(scores[current]) / len(examples),
-                    "train_after": sum(scores[best if kept else current]) / len(examples),
-                    "kept": kept,
-                }
-            )
-            if kept:
-                plan = cut.moved(plan, best)
-                moved = True
+            if best != current and held_out_wins(scores, current, len(examples)):
+                change[cut] = (after, scores[best])
+                plan, after, moved = cut.moved(plan, best), scores[best], True
         if not moved:
             break
+    report = [
+        {
+            "rule": cut.node,
+            "tests": cut.tests,
+            "from": started[cut],
+            "to": cut.value(plan),
+            "tried": tried[cut],
+            "train_before": sum(change.get(cut, (after, after))[0]) / len(examples),
+            "train_after": sum(change.get(cut, (after, after))[1]) / len(examples),
+            "kept": cut.value(plan) != started[cut],
+        }
+        for cut in lines
+        if tried[cut]
+    ]
     return plan, report
 
 
