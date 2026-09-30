@@ -221,13 +221,13 @@ def parser() -> argparse.ArgumentParser:
     arena.add_argument("--output", type=Path, required=True)
     provider_arguments(arena)
     fit = commands.add_parser(
-        "calibrate", help="Fit how sure each judgment should read, from the training examples"
+        "calibrate", help="Fit how sure each judgment should read, from the labeled examples"
     )
     fit.add_argument("task", type=Path)
     fit.add_argument("plan", type=Path)
     fit.add_argument("--output", type=Path, required=True, help="A .rules or .json plan")
     provider_arguments(fit)
-    draw = commands.add_parser("draw", help="Write a plan as a Mermaid flowchart")
+    draw = commands.add_parser("draw", help="Write a graph as a Mermaid flowchart")
     draw.add_argument("plan", type=Path)
     draw.add_argument(
         "--closed",

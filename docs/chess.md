@@ -58,7 +58,7 @@ One seed is one game: four random legal opening plies, then the graphs play. A
 graph is white on even seeds and black on odd ones, so the same opening is
 scored from both chairs.
 
-A rule list cannot force mate from a won position, so games that reach the move
+A graph of rules cannot force mate from a won position, so games that reach the move
 limit are adjudicated: a side a minor piece ahead has won, anything closer is a
 draw. The score is mostly the result and partly the final position:
 
@@ -67,7 +67,7 @@ score = 0.8 x result + 0.2 x (material edge, clipped at +/- 15, mapped to 0..1)
 ```
 
 Set `material_weight` to 0 for results only. The split exists because results
-alone are nearly flat here: most games between rule lists end drawn, and the
+alone are nearly flat here: most games between such graphs end drawn, and the
 board is what says which graph stood better. It is the opposite problem to
 [Doom](doom.md), where the reward moved but the graphs never met.
 
@@ -98,10 +98,11 @@ tops both columns.
 
 The one chess result that can be rerun: `benchmarks/chess.sh` searches from
 [greedy.rules](../examples/chess/graphs/greedy.rules) on
-[stockfish.json](../examples/chess/stockfish.json), where every game is played as
-White against Stockfish at skill level 0 and scored mostly by the result, then by
-how long the game lasts and how much material is kept. Three search seeds ran
-at once, 1,000 games each, with `openrouter/qwen/qwen3.8-27b` proposing; the
+[stockfish.json](../examples/chess/stockfish.json), where every game is played
+against Stockfish at skill level 0, as White on even seeds and Black on odd, and
+scored half by the result, then by how long the game lasts (0.3) and how much
+material is kept (0.2). Three search seeds ran at once, 1,000 games each, with
+`openrouter/qwen/qwen3.8-27b` proposing; the
 searches' reports are summarized in
 [benchmarks/results/games.json](../benchmarks/results/games.json), and the chart
 is drawn from them by `benchmarks/fitness.py`: the best validation score found
@@ -112,7 +113,7 @@ everything before it, and the winner's test score on the label.
 
 | Search seed | Validation, seed → best | Test | Won / drew / lost | Mean plies | Mean material |
 | --- | --- | --- | --- | --- | --- |
-| greedy, unsearched | | 0.22 | 0 / 1 / 39 | 63 | −8.0 |
+| greedy, unsearched, from the 200-game overnight run | | 0.22 | 0 / 1 / 39 | 63 | −8.0 |
 | 0 | 0.17 → 0.25 | 0.21 | 0 / 0 / 40 | 63 | −8.9 |
 | 1 | 0.18 → 0.26 | 0.17 | 0 / 0 / 40 | 55 | −13.4 |
 | 2 | 0.22 → 0.27 | 0.21 | 0 / 0 / 40 | 61 | −7.5 |
@@ -123,15 +124,15 @@ three gains pass the sign test (p = 0.004 and 0.035). None of it carried to the
 from, and every graph, searched or not, loses all 40. The three searches agree
 on what to change, which says something about the training games rather than
 about chess: each moved "save a hanging piece" ahead of "take the best capture",
-raised the gain a capture needs (to 2 or 3 points), and replaced developing a
-piece as the default with a quiet move, developing only while minor pieces are
-still at home. A graph that picks one policy per move from eight is far below
+raised the gain a capture needs (to 2 or 3 points, on two of the three), and
+replaced developing a piece as the default with a quiet move, developing only
+while minor pieces are still at home. A graph that picks one policy per move from eight is far below
 even the weakest Stockfish, and 3,000 games of search did not change that.
 
 ### The league
 
-The rest of this section is a record of past runs. The scripts that drove the
-1,680-game ladder and the league are not in the repo, and the `arena` command ranks Doom
+The rest of this section, like the baseline ladder above, is a record of past runs. The
+scripts that drove the 900-game and 1,680-game ladders and the league are not in the repo, and the `arena` command ranks Doom
 graphs only, so these tables cannot be regenerated from it. The graphs they
 produced are: [searched.json](../examples/chess/graphs/searched.json), found
 before the league, and [league-best.json](../examples/chess/graphs/league-best.json),
@@ -181,7 +182,7 @@ hunter 1500   gen2 1498   always-check 1484   gen5 1475   greedy 1450   develope
 ```
 
 Read the top five together: they are all graphs search wrote, they sit inside
-fourteen points of each other, and a few hundred games carry about ten points of
+sixteen points of each other, and a few hundred games carry about ten points of
 standard error. So search beat every hand-written graph and then converged by
 generation 7, producing one more graph at generation 27 that landed in the same
 cluster.
@@ -250,7 +251,7 @@ opponent.
   cannot play a move no policy describes, and it cannot search ahead.
 - `gain` looks one recapture deep. A real exchange search would value some
   captures differently.
-- Draws dominate. Two rule lists that both avoid blunders will shuffle to the
+- Draws dominate. Two graphs that both avoid blunders will shuffle to the
   move limit, which is why the score carries a material term.
 - The opening is four random plies, so a seed can hand one side a better start.
   Playing every seed from both colors cancels it across a ladder, not within a

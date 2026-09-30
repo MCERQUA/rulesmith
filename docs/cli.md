@@ -8,7 +8,7 @@ every flag.
 | `validate` | Check a graph against a task's labels and size limits, without running it |
 | `run` | Execute a graph once on one input |
 | `evaluate` | Score a graph on a task split |
-| `optimize` | Search for a better graph, writing `plan.json` and `report.json` |
+| `optimize` | Search for a better graph, writing `plan.json`, editable `plan.rules` and `report.json` |
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
 | `calibrate` | Fit how sure each judgment should read, and count how often each rule is right, from the labeled examples |
@@ -20,6 +20,11 @@ Every command that asks a judge (`run`, `evaluate`, `optimize`, `calibrate`,
 `arena`, `record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,
 `--retries` and `--max-workers`; see [backends](#backends). `draft-labels` calls
 a generative model instead, set with `--labeler-model` and `--labeler-base-url`.
+
+`optimize` has flags of its own for the search budget, the proposer, checkpoints
+and `--resume`, listed under [settings](optimization.md#settings); its `--unit`
+and `--map-task` flags, for improving one unit of a map, are on the
+[Maps](maps.md#working-with-a-map) page.
 
 A `.rules` file is a graph wherever the CLI takes one, so the examples run as
 they stand:

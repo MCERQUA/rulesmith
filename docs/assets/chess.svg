@@ -98,5 +98,5 @@ text{font-size:12px}.surface{fill:#fcfcfb}.ink{fill:#0b0b0b}.ink2{fill:#52514e}.
 <circle class="plain" cx="950.0" cy="430.7" r="3.5" stroke-width="1.5"/>
 <circle class="dot" cx="160.7" cy="429.5" r="5" stroke-width="2"/>
 <text class="ink" x="170.7" y="433.5" text-anchor="start">gen3 0.606</text>
-<text class="muted" x="62.0" y="572.0" text-anchor="start">A grey dot is one graph&#x27;s score against the five hand-written graphs, which never change. The line is the best so far; the dashed rule is the graph the league started from.</text>
+<text class="muted" x="62.0" y="572.0" text-anchor="start">A gray dot is one graph&#x27;s score against the five hand-written graphs, which never change. The line is the best so far; the dashed rule is the graph the league started from.</text>
 </svg>

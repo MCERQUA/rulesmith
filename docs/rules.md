@@ -359,7 +359,7 @@ flowchart TD
 
 ## Beyond rules
 
-The full DAG language is available. This hand-written example
+The full graph language is available. This hand-written example
 ([examples/dag.json](../examples/dag.json)) asks two questions in parallel, then
 runs only the specialist that matches. Drawn with `rulesmith draw`:
 
@@ -417,7 +417,7 @@ does. Thick arrows lead to the graph's two outputs.
 flowchart LR
   T["task.json<br/>labels + examples"] --> S["Starting graph<br/>yours, or the majority label"]
   S --> E["Run on training examples<br/>via Ruling or Jev"]
-  E -->|"errors + expected labels"| P["DSPy proposer<br/>revises one graph component"]
+  E -->|"errors + expected labels"| P["DSPy proposer<br/>revises one part of the graph"]
   P -->|"assemble + schema check"| E
   E -->|"better on the batch"| V["Score on validation examples"]
   V --> B["Best graph<br/>plan.json"]

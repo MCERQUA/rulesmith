@@ -15,9 +15,11 @@ task against Stockfish. The short version:
   DSPy's chain of thought beats it on TREC (0.884 vs 0.759).
 - **On news, the dataset held back as a blind check, search scores highest** (0.291 vs 0.253
   for the direct call and 0.246 for DSPy), but every method there is close to chance.
-- **Chess:** search found no graph that did better against Stockfish than its starting one.
+- **Chess:** search found no graph that did better against Stockfish on test than its starting one.
 
-Everything here is reproducible with `benchmarks/overnight.sh`; the raw results, one record per
+The text tables are reproducible with `benchmarks/overnight.sh`, the 40-game Stockfish
+table with `python3 -m rulesmith.bench chess`, and the three 1,000-game searches with
+`benchmarks/chess.sh`; the raw results, one record per
 method and seed with every test answer, are in [`benchmarks/results`](../benchmarks/results).
 
 ## Setup
@@ -181,7 +183,7 @@ nothing in rulesmith was changed after seeing it.
 Every method is near chance: a title and sixteen summary numbers say little about the channel.
 Search is the best of them on every seed except the first, where DSPy scored 0.26 to its 0.24,
 and beats each method at p < 0.05. Against five methods at once that is weaker than it looks:
-with a Bonferroni correction (p < 0.01) only its wins over direct and majority hold. What
+with a Bonferroni correction (p < 0.01) only its wins over direct, majority and TF-IDF hold. What
 search found on seed 1, mined rules over the numbers ahead of the judge question:
 
 ```text
@@ -197,9 +199,10 @@ accuracy is too low for anyone to use.
 
 ## Chess against Stockfish
 
-The chess task (`examples/chess/stockfish.json`) plays graphs as White against Stockfish at
-skill level 0 (about 1320 Elo), scoring each game by how long the graph survives and how much
-material it keeps. Before training, 40 games per graph from the example graphs:
+The chess task (`examples/chess/stockfish.json`) plays graphs against Stockfish at skill
+level 0 (about 1320 Elo), White on even seeds and Black on odd, scoring each game half by
+the result, then by how long the graph survives (0.3) and how much material it keeps (0.2). Before training, 40 games per graph from
+the example graphs:
 
 | Graph | Won | Drew | Lost | Mean material | Mean plies |
 | --- | --- | --- | --- | --- | --- |
@@ -212,7 +215,7 @@ material it keeps. Before training, 40 games per graph from the example graphs:
 | always-quiet | 0 | 0 | 40 | -13.5 | 43.3 |
 | always-check | 0 | 0 | 40 | -16.5 | 44.7 |
 
-Search from `greedy`, with a budget of 200 scored games and nine proposals, kept a graph identical to `greedy`:
+Search from `greedy`, with a budget of 200 scored games and eight proposals, kept a graph identical to `greedy`:
 no proposal scored better on validation. On the 40 test games the two scored 0.215 and 0.218
 (no wins, one draw for the second), which is the same graph playing different games. A rules
 graph that picks one move type per position is far below even the weakest Stockfish, and

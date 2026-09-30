@@ -17,9 +17,9 @@ evaluate and keep.
    endpoint accepts) gets the graph, the inputs, its outputs, and the expected
    labels or episode rewards. Search revises one part at a time:
    **readings** holds reads and judgments; **rules** holds names, votes and the
-   rules that decide. The proposer returns the replacement component, preserving
-   references to nodes owned by the unchanged component.
-3. **Check.** The replacement is assembled with the unchanged component and
+   rules that decide. The proposer returns the replacement part, preserving
+   references to nodes owned by the unchanged one.
+3. **Check.** The replacement is assembled with the unchanged part and
    validated as a complete graph; no generated code runs. Validation errors
    go back to the proposer for up to `--repair-attempts` repairs. Candidates
    that remain invalid score zero, and their errors inform later proposals.
@@ -88,10 +88,12 @@ benchmark drivers stop this way at their deadline and resume on the next run.
 | `seed_validation_score` | Score of the starting graph |
 | `candidates` | Graphs that reached validation, including the seed. `1` means nothing new did. |
 | `reflection_calls` | Proposer calls |
+| `repairs` | Proposals that failed validation and were sent back to the proposer with the error, up to `--repair-attempts` each |
 | `invalid_candidate_evaluations` | Evaluations rejected by schema or graph checks |
 | `metric_calls` | Example evaluations used |
 | `mined` | With `--mine`: how many rules were mined, their validation score, and whether search started from them |
 | `improvement_p`, `kept_seed` | The sign test of the winner against the seed, and whether `--significance` kept the seed |
+| `validation_scores` | Validation score of each candidate, in candidate order |
 | `discovered_at` | Metric calls spent when each candidate was found, in candidate order, the seed's being 0 |
 | `keep_judge_passed_over` | With `--keep-judge`: better-scoring candidates refused because a rule answered alone too often wrongly |
 | `scored_by` | `labels`, `grader <model>`, or `games`: a graded score is not accuracy |

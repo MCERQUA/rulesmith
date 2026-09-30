@@ -1,1 +1,1 @@
-"""Typed execution DAGs evaluated by Jev and evolved by GEPA."""
+"""Typed decision graphs, answered by a judge and searched with GEPA."""

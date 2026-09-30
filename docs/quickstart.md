@@ -21,7 +21,7 @@ flowchart LR
 TypeSafe's hosted Jev, or run Ruling on your own machine; every command takes
 either, and the examples below use Ruling.
 
-<details open>
+<details>
 <summary><b>Jev, hosted</b></summary>
 
 Jev runs on TypeSafe's servers, so it works on any machine and answers many
@@ -38,7 +38,7 @@ pass `--model` with a pinned version for results you want to reproduce.
 
 </details>
 
-<details>
+<details open>
 <summary><b>Ruling, local</b></summary>
 
 [Ruling](https://github.com/bradAGI/ruling) runs on an Apple Silicon Mac and
@@ -102,7 +102,7 @@ uv run rulesmith optimize task.json \
   --output runs/my-task
 ```
 
-Output (trimmed; with `REFLECTION_MODEL=openrouter/qwen/qwen3.8-27b`):
+Output (trimmed; captured with a hosted proposer, `REFLECTION_MODEL=openrouter/qwen/qwen3.8-27b`):
 
 ```text
 Iteration 0: Base program full valset score: 0.3333333333333333 over 3 / 3 examples

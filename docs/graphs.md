@@ -39,10 +39,10 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 | `coalesce` | After all `sources` settle, return the first available one in listed order. |
 | `value` | Return a literal JSON `value`. An optional `measured` (`{"right", "decided", "examples"}`, set by `rulesmith calibrate`) records how many labeled examples the rule decided and how many rightly; a decision it makes is then as sure as `(right + 1) / (decided + 2)`. Written in rules as `when rating >= 4: yes calibrated 37/40 of 100`. |
 | `read` | Take one value from the original input by `path`, declaring `bounds` (numbers) or `categories` (strings). A missing path, or a value outside the declared domain, skips the node. |
-| `confidence` | How sure the `choice` or `score` call named in `source` was, from 0 to 1. A `noul` answers with the probability itself, so it has no separate confidence, and validation refuses a `confidence` of one (or of anything but a call). |
+| `confidence` | How sure the `choice` or `score` call named in `source` was, from 0 to 1. A `noul` answers with the probability itself, so it has no separate confidence, and validation refuses a `confidence` of a `noul`, or of anything but a call. |
 | `sum` | A weighted sum of numeric `terms` (each `{"node", "weight"}`, weight 1 by default) plus a `constant`. Skipped when any term is skipped. Its range follows from its terms, so thresholds on it are checked like any other. |
 | `graph` | Run another `plan`, embedded in this node, on the one value its `input` names (the whole input by default, or a node's value, or an object a `merge` built) and answer with its `output` (`label` by default). A unit of a larger map; see [Composing graphs](#composing-graphs). |
-| `vote` | Settle two or more categorical `sources` into one value. `rule: majority` returns the value most of them gave, a tie going to the one named first; `rule: agree` returns `same` (default `"yes"`) when every source gave the same value and `different` (default `"no"`) otherwise, and is skipped while any source is, since an opinion never given has not agreed. |
+| `vote` | Settle two or more categorical `sources` into one value. `rule: majority` returns the value most of them gave, a tie going to the value the earlier source gave; `rule: agree` returns `same` (default `"yes"`) when every source gave the same value and `different` (default `"no"`) otherwise, and is skipped while any source is, since an opinion never given has not agreed. |
 
 ## Questions
 
@@ -108,8 +108,8 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
   `rulesmith.ablate.effects` use it, and an ordinary run leaves it empty.
 
 `DecisionProgram` returns a `dspy.Prediction` with `outputs`, `node_values`,
-`answers`, `skipped`, per-call `calls` metadata, `models`, token totals, and
-`label` when there is a `label` output.
+`answers`, `skipped`, per-call `calls` metadata, `models`, token totals, and,
+when there is a `label` output, `label`, `decided_by` and `confidence`.
 
 ## Validation
 

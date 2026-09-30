@@ -212,7 +212,7 @@ Output (the last line of pytest):
 ```text
 538 passed, 6 skipped, 1 warning in 317.60s (0:05:17)
 All checks passed!
-49 files already formatted
+56 files already formatted
 ```
 
 ## License
