@@ -4,7 +4,10 @@ The composition pieces, [units](graphs.md#composing-graphs), units in files,
 search per unit and scoring the whole, exist to build maps of many decisions.
 Each unit is a graph in a file of its own, a map names them, and the map runs
 as one graph on one judge, with every answer traced to the unit and rule that
-made it. `validate` checks every hand-off across the files, `optimize --unit`
+made it. In the vocabulary of DMN, the decision-management standard, a map is a
+decision model, each unit a decision that other decisions depend on, and the
+drawing its decision requirements diagram; the words here are plainer because
+"model" already names the judge and the proposer in this repo. `validate` checks every hand-off across the files, `optimize --unit`
 searches one unit in place with the rest frozen, and `--map-task` refuses a
 unit that is better alone and worse for the map. This page is the first map,
 built from public data only, so every number in it can be rerun: three decisions of a marketplace's trust-and-safety work, each a
