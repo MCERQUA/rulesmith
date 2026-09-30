@@ -36,9 +36,10 @@ nothing to add there.
 
 The [benchmarks](docs/benchmarks.md) bear this out on five public datasets.
 Where fields carry the signal, rulesmith ties or beats DSPy with 5% to 68% of
-its model calls. Where the input is a single piece of free text, it adds nothing
-over one direct question: it ties DSPy on Banking77, and DSPy's chain of thought
-beats it on TREC.
+its model calls, including DSPy's own typed classifier on the same judge. Where
+the input is a single piece of free text, it adds nothing over one direct
+question: it ties DSPy on Banking77, and DSPy beats it on TREC, with chain of
+thought or by rewriting the question the judge reads.
 
 ## Installation
 
