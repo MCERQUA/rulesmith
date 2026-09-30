@@ -147,47 +147,9 @@ Rules compile to a validated graph that the runtime executes, and read back as
 the rules they came from: `optimize` saves both, and a `.rules` file runs
 anywhere a `plan.json` does, so you can edit what search wrote. The language,
 with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md).
-
-## Maps of decisions
-
-A graph can hand a case to another graph. Each unit is a graph in a file of its
-own, a map names them, and the map runs as one graph on one judge, with every
-answer traced to the unit and rule that made it. `validate` checks every
-hand-off across the files, `optimize --unit` searches one unit in place with
-the rest frozen, and `--map-task` refuses a unit that is better alone and worse
-for the map. The first map, three units search found on the
-[benchmarks](docs/benchmarks.md) behind a router that reads which fields an
-input has, scores 0.84 on 120 held-out rows at 0.53 judge calls a row:
-
-```mermaid
-flowchart TD
-    n0[/"read has_company_logo"/]
-    n1(["postings<br/>answers with its label"])
-    n2[/"read rating"/]
-    n3(["reviews<br/>answers with its label"])
-    n4(["intents<br/>answers with its label"])
-    n5(["decision<br/>first that answers"])
-    c0["has_company_logo"]
-    n0 --> c0
-    c0 -.-> n1
-    c1["rating"]
-    n2 --> c1
-    c1 -.-> n3
-    n1 -->|"1"| n5
-    n3 -->|"2"| n5
-    n4 -->|"3"| n5
-    o0(("label"))
-    n5 ==> o0
-    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
-    class n0,n2 read
-    classDef unit fill:#ede9fe,stroke:#7c3aed,color:#1c1917
-    class n1,n3,n4 unit
-    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
-    class c0,c1 condition
-```
-
-How to build one is in [Composing graphs](docs/graphs.md#composing-graphs);
-what this map shows, and what it does not, is in [A map of decisions](docs/map.md).
+Graphs compose: a decision can hand a case to another graph's unit, and many
+decisions become one map, validated across its hand-offs and searched a unit
+at a time; the first one is in [A map of decisions](docs/map.md).
 
 ## Use from Python
 

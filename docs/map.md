@@ -2,8 +2,12 @@
 
 The composition pieces, [units](graphs.md#composing-graphs), units in files,
 search per unit and scoring the whole, exist to build maps of many decisions.
-This page is the first map, built from public data only, so every number in it
-can be rerun: three decisions of a marketplace's trust-and-safety work, each a
+Each unit is a graph in a file of its own, a map names them, and the map runs
+as one graph on one judge, with every answer traced to the unit and rule that
+made it. `validate` checks every hand-off across the files, `optimize --unit`
+searches one unit in place with the rest frozen, and `--map-task` refuses a
+unit that is better alone and worse for the map. This page is the first map,
+built from public data only, so every number in it can be rerun: three decisions of a marketplace's trust-and-safety work, each a
 unit that search found on one of the [benchmark](benchmarks.md) datasets, behind
 a router that costs nothing.
 
