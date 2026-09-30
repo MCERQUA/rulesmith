@@ -1,4 +1,4 @@
-# A map of decisions
+# Maps
 
 The composition pieces, [units](graphs.md#composing-graphs), units in files,
 search per unit and scoring the whole, exist to build maps of many decisions.

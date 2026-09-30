@@ -149,7 +149,7 @@ anywhere a `plan.json` does, so you can edit what search wrote. The language,
 with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md).
 Graphs compose: a decision can hand a case to another graph's unit, and many
 decisions become one map, validated across its hand-offs and searched a unit
-at a time; the first one is in [A map of decisions](docs/map.md).
+at a time; the first one is in [Maps](docs/maps.md).
 
 ## Use from Python
 
@@ -188,7 +188,7 @@ The rest, from loading rules to running search from Python, is in
 - [Tasks](docs/tasks.md): the task file, drafting labels, structured inputs, costs, and graders.
 - [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration, and worked examples.
 - [Graph format](docs/graphs.md): the JSON behind each node, execution, composing graphs from graphs, and drawing and ablating one.
-- [A map of decisions](docs/map.md): three searched units behind a router, scored end to end on public data.
+- [Maps](docs/maps.md): units in their own files behind a router, searched in place, and the first map scored end to end on public data.
 - [Optimization](docs/optimization.md): how search runs, its settings, reports, testing, and limits.
 - [Command line](docs/cli.md): every command, the flags they share, and the backends.
 - [Python](docs/python.md): running and building graphs from code.
