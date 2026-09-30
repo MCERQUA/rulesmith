@@ -409,3 +409,46 @@ def test_terminating_the_cli_shuts_down_its_game_engine(tmp_path):
     process.wait(timeout=30)
     alive = [pid for pid in engines if subprocess.run(["kill", "-0", pid]).returncode == 0]
     assert alive == []
+
+
+def test_ending_the_episode_by_killing_the_monster_is_not_an_exit(task, env, provider, client):
+    aim(provider)
+    outcome = Episodes(task, env)(
+        DecisionProgram(Plan.model_validate(aiming_graph()), client, "f"), 7
+    )
+    # basic ends when the monster dies, early and alive, which no reward threshold can tell
+    # from a level exit; the environment can, since no exit bonus was paid.
+    assert outcome.record["stats"]["exited"] is False
+
+
+def test_an_exit_is_known_by_its_bonus_in_the_final_step():
+    task = DoomTask.model_validate(doom_data(rewards={"map_exit_reward": 2000}))
+
+    class Exiting:
+        """A game whose next action ends the level, as ViZDoom reports one: the exit bonus in
+        that step's reward, the episode finished, the player alive."""
+
+        def make_action(self, action, tics):
+            return 2000.0
+
+        def is_episode_finished(self):
+            return True
+
+        def is_player_dead(self):
+            return False
+
+        def get_state(self):
+            return None
+
+        def get_game_variable(self, variable):
+            return 0
+
+        def close(self):
+            pass
+
+    with DoomEnvironment(task) as env:
+        env.reset(7)
+        env.game = Exiting()
+        reward, observation = env.step("ATTACK")
+        assert reward == 2000 and observation is None
+        assert env.stats()["exited"] is True

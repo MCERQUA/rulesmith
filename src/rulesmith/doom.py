@@ -276,6 +276,7 @@ class DoomEnvironment:
         if self.frames is not None:
             self.frames = [self.game.get_state().screen_buffer.copy()]
         self.visited = Counter()
+        self.exited = False
         self.recent = deque(maxlen=self.task.memory_steps)
         self.trail = deque(maxlen=self.task.memory_steps + 1)
         self.visit()
@@ -318,6 +319,10 @@ class DoomEnvironment:
                     break
                 self.frames.append(self.game.get_state().screen_buffer.copy())
         self.recent.append(action)
+        # A level exit pays its bonus in the step that ends the episode, and no other event
+        # pays anything near it, so the bonus is how an exit is known from a death or timeout.
+        if self.game.is_episode_finished():
+            self.exited = reward >= self.task.rewards.get("map_exit_reward", math.inf)
         # Only deathmatch outlives a death; single-player episodes end above.
         if not self.game.is_episode_finished() and self.game.is_player_dead():
             self.game.respawn_player()
@@ -469,6 +474,8 @@ class DoomEnvironment:
         if self.game_args:
             stats["frags"] = int(variable(GV.FRAGCOUNT))
             stats["deaths"] = int(variable(GV.DEATHCOUNT))
+        else:
+            stats["exited"] = self.exited
         return stats
 
     def close(self) -> None:

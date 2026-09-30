@@ -43,7 +43,7 @@ seed had stopped while every seed was still improving, so the budget was tripled
 | Search seed | Validation, seed → best | Test | Exited | Judge calls in the winner | Last improvement at |
 | --- | --- | --- | --- | --- | --- |
 | 0 | 0.22 → 0.29 | 0.24 | 0 of 6 | none | episode 534 |
-| 1 | 0.22 → 0.35 | 0.28 | 1 of 6 | none | episode 570 |
+| 1 | 0.22 → 0.35 | 0.28 | 0 of 6 | none | episode 570 |
 | 2 | 0.22 → 0.27 | 0.24 | 0 of 6 | none | episode 596 |
 
 All three seeds were still finding improvements past episode 500, seed 2 at its
@@ -57,10 +57,13 @@ What search found is worth reading with the reward in mind. The starting graph
 survives the whole four minutes and scores 0.22. Seeds 0 and 1 found graphs
 that run the route, kill several monsters and usually die inside a minute, and
 score more, because progress along the route and kills pay better than staying
-alive; seed 1's reached the exit on one held-out seed. Seed 2 found the other
-way to score: a graph that survives the full four minutes on five of six test
-seeds and scores its points on the way, reaching the exit on none. All three
-winners dropped the judge entirely. How long a search takes turns on how soon
+alive. Seed 2 found the other way to score: a graph that survives the full four
+minutes on five of six test seeds and scores its points on the way. None of the
+three reaches the exit on a held-out seed; the 200-episode round's winners for
+seeds 0 and 1 each did, once. Exits are counted by the environment, from the
+exit bonus paid in an episode's final step, since a fast death after a long run
+scores like an exit without being one. All three winners dropped the judge
+entirely. How long a search takes turns on how soon
 its candidates stop asking the judge on nearly every step: an episode of the
 starting graph makes about 1,400 judge calls and takes ten minutes on a local
 judge, and one whose graph asks rarely takes seconds, so the same 600-episode
