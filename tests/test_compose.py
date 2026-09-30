@@ -138,6 +138,8 @@ def test_a_gate_on_a_unit_points_at_the_whole_unit_and_its_answer_leaves_once():
     # not on a node inside it.
     gate = next(line for line in drawn.splitlines() if line.strip().startswith("c0 -.->"))
     assert gate.strip().endswith("_unit")
+    # The frame's title says when the unit runs, since an arrow on a frame's edge is easy to miss.
+    assert 'subgraph n1_unit["billing: a graph of its own, when team == billing"]' in drawn
     # The unit's chosen output is its exit node; drawing it as an output circle as well said the
     # same thing twice, so the map's own output is the only circle left.
     assert drawn.count('(("label"))') == 1

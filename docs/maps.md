@@ -52,7 +52,7 @@ with `rulesmith draw`, each unit opened; `--closed` would show each as one box:
 ```mermaid
 flowchart TD
     n0[/"read has_company_logo"/]
-    subgraph n1_unit["postings: a graph of its own"]
+    subgraph n1_unit["postings: a graph of its own, when has_company_logo is present"]
     n1(["postings<br/>answers with its label"])
     n1_n0[/"read has_company_logo"/]
     n1_n1[/"read length of company_profile"/]
@@ -68,7 +68,7 @@ flowchart TD
     n1_n4 ==> n1
     end
     n2[/"read rating"/]
-    subgraph n3_unit["reviews: a graph of its own"]
+    subgraph n3_unit["reviews: a graph of its own, when rating is present"]
     n3(["reviews<br/>answers with its label"])
     n3_n0[/"read rating"/]
     n3_n1(("recommended"))

@@ -138,7 +138,13 @@ def draw(
                 whole[name] = ids[name]
             else:
                 whole[name] = f"{ids[name]}_unit"
-                lines.append(f'    subgraph {whole[name]}["{safe(name)}: a graph of its own"]')
+                # The gate's arrow lands on the frame's edge, which is easy to miss, so the
+                # frame's title says when the unit runs as well; on one line, since Mermaid
+                # gives a frame's title no room for a second.
+                title = f"{safe(name)}: a graph of its own"
+                if node.when is not None:
+                    title += f", when {safe(guard(node.when, reads, plan))}"
+                lines.append(f'    subgraph {whole[name]}["{title}"]')
                 answers = f"{safe(name)}<br/>answers with its {node.output}"
                 lines.append(f'    {ids[name]}(["{answers}"])')
                 draw(node.plan, f"{ids[name]}_", lines, styled, closed, (node.output, ids[name]))
