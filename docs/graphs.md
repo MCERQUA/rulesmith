@@ -32,7 +32,7 @@ Examples: [seed.json](../examples/seed.json) (one call) and
 
 | Node | Behavior |
 | --- | --- |
-| `call` | Ask a `choice`, `score`, or `noul` question about mapped `inputs`. An optional `temperature` (default 1, fitted by `rulesmith calibrate`) divides the judge's log-odds before they are read: above 1 tempers an overconfident judge, below 1 sharpens a timid one, and the answer itself never changes. |
+| `call` | Ask a `choice`, `score`, or `noul` question about mapped `inputs`. An optional `briefing` is put first in what the judge is shown, ahead of the inputs: guidance on what to look for and how the labels differ, which a small judge takes from the state rather than from the question. An optional `temperature` (default 1, fitted by `rulesmith calibrate`) divides the judge's log-odds before they are read: above 1 tempers an overconfident judge, below 1 sharpens a timid one, and the answer itself never changes. |
 | `switch` | Map a categorical `source` value through exhaustive string `cases`. |
 | `threshold` | Return `below` or `above`; a value `>= cutoff` selects `above`. Takes an optional `measured`, as `value` does. |
 | `merge` | Build an object from mapped `inputs`, with no model call. |

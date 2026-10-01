@@ -77,6 +77,18 @@ ask close = "The enemy is close enough to fight." given [enemy.distance, health]
 `given [observation, first]` shows it the whole input and another judgment's
 answer, which is how one judgment checks another's work.
 
+A judgment may carry a briefing, which the judge reads before the input:
+
+```
+ask kind = "What kind of answer does this question ask for?" [task labels] briefed "Classify the answer, not the subject. 'How deep' asks for a number; 'what color' asks for an entity, a thing with a name, not a description."
+```
+
+The briefing goes into what the judge is shown, ahead of the input, not into the
+question. That is where a small judge takes guidance from: on TREC, the same
+eleven thousand characters of label definitions moved nothing as question
+instructions and lifted the direct question from 0.66 to 0.74 on validation as a
+briefing. Search writes briefings where a judge confuses labels.
+
 A choice over every label the task has need not list them.
 `ask intent = "Which intent is this?" [task labels]` asks over the task's
 labels, each described by the task's `descriptions` (`"descriptions":
@@ -498,6 +510,7 @@ always: MOVE_FORWARD
   `length of <path> < 20`), `read <name> = <path> in [low, high]` to give a
   reading a name the rules use instead of its path, or `ask <name> = "question" [label: "when it applies"] ...`
   for a judgment, which may end `when <condition>` to be asked only then. A judgment
+  may carry `briefed "..."`, guidance the judge reads before the input; it
   reads the whole input unless it names what it is shown with `given [a, b]`;
   `observation` in that list is the whole input. `[task labels]` in place of the
   labels, as in `ask intent = "Which intent is this?" [task labels]`, asks over

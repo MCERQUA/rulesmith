@@ -221,8 +221,14 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
         return MISSING
     if isinstance(node, Value):
         return deepcopy(node.value)
-    if isinstance(node, (Call, Merge)):
+    if isinstance(node, Merge):
         return resolve_inputs(node.inputs, state, values, answers)
+    if isinstance(node, Call):
+        inputs = resolve_inputs(node.inputs, state, values, answers)
+        if inputs is MISSING or node.briefing is None:
+            return inputs
+        # First, so the judge reads the guidance before the input it applies to.
+        return {"briefing": node.briefing, **inputs}
     if isinstance(node, Graph):
         return resolve(node.input, state, values, answers)
     if isinstance(node, Coalesce):

@@ -210,6 +210,10 @@ class Call(Guarded):
     type: Literal["call"] = "call"
     question: Question
     inputs: dict[Text, Source] = Field(min_length=1)
+    # What the judge reads before the input: what to look for, how the labels differ, the cases
+    # that are easy to confuse. It goes in the state rather than the question because that is
+    # where a small judge takes guidance from; the same text in the question changes nothing.
+    briefing: Text | None = None
     temperature: float = Field(
         default=1,
         gt=0,

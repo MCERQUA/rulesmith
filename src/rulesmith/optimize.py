@@ -394,8 +394,12 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
     # Only a labeled task describes its labels; a game's rules have no list to point to.
     every_label = (
         "A choice over every allowed label, each as the task describes it, is written "
-        "'ask intent = \"question\" [task labels]' instead of listing them; keep that form "
-        "rather than writing the labels out. "
+        "'ask intent = \"question\" [task labels]' instead of listing them. Where the judge "
+        "confuses labels, write them out instead, '[label: \"when it applies\"]' for each, "
+        "with descriptions that draw the lines the feedback shows it misses, and make the "
+        "question's instructions as full as the judge needs: what to look for, how the labels "
+        "differ, and the cases that are easy to confuse. The judge reads the whole question, "
+        "so a careful paragraph is a legitimate move, not padding. "
         if isinstance(task, Task)
         else ""
     )
@@ -475,7 +479,11 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "Ask for a probability when a threshold "
         "suits the decision, and for labels when the answers have no order. Any judgment may "
         "end 'when <condition>' to be asked only then, which is how a costly question is kept "
-        "behind a cheap reading. A judgment reads the whole input unless it ends 'given' a "
+        "behind a cheap reading. A judgment may end 'briefed \"...\"' with a briefing the "
+        "judge reads before the input: what to look for, how the labels differ, and the cases "
+        "that are easy to confuse. The judge takes guidance from the briefing, not from the "
+        "question, so when it confuses labels write a full briefing rather than a longer "
+        "question. A judgment reads the whole input unless it ends 'given' a "
         "list of declared names, which is all it is then shown and costs less to read: "
         "'ask close = \"The enemy is close enough to fight.\" given [enemy.distance, health]'. "
         "'observation' in that list is the whole input. "
