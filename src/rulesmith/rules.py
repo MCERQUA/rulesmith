@@ -350,6 +350,23 @@ def render_given(node: Call, reads: dict[str, Read], plan: Plan) -> str:
     return f" given [{', '.join(node.inputs)}]"
 
 
+CLAUSES = ("briefed ", "given [", "calibrated ")
+
+
+def joined_clauses(text: str) -> list[str]:
+    """The lines of rule text, with a clause of a judgment written on a line of its own, as a
+    long briefing invites, joined back onto the judgment it belongs to. Line numbers in errors
+    stay those of the joined text."""
+    lines: list[str] = []
+    for line in text.splitlines():
+        if lines and line.strip().startswith(CLAUSES) and lines[-1].strip().startswith("ask "):
+            lines[-1] = f"{lines[-1].rstrip()} {line.strip()}"
+            lines.append("")
+        else:
+            lines.append(line)
+    return lines
+
+
 def compile_rules(text: str, labels: dict[str, str] | None = None) -> Plan:
     """A plan from rule text, or from whole-graph JSON for what rules cannot say. `labels` maps
     each task label to its description, and is what a question written '[task labels]' asks."""
@@ -363,7 +380,7 @@ def compile_rules(text: str, labels: dict[str, str] | None = None) -> Plan:
     nodes: dict[str, dict] = {}
     names: dict[str, str] = {}
     sections: dict[str, list[str]] = {LABEL_OUTPUT: []}
-    for line_number, line in enumerate(stripped.splitlines(), start=1):
+    for line_number, line in enumerate(joined_clauses(stripped), start=1):
         line = line.strip()
         # Asked for one part, a proposer tends to answer with the whole program: fenced, and with
         # the section headings written back out. Neither says anything about the rules themselves.

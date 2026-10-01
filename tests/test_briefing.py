@@ -64,3 +64,16 @@ def test_a_briefing_survives_json_and_the_proposer_is_told_about_it():
 
     prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
     assert "briefed" in prompt
+
+
+def test_a_clause_on_its_own_line_belongs_to_the_judgment_above_it():
+    # A long briefing invites a line break before it; the proposer wrote half its briefings so.
+    split = BRIEFED.replace(' briefed "', '\nbriefed "', 1)
+    assert "\nbriefed" in split
+    assert render_rules(compile_rules(split)) == render_rules(compile_rules(BRIEFED))
+    # Any of a judgment's trailing clauses may continue so, and line numbers still name the rule.
+    lines = BRIEFED.splitlines()
+    lines[0] += " calibrated 1.5"
+    joined = render_rules(compile_rules("\n".join(lines)))
+    apart = lines[0].replace(" calibrated 1.5", "\ncalibrated 1.5")
+    assert render_rules(compile_rules("\n".join([apart, *lines[1:]]))) == joined
