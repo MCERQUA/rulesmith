@@ -2,7 +2,7 @@
 
 from test_graph import task_data
 
-from rulesmith.graph import Plan
+from rulesmith.graph import Plan, Task
 from rulesmith.optimize import SearchConfig, proposer_prompt
 from rulesmith.rules import compile_rules, render_rules
 from rulesmith.runtime import DecisionProgram
@@ -60,8 +60,6 @@ def test_a_briefing_survives_json_and_the_proposer_is_told_about_it():
     plan = compile_rules(BRIEFED)
     again = Plan.model_validate_json(plan.model_dump_json())
     assert again.nodes["kind"].briefing == plan.nodes["kind"].briefing
-    from rulesmith.graph import Task
-
     prompt = proposer_prompt(Task.model_validate(task_data()), SearchConfig())
     assert "briefed" in prompt
 
@@ -77,3 +75,24 @@ def test_a_clause_on_its_own_line_belongs_to_the_judgment_above_it():
     joined = render_rules(compile_rules("\n".join(lines)))
     apart = lines[0].replace(" calibrated 1.5", "\ncalibrated 1.5")
     assert render_rules(compile_rules("\n".join([apart, *lines[1:]]))) == joined
+
+
+def test_over_free_text_every_proposal_goes_to_the_question(provider, client):
+    from rulesmith.optimize import GraphAdapter, components
+
+    task = Task.model_validate(task_data())  # states are plain text
+    adapter = GraphAdapter(task, client, "fixture", SearchConfig())
+    single = compile_rules('always: ask "Accept or review?" [task labels]', task.criteria())
+    assert not adapter.readable
+    assert list(components(single, task.criteria(), adapter.readable)) == ["rules"]
+    # Readings a graph already has, and inputs with fields, keep both parts.
+    assert list(components(single, task.criteria(), readable=True)) == ["readings", "rules"]
+    with_reads = compile_rules("read tier in [0, 3]\nwhen tier >= 2: accept\nalways: review")
+    assert "readings" in components(with_reads, None, adapter.readable)
+    prompt = proposer_prompt(task, SearchConfig())
+    assert "no fields to read" in prompt and "Try a briefing first" in prompt
+    data = task_data()
+    for split in ("train", "validation", "test"):
+        for example in data[split]:
+            example["state"] = {"text": example["state"], "tier": 1}
+    assert "no fields to read" not in proposer_prompt(Task.model_validate(data), SearchConfig())

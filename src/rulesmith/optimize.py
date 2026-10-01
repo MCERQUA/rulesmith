@@ -226,9 +226,16 @@ def described_labels(task: SearchTask) -> dict[str, str] | None:
     return task.criteria() if isinstance(task, Task) else None
 
 
-def components(plan: Plan, labels: dict[str, str] | None = None) -> dict[str, str]:
-    """The candidate a proposer revises: rules, not the graph they compile to."""
-    return parts(plan, labels)
+def components(
+    plan: Plan, labels: dict[str, str] | None = None, readable: bool = True
+) -> dict[str, str]:
+    """The candidate a proposer revises: rules, not the graph they compile to. Over an input with
+    no fields to read, an empty readings part is left out, so every proposal goes to the rules
+    and the question rather than half of them to a part with nothing to say."""
+    found = parts(plan, labels)
+    if not readable and not found["readings"]:
+        del found["readings"]
+    return found
 
 
 def assemble(candidate: dict[str, str], labels: dict[str, str] | None = None) -> Plan:
@@ -251,6 +258,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
     ):
         self.task = task
         self.labels = described_labels(task)
+        self.readable = bool(field_summary(task))
         self.score = score or Labels(task)
         self.client = Remembered(client) if client is not None else None
         self.model = model
@@ -371,6 +379,19 @@ def field_summary(task: SearchTask) -> str:
     return f"Fields of the inputs, as seen in training: {described}.\n"
 
 
+def text_only(task: SearchTask) -> str:
+    """What to tell a proposer whose inputs have no fields: the question is the whole program,
+    so improve it, and start with a briefing, which is where this judge takes guidance."""
+    if not isinstance(task, Task):
+        return ""
+    return (
+        "The input is one piece of text with no fields to read, so the program is its question. "
+        "Improve the question: write the labels out with descriptions that draw the lines the "
+        "feedback shows the judge misses, and give the judgment a briefing. Try a briefing "
+        "first, in your first proposal, and sharpen it from the feedback after.\n"
+    )
+
+
 def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
     """Everything the proposer is told: the language, the task, and the part to return."""
     syntax_example = Plan.model_validate(
@@ -447,7 +468,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "The label output must have a statically known domain within the allowed labels. "
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
-        f"{field_summary(task)}"
+        f"{field_summary(task) or text_only(task)}"
         f"{abstaining(task)}"
         f"{keeping(config)}"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"
@@ -565,13 +586,17 @@ def optimize_plan(
     mined = mine(task, initial) if config.mine and isinstance(task, Task) else None
     if mined is not None:
         try:
-            adapter.parse(components(mined, adapter.labels))
+            adapter.parse(components(mined, adapter.labels, adapter.readable))
         except ValueError:
             mined = None
     if mined is not None:
         # Two extra scorings of the validation set, outside the budget, to pick where to start.
         scored = {
-            name: mean(adapter.evaluate(task.validation, components(plan, adapter.labels)).scores)
+            name: mean(
+                adapter.evaluate(
+                    task.validation, components(plan, adapter.labels, adapter.readable)
+                ).scores
+            )
             for name, plan in (("seed", initial), ("mined", mined))
         }
         used = scored["mined"] >= scored["seed"]
@@ -644,7 +669,7 @@ def optimize_plan(
 
     adapter.propose_new_texts = propose
     result = gepa.optimize(
-        seed_candidate=components(start, adapter.labels),
+        seed_candidate=components(start, adapter.labels, adapter.readable),
         trainset=task.train,
         valset=task.validation,
         adapter=adapter,
@@ -695,7 +720,9 @@ def optimize_plan(
         elif judged(adapter, initial, task):
             best = initial
             validation_score = mean(
-                adapter.evaluate(task.validation, components(initial, adapter.labels)).scores
+                adapter.evaluate(
+                    task.validation, components(initial, adapter.labels, adapter.readable)
+                ).scores
             )
         else:
             raise ValueError(
