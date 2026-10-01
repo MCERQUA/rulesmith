@@ -28,9 +28,14 @@ task against Stockfish. The short version:
   state the judge reads, next to the input, and the same text in the question changes nothing.
   Search can now write such a briefing too, and with every proposal aimed at the question it
   reaches 0.838 on TREC, three points under DSPy and inside the spread between seeds.
+- **A judge tuned on the same hundred examples keeps the split.** On job postings the tuned
+  judge lifts search to 0.782 at 0.29 calls per row, 7 points over DSPy's typed classifier on
+  the same tuned judge; on TREC it lifts the plain question to 0.884, what DSPy's best rewrite
+  scored, and search has nothing to add.
 - **Chess:** search found no graph that did better against Stockfish on test than its starting one.
 
-The text tables are reproducible with `benchmarks/overnight.sh`, the 40-game Stockfish
+The text tables are reproducible with `benchmarks/overnight.sh`, the tuned-judge setting with
+`benchmarks/tuned-judge.sh`, the 40-game Stockfish
 table with `python3 -m rulesmith.bench chess`, and the three 1,000-game searches with
 `benchmarks/chess.sh`; the raw results, one record per
 method and seed with every test answer, are in [`benchmarks/results`](../benchmarks/results).
@@ -240,6 +245,82 @@ when n_tokens_content >= 303 and num_self_hrefs >= 6: tech
 So the direction held on data rulesmith was not tuned on: rules over the structured fields
 help where the fields carry signal. The size of the effect here is small, and the absolute
 accuracy is too low for anyone to use.
+
+## A judge tuned on the same examples
+
+Everything above runs on a stock judge. The question a skeptic asks next is whether the rules
+still matter once the judge has been tuned on the labels, so this setting tunes it on exactly
+the 100 examples search sees and runs the three methods that share a judge, the direct
+question, search and DSPy's typed classifier, on the stock judge and on the tuned one.
+
+**Setup.** Ruling trains a LoRA adapter on labeled decisions, and wants a pure-attention base
+for it, so this setting moves the judge to `mlx-community/Qwen3-4B-Instruct-2507-4bit`; the
+stock numbers for that base are the untuned half of the comparison, and the Qwen3.5 column is
+the main benchmark for reference. One adapter per dataset and seed, trained on the training
+and validation examples with the direct question and the right label, 200 steps at batch 8
+with the best of ten validation checkpoints kept (`benchmarks/tuned-judge.sh`; the records
+are written by `benchmarks/tuned_judge.py build`, which hands the trainer the test split as a
+holdout it refuses to overlap). The kept checkpoints sit between step 20 and step 140, and on
+the job postings the validation loss climbed steeply after its minimum: a hundred examples
+support a light tune, not a long one. Banking77 has no adapter, since Ruling trains only
+questions that fit its answer alphabet and a 77-way choice does not. Serving an adapter also
+needed a three-line fix in Ruling, which realized its weights on a thread with no compute
+stream.
+
+#### Job postings
+
+| Method | Qwen3.5 stock | Instruct stock | Instruct tuned | Tuned vs stock Instruct, p |
+| --- | --- | --- | --- | --- |
+| direct | 0.593 ± 0.015, at 80% 0.640 | 0.524 ± 0.005, at 80% 0.567 | 0.600 ± 0.167, at 80% 0.636 | 0.012 |
+| search | 0.733 ± 0.125, at 80% 0.757, calls 0.72 | 0.672 ± 0.126, at 80% 0.703, calls 0.49 | 0.782 ± 0.033, at 80% 0.803, calls 0.29 | 1.6e-11 |
+| dspy-typed | 0.692 ± 0.007, at 80% 0.700 | 0.738 ± 0.013, at 80% 0.765 | 0.716 ± 0.011, at 80% 0.749 | 0.098 |
+
+#### Clothing reviews
+
+| Method | Qwen3.5 stock | Instruct stock | Instruct tuned | Tuned vs stock Instruct, p |
+| --- | --- | --- | --- | --- |
+| direct | 0.921 ± 0.005, at 80% 0.983 | 0.923 ± 0.017, at 80% 0.978 | 0.913 ± 0.007, at 80% 0.975 | 0.14 |
+| search | 0.916 ± 0.016, at 80% 0.969, calls 0.14 | 0.928 ± 0.012, at 80% 0.958, calls 0.04 | 0.924 ± 0.007, at 80% 0.961, calls 0.06 | 0.58 |
+| dspy-typed | 0.929 ± 0.012, at 80% 0.985 | 0.932 ± 0.016, at 80% 0.986 | 0.929 ± 0.007, at 80% 0.985 | 0.73 |
+
+#### TREC
+
+| Method | Qwen3.5 stock | Instruct stock | Instruct tuned | Tuned vs stock Instruct, p |
+| --- | --- | --- | --- | --- |
+| direct | 0.759 ± 0.016, at 80% 0.849 | 0.787 ± 0.007, at 80% 0.865 | 0.884 ± 0.007, at 80% 0.946 | 2.3e-12 |
+| search | 0.838 ± 0.085, at 80% 0.903, calls 1.00 | 0.821 ± 0.060, at 80% 0.885, calls 1.00 | 0.884 ± 0.007, at 80% 0.946, calls 1.00 | 1.8e-06 |
+| dspy-typed | 0.869 ± 0.030, at 80% 0.942 | 0.876 ± 0.025, at 80% 0.931 | 0.869 ± 0.018, at 80% 0.940 | 0.64 |
+
+#### News
+
+| Method | Qwen3.5 stock | Instruct stock | Instruct tuned | Tuned vs stock Instruct, p |
+| --- | --- | --- | --- | --- |
+| direct | 0.253 ± 0.019, at 80% 0.274 | 0.241 ± 0.020, at 80% 0.260 | 0.261 ± 0.023, at 80% 0.269 | 0.29 |
+| search | 0.283 ± 0.059, at 80% 0.292, calls 0.63 | 0.281 ± 0.047, at 80% 0.272, calls 0.57 | 0.283 ± 0.028, at 80% 0.294, calls 0.63 | 0.94 |
+| dspy-typed | 0.253 ± 0.019, at 80% 0.271 | 0.269 ± 0.031, at 80% 0.289 | 0.272 ± 0.020, at 80% 0.294 | 0.87 |
+
+**What tuning did.** Three things, each in one place.
+
+- **On job postings the rules gained the most, and kept their lead.** The tuned judge takes
+  search from 0.672 to 0.782 (p = 1.6e-11) while its judge calls fall from 0.49 to 0.29 per
+  row: a judge that has seen a hundred scams lets the rules settle more and ask less. DSPy's
+  typed classifier on the same tuned judge scores 0.716, so the graph is ahead by 7 points
+  (p = 3.2e-6) and 18 over the direct question, on a judge both had tuned for them.
+- **On TREC a tuned judge makes the question rewriting unnecessary, for both sides.** A
+  hundred labeled questions take the direct question from 0.787 to 0.884 (p = 2.3e-12), which
+  is what DSPy's best rewrite scored on the stock judge; search keeps the plain question and
+  scores the same, and DSPy's classifier on the tuned judge stays at 0.869. The briefing that
+  closed most of the gap above was compensating for a judge that had not seen the labels.
+- **Clothing and news do not move.** Every method on clothing is within a point of 0.92 on
+  every judge, with search asking on 4% to 6% of reviews; news stays near chance.
+
+Confidence improved where accuracy did: on TREC the accuracy on the surest 80% of answers rises
+from 0.865 to 0.946, and on job postings search's from 0.703 to 0.803, which is the
+calibration gain Ruling reports for its own adapters.
+
+So a better judge does not make the rules unnecessary where the fields carry the signal, and
+it does make the question tuning unnecessary where they do not. That is the same split as the
+stock results, drawn more sharply.
 
 ## Chess against Stockfish
 

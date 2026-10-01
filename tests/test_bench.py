@@ -1,6 +1,7 @@
 """The benchmark harness: tasks drawn from public data, baselines, and the report."""
 
 import json
+import pathlib
 import time
 from statistics import mean
 from typing import Literal
@@ -320,3 +321,26 @@ def test_the_typed_dspy_baseline_asks_the_judge_the_direct_question_and_is_fitte
     fitted, summary = fitted_weights(program, task)
     assert summary["kept"] is False and summary["train_before"] == summary["train_after"]
     assert typed_answers(fitted, task)[0] == answers
+
+
+def test_tuning_records_ask_the_direct_question_and_keep_the_test_split_out(tmp_path):
+    # The adapter is trained on exactly the examples search sees, with the direct question and
+    # the right label, and the holdout file holds every test example so the trainer can refuse
+    # any overlap: a judge tuned on a test row would make the whole setting worthless.
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "tuned_judge", pathlib.Path(__file__).parents[1] / "benchmarks" / "tuned_judge.py"
+    )
+    tuned = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tuned)
+    task = sample(toy(), 6, 3, 6, 0)
+    found = tuned.records(task)
+    assert len(found["train"]) == 9 and len(found["holdout"]) == 6
+    question = found["train"][0]["questions"]["label"]
+    assert question["type"] == "choice" and set(question["criteria"]) == set(task.labels)
+    assert [r["labels"]["label"] for r in found["train"]] == [
+        e.label for e in [*task.train, *task.validation]
+    ]
+    states = {json.dumps(r["state"], sort_keys=True) for r in found["train"]}
+    assert not states & {json.dumps(r["state"], sort_keys=True) for r in found["holdout"]}
