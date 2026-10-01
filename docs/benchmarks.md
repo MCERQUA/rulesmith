@@ -14,8 +14,9 @@ task against Stockfish. The short version:
   (0.857).
 - **Where the task is one judgment over free text, search has little to add.** On Banking77 it
   keeps the single direct question and ties DSPy's typed classifier (0.657 vs 0.677, p = 0.24).
-  On TREC it now writes a briefing the judge reads before the question, 0.786 against the direct
-  call's 0.759, and DSPy's chain of thought (0.884) and typed classifier (0.869) still beat it.
+  On TREC it now rewrites the question and writes a briefing the judge reads before the input,
+  0.838 against the direct call's 0.759, three points under DSPy's typed classifier (0.869,
+  p = 0.015) and chain of thought (0.884).
 - **On news, the dataset held back as a blind check, search scores highest** (0.283 vs 0.253
   for the direct call, 0.253 for DSPy's typed classifier and 0.246 for DSPy), but every method
   there is close to chance.
@@ -25,8 +26,8 @@ task against Stockfish. The short version:
   clothing and Banking77, and on TREC it turns the direct question's 0.759 into 0.869 by
   rewriting the instructions alone. What mattered was where they went: DSPy puts them in the
   state the judge reads, next to the input, and the same text in the question changes nothing.
-  Search can now write such a briefing too, and did on two TREC seeds in three; the rest of the
-  gap is open.
+  Search can now write such a briefing too, and with every proposal aimed at the question it
+  reaches 0.838 on TREC, three points under DSPy and inside the spread between seeds.
 - **Chess:** search found no graph that did better against Stockfish on test than its starting one.
 
 The text tables are reproducible with `benchmarks/overnight.sh`, the 40-game Stockfish
@@ -160,27 +161,30 @@ labels. The input is one short question.
 
 | Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| dspy-cot | 0.884 ± 0.041 | n/a | n/a | 1.00 | 647 | 148 | 3.81 | 0.4% | 2.4e-11 |
-| dspy-typed | 0.869 ± 0.030 | 0.942 | 0.976 | 1.00 | 804 | 0 | 0.20 | 0.0% | 2.4e-8 |
-| dspy | 0.794 ± 0.033 | n/a | n/a | 1.00 | 616 | 15 | 1.61 | 0.0% | 0.69 |
-| **search** | **0.786 ± 0.068** | 0.871 | 0.949 | 1.00 | 339 | 0 | 0.11 | 0.0% | |
-| direct | 0.759 ± 0.016 | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.72 | 0.0% | 0.042 |
-| tfidf | 0.444 ± 0.229 | 0.514 | 0.556 | 0 | 0 | 0 | 0.00 | 0.0% | 3.4e-55 |
-| majority | 0.170 ± 0.046 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 2.9e-121 |
+| dspy-cot | 0.884 ± 0.041 | n/a | n/a | 1.00 | 647 | 148 | 3.81 | 0.4% | 0.00064 |
+| dspy-typed | 0.869 ± 0.030 | 0.942 | 0.976 | 1.00 | 804 | 0 | 0.20 | 0.0% | 0.015 |
+| **search** | **0.838 ± 0.085** | 0.903 | 0.967 | 1.00 | 354 | 0 | 0.11 | 0.0% | |
+| dspy | 0.794 ± 0.033 | n/a | n/a | 1.00 | 616 | 15 | 1.61 | 0.0% | 0.013 |
+| direct | 0.759 ± 0.016 | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.72 | 0.0% | 1.7e-9 |
+| tfidf | 0.444 ± 0.229 | 0.514 | 0.556 | 0 | 0 | 0 | 0.00 | 0.0% | 3.4e-76 |
+| majority | 0.170 ± 0.046 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 1.7e-147 |
 
 With no fields to write rules over, the best graph is the one question. No proposal beat it on
 validation by enough to pass the significance guard, so search kept it and scored exactly what
-the direct call scores. DSPy's chain of thought wins by 10 points: reasoning about a question
+the direct call scores. DSPy's chain of thought wins by 5 points: reasoning about a question
 before labeling it helps on this task, and a single judge question cannot do that. DSPy's typed
-classifier wins by 8 with no reasoning at all, on the very judge search used: GEPA rewrote the
+classifier wins by 3 with no reasoning at all, on the very judge search used: GEPA rewrote the
 instructions the judge reads, and that alone took the question from 0.759 to 0.869. Where the
 text went is what mattered. Placed in the question's instructions, DSPy's winning text scores
 0.743 on this test split, the same as no text; placed first in what the judge is shown, ahead of
 the input, it scores 0.883. A judgment can now carry such a
-[briefing](rules.md#what-a-judgment-can-be), and search wrote one on seeds 1 and 2 (0.863 and
-0.753 on test) while seed 0 kept the plain question (0.74). The mean, 0.786, is above the direct
-call (p = 0.042) and still below DSPy's; search finds a briefing on some seeds, and DSPy's GEPA
-on every one.
+[briefing](rules.md#what-a-judgment-can-be). Over an input with no fields, every proposal now
+goes to the question, and the proposer is told to try a briefing first. Seed 1 wrote one, 0.877
+on test; seed 2 rewrote the question and its label descriptions instead, 0.897; seed 0 kept the
+plain question for the third search running, 0.74. The mean, 0.838, is above the direct call
+(p = 1.7e-9) and three points under DSPy's typed classifier (p = 0.015), inside the spread
+between seeds. What remains is that DSPy's GEPA finds its rewrite on every seed and search on
+two of three.
 
 ### Banking77: which intent does the customer's message express?
 
@@ -191,7 +195,7 @@ message each.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | dspy-typed | 0.677 ± 0.044 | 0.740 | 0.860 | 1.00 | 8120 | 0 | 2.13 | 0.0% | 0.24 |
 | dspy | 0.669 ± 0.054 | n/a | n/a | 1.00 | 1853 | 19 | 2.10 | 1.7% | 0.5 |
-| **search** | **0.657 ± 0.018** | 0.722 | 0.842 | 1.00 | 5001 | 0 | 1.44 | 0.0% | |
+| **search** | **0.657 ± 0.018** | 0.722 | 0.842 | 1.00 | 5001 | 0 | 1.42 | 0.0% | |
 | direct | 0.657 ± 0.018 | 0.722 | 0.842 | 1.00 | 5001 | 0 | 2.88 | 0.0% | 1 |
 | tfidf | 0.103 ± 0.022 | 0.119 | 0.171 | 0 | 0 | 0 | 0.00 | 0.0% | 7.4e-121 |
 | majority | 0.016 ± 0.008 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 4.3e-170 |
