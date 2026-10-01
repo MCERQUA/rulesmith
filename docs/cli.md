@@ -69,7 +69,10 @@ Output (trimmed):
 | Ruling (local) | `--backend ruling` | whatever Ruling serves | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
 
 Jev answers requests in parallel, so the default `--max-workers 4` applies;
-Ruling serializes them, so use `--max-workers 1`. Jev calls are billed: the
+Ruling serializes them, so use `--max-workers 1`. A Ruling judge fine-tuned on
+your labels (`RULING_ADAPTER`) is served and asked the same way; the
+[benchmarks](benchmarks.md#a-judge-tuned-on-the-same-examples) measure what it
+changes. Jev calls are billed: the
 search budget counts examples, not requests or dollars, and `--call-cost` makes
 search prefer graphs that ask less. The same search against Jev:
 
