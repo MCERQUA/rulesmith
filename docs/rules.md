@@ -164,8 +164,8 @@ p = 0.016), on 100 validation postings from 0.66 to 0.67. The same graph over
 the clothing reviews keeps its line: the judge already puts recommended
 reviews at 0.98 and the rest at 0.06, and 0.92 on test is what it was. The fit
 corrects a judge's scale where it is off and leaves it where it is right; it
-does not turn a direct question into the searched graph, which scores 0.80 on
-the same postings.
+does not turn a direct question into the searched graph, which scores 0.79 to
+0.82 on the seeds where it found its scam rule.
 
 ## How sure a rule is
 

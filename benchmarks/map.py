@@ -4,10 +4,11 @@ search found on a public dataset, behind a router that costs nothing.
     python3 benchmarks/map.py build       # write examples/map from the benchmark results
     python3 benchmarks/map.py summarize benchmarks/results/map.json
 
-`build` takes the graph search found on the jobs, clothing and Banking77 benchmarks (seed 0 of
-each, from benchmarks/results) and writes them as unit files, a map that hands a job posting to
-the scam unit, a review to the recommendation unit and anything else to the intent unit, and a
-task of held-out rows from all three datasets with every dataset's labels. Scoring the map on
+`build` takes the graph search found on the jobs, clothing and Banking77 benchmarks (the seed
+with the best validation score of each, from benchmarks/results) and writes them as unit
+files, a map that hands a job posting to the scam unit, a review to the recommendation unit and
+anything else to the intent unit, and a task of held-out rows from all three datasets with
+every dataset's labels. Scoring the map on
 that task is `rulesmith evaluate`; `summarize` reads its output and says how the map did as a
 whole and unit by unit.
 """
@@ -33,11 +34,12 @@ FALLBACK = ("intents", "banking77")
 ROWS_PER_DATASET = {"train": 4, "validation": 4, "test": 40}
 
 
-def searched(dataset: str, seed: int = 0) -> Plan:
-    """The graph search found on a benchmark."""
+def searched(dataset: str) -> Plan:
+    """The graph search found on a benchmark: of its three seeds, the one that scored best on
+    validation, which is the one a person would take forward."""
     results = json.loads((ROOT / "benchmarks" / "results" / f"{dataset}.json").read_text())
-    run = next(r for r in results["runs"] if r["method"] == "search" and r["seed"] == seed)
-    return Plan.model_validate(run["graph"])
+    runs = [r for r in results["runs"] if r["method"] == "search"]
+    return Plan.model_validate(max(runs, key=lambda r: r["validation"])["graph"])
 
 
 def build() -> None:

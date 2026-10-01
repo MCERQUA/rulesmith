@@ -123,17 +123,21 @@ are the searched graphs as they were found:
 
 ```
 # postings, from the jobs benchmark
+read salary_range one of ["0-0", "3000-60000", ...]
 read has_company_logo in [0, 1]
-read length of company_profile in [0, 10000]
-when has_company_logo == 0 and length of company_profile == 0: fraudulent
-always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
+read has_questions in [0, 1]
+read length of company_profile in [0, 2206]
+when not salary_range and has_company_logo == 0 and length of company_profile < 10: fraudulent calibrated 33/40 of 100
+when not salary_range and has_company_logo == 0 and has_questions == 1 and length of company_profile < 10: fraudulent calibrated 0/0 of 100
+always: ask "Is this job posting a scam? A fraudulent posting typically has no salary, no company profile, no logo, ..." [fraudulent: "fraudulent"] [genuine: "genuine"]
 ```
 
 ```
 # reviews, from the clothing benchmark
-read rating in [-3, 9]
-when rating >= 4: recommended
-when rating < 3 or rating == 3: not_recommended
+read rating in [1, 5]
+when rating >= 4: recommended calibrated 80/80 of 100
+when rating < 2 or rating == 2: not_recommended calibrated 6/7 of 100
+always: ask "Would this shopper recommend the clothing item they reviewed? Focus on the overall sentiment: ..." [not_recommended: "..."] [recommended: "..."]
 ```
 
 The intent unit is one judge question over Banking77's 77 intents, which is what
@@ -149,16 +153,16 @@ ordering per question). Each row is credited to the unit that decided it, from
 
 | Unit | Rows | Accuracy in the map | Judge calls per row | Alone, on its benchmark (300 rows) |
 | --- | --- | --- | --- | --- |
-| postings, from jobs | 40 | 0.83 | 0.60 | 0.80 |
-| reviews, from clothing | 40 | 0.95 | 0.00 | 0.93 |
-| intents, from Banking77 | 40 | 0.75 | 1.00 | 0.64 |
-| **the map** | **120** | **0.84** | **0.53** | |
+| postings, from jobs | 40 | 0.83 | 0.60 | 0.82 |
+| reviews, from clothing | 40 | 0.93 | 0.10 | 0.93 |
+| intents, from Banking77 | 40 | 0.75 | 1.00 | 0.66 |
+| **the map** | **120** | **0.83** | **0.57** | |
 
 Every row reached the unit for its kind, and each unit did in the map about
 what it did alone; the gaps are what 40 rows against 300 look like. The map's
-cost is its units' cost, 0.53 judge calls per row: the reviews unit asks
-nothing, the postings unit asks about 60% of postings, and the intent unit asks
-about every message. The run took 54 seconds for 120 rows on the local judge.
+cost is its units' cost, 0.57 judge calls per row: the reviews unit asks about
+one review in ten, the postings unit about 60% of postings, and the intent unit
+about every message.
 
 ### What this shows, and what it does not
 
@@ -177,7 +181,8 @@ fixture to try them on.
 ### Rebuilding it
 
 `benchmarks/map.py build` writes the map, its units and its task from the
-benchmark results (seed 0 of each search); `summarize` reads an evaluation
+benchmark results (the seed of each search with the best validation score);
+`summarize` reads an evaluation
 into the table above.
 
 ```sh

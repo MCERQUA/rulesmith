@@ -1,4 +1,7 @@
+read salary_range one of ["0-0", "3000-60000", "30000-45000", "40000-70000", "40000-90000", "50000-60000", "7200-1380000", "80-100", "90000-95000"]
 read has_company_logo in [0, 1]
-read length of company_profile in [0, 10000]
-when has_company_logo == 0 and length of company_profile == 0: fraudulent
-always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
+read has_questions in [0, 1]
+read length of company_profile in [0, 2206]
+when not salary_range and has_company_logo == 0 and length of company_profile < 10: fraudulent calibrated 33/40 of 100
+when not salary_range and has_company_logo == 0 and has_questions == 1 and length of company_profile < 10: fraudulent calibrated 0/0 of 100
+always: ask "Is this job posting a scam? A fraudulent posting typically has no salary, no company profile, no logo, vague or overly broad role descriptions, urgency language, and no structured application process. A genuine posting has a specific salary range, a real company profile, and specific role requirements." [fraudulent: "fraudulent"] [genuine: "genuine"]

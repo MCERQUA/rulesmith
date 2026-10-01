@@ -4,27 +4,29 @@ rulesmith against the usual baselines on five public classification datasets, pl
 task against Stockfish. The short version:
 
 - **Where a field in the data settles most cases, rulesmith matches the best language-model
-  methods at a small fraction of their calls.** On clothing reviews it ties DSPy (0.928 vs
-  0.918, p = 0.35) and DSPy's typed classifier on the same judge (0.929, p = 1) while asking the
-  judge on 5% of examples instead of 100%.
+  methods at a small fraction of their calls.** On clothing reviews it ties DSPy (0.916 vs
+  0.918, p = 0.91) and DSPy's typed classifier on the same judge (0.929, p = 0.16) while asking
+  the judge on 14% of examples instead of 100%.
 - **Where the signal is spread across structured fields and text, the searched graph beats
-  every language-model baseline by a wide margin**, on job postings 0.781 vs DSPy's 0.693
-  (p = 2.5e-8) and 0.692 for DSPy's typed classifier on the same judge (p = 1.6e-7), but a
-  TF-IDF classifier trained on the same 100 examples does better still (0.857).
-- **Where the task is one judgment over free text, search finds nothing to add** and keeps the
-  single direct question: on TREC and Banking77 it scores exactly what the direct call scores.
-  On TREC both DSPy's chain of thought (0.884) and its typed classifier on the same judge (0.869)
-  beat it (0.759); on Banking77 the typed classifier ties it (0.677 vs 0.657, p = 0.24).
-- **On news, the dataset held back as a blind check, search scores highest** (0.291 vs 0.253
+  every language-model baseline**, on job postings 0.733 vs DSPy's 0.693 (p = 0.021) and 0.692
+  for DSPy's typed classifier on the same judge (p = 0.013), though one seed in three found no
+  rule at all, and a TF-IDF classifier trained on the same 100 examples does better still
+  (0.857).
+- **Where the task is one judgment over free text, search has little to add.** On Banking77 it
+  keeps the single direct question and ties DSPy's typed classifier (0.657 vs 0.677, p = 0.24).
+  On TREC it now writes a briefing the judge reads before the question, 0.786 against the direct
+  call's 0.759, and DSPy's chain of thought (0.884) and typed classifier (0.869) still beat it.
+- **On news, the dataset held back as a blind check, search scores highest** (0.283 vs 0.253
   for the direct call, 0.253 for DSPy's typed classifier and 0.246 for DSPy), but every method
   there is close to chance.
 - **The fair DSPy baseline, `dspy-typed`, changes one verdict.** DSPy's typed classifier asks the
   same judge the same question the direct call asks, then GEPA rewrites the instructions the
   judge reads and ReAnchor fits the option weights. It ties the old text baseline on jobs,
   clothing and Banking77, and on TREC it turns the direct question's 0.759 into 0.869 by
-  rewriting the instructions alone. Search kept the direct question there because no proposal
-  passed its significance guard, so the guard, or the proposer's freedom to reword the
-  question, is what search is missing on free text.
+  rewriting the instructions alone. What mattered was where they went: DSPy puts them in the
+  state the judge reads, next to the input, and the same text in the question changes nothing.
+  Search can now write such a briefing too, and did on two TREC seeds in three; the rest of the
+  gap is open.
 - **Chess:** search found no graph that did better against Stockfish on test than its starting one.
 
 The text tables are reproducible with `benchmarks/overnight.sh`, the 40-game Stockfish
@@ -85,25 +87,28 @@ review text, star rating, department. Two labels.
 
 | Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| handwritten | 0.932 ± 0.005 | 0.979 | 0.978 | 0.15 | 40 | 0 | 0.13 | 0.0% | 0.42 |
-| dspy-typed | 0.929 ± 0.012 | 0.985 | 1.000 | 1.00 | 838 | 0 | 0.20 | 0.0% | 1 |
-| **search** | **0.928 ± 0.005** | 0.938 | 0.953 | **0.05** | 13 | 0 | 0.01 | 0.0% | |
-| direct | 0.921 ± 0.005 | 0.983 | 1.000 | 1.00 | 242 | 0 | 0.73 | 0.0% | 0.47 |
-| dspy | 0.918 ± 0.020 | n/a | n/a | 1.00 | 602 | 14 | 2.78 | 0.0% | 0.35 |
-| dspy-cot | 0.916 ± 0.018 | n/a | n/a | 1.00 | 881 | 160 | 7.04 | 0.1% | 0.22 |
-| majority | 0.813 ± 0.012 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 1.3e-13 |
-| tfidf | 0.813 ± 0.012 | 0.875 | 0.949 | 0 | 0 | 0 | 0.00 | 0.0% | 1.3e-13 |
+| handwritten | 0.932 ± 0.005 | 0.979 | 0.978 | 0.15 | 40 | 0 | 0.13 | 0.0% | 0.091 |
+| dspy-typed | 0.929 ± 0.012 | 0.985 | 1.000 | 1.00 | 838 | 0 | 0.20 | 0.0% | 0.16 |
+| direct | 0.921 ± 0.005 | 0.983 | 1.000 | 1.00 | 242 | 0 | 0.73 | 0.0% | 0.58 |
+| dspy | 0.918 ± 0.020 | n/a | n/a | 1.00 | 602 | 14 | 2.78 | 0.0% | 0.91 |
+| **search** | **0.916 ± 0.016** | 0.969 | 0.982 | **0.14** | 41 | 0 | 0.01 | 0.0% | |
+| dspy-cot | 0.916 ± 0.018 | n/a | n/a | 1.00 | 881 | 160 | 7.04 | 0.1% | 1 |
+| majority | 0.813 ± 0.012 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 2e-15 |
+| tfidf | 0.813 ± 0.012 | 0.875 | 0.949 | 0 | 0 | 0 | 0.00 | 0.0% | 2e-15 |
 
-Search found the rating rule on every seed; on two of three it needed no judge at all:
+Search found the rating rule on every seed, and on two of three put the judge behind it for
+the three-star reviews, with a question of its own writing (seed 1, counts from the examples
+search saw):
 
 ```text
-read rating in [-3, 9]
-when rating >= 4: recommended
-when rating < 3 or rating == 3: not_recommended
+read rating in [1, 5]
+when rating >= 4: recommended calibrated 80/80 of 100
+when rating < 2 or rating == 2: not_recommended calibrated 6/7 of 100
+always: ask "Would this shopper recommend the clothing item they reviewed? Focus on the overall sentiment: a 3-star review that mentions fit issues, defects, or returning the item is not_recommended. ..." [not_recommended: "..."] [recommended: "..."]
 ```
 
 The language-model methods are statistically tied, DSPy's typed classifier included. What
-separates them is cost: search asks the judge on 5% of examples, DSPy asks its model, or the
+separates them is cost: search asks the judge on 14% of examples, DSPy asks its model, or the
 same judge, on all of them.
 
 ### Job postings: is it a scam?
@@ -114,22 +119,23 @@ has a company logo. Sampled with both labels equally common, since fewer than 5%
 
 | Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tfidf | 0.857 ± 0.015 | 0.921 | 0.976 | 0 | 0 | 0 | 0.00 | 0.0% | 4.8e-6 |
-| **search** | **0.781 ± 0.020** | 0.854 | 0.867 | 0.62 | 379 | 0 | 0.14 | 0.0% | |
-| dspy | 0.693 ± 0.035 | n/a | n/a | 1.00 | 1515 | 15 | 1.29 | 0.0% | 2.5e-8 |
-| dspy-typed | 0.692 ± 0.007 | 0.700 | 0.764 | 1.00 | 1629 | 0 | 0.39 | 0.0% | 1.6e-7 |
-| dspy-cot | 0.669 ± 0.033 | n/a | n/a | 1.00 | 1901 | 381 | 6.45 | 0.3% | 1.1e-10 |
-| direct | 0.593 ± 0.015 | 0.640 | 0.767 | 1.00 | 551 | 0 | 0.72 | 0.0% | 5.1e-28 |
-| handwritten | 0.588 ± 0.014 | 0.642 | 0.764 | 0.45 | 207 | 0 | 0.31 | 0.0% | 3.8e-28 |
-| majority | 0.500 ± 0.000 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 1.1e-30 |
+| tfidf | 0.857 ± 0.015 | 0.921 | 0.976 | 0 | 0 | 0 | 0.00 | 0.0% | 1.1e-12 |
+| **search** | **0.733 ± 0.125** | 0.757 | 0.784 | 0.72 | 471 | 0 | 0.12 | 0.0% | |
+| dspy | 0.693 ± 0.035 | n/a | n/a | 1.00 | 1515 | 15 | 1.29 | 0.0% | 0.021 |
+| dspy-typed | 0.692 ± 0.007 | 0.700 | 0.764 | 1.00 | 1629 | 0 | 0.39 | 0.0% | 0.013 |
+| dspy-cot | 0.669 ± 0.033 | n/a | n/a | 1.00 | 1901 | 381 | 6.45 | 0.3% | 0.00097 |
+| direct | 0.593 ± 0.015 | 0.640 | 0.767 | 1.00 | 551 | 0 | 0.72 | 0.0% | 9.6e-21 |
+| handwritten | 0.588 ± 0.014 | 0.642 | 0.764 | 0.45 | 207 | 0 | 0.31 | 0.0% | 2.3e-21 |
+| majority | 0.500 ± 0.000 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 6.2e-19 |
 
-A graph search found on seed 0:
+The graph search found on seed 2, and on seed 1 with a salary test beside it; on seed 0 this run
+kept the direct question, having found nothing that passed the guard:
 
 ```text
-read has_company_logo in [0, 1]
-read length of company_profile in [0, 10000]
-when has_company_logo == 0 and length of company_profile == 0: fraudulent
-always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
+read has_logo = has_company_logo in [0, 1]
+read profile_len = length of company_profile in [0, 10000]
+when has_logo == 0 and profile_len == 0: fraudulent
+always: ask "Is this job posting a scam? Look for: external links used as the primary application method (phishing), requests for payment or fees, ..." [fraudulent: "..."] [genuine: "..."]
 ```
 
 **At the real scam rate, that rule is much worse than it looks here.** The benchmark samples
@@ -141,9 +147,11 @@ did not overfit its examples; it fits the balanced rate it was searched on. For 
 search on a sample at the real rate, with a cost matrix that prices flagging a genuine
 posting.
 
-Search beats every language-model method here by 9 to 19 points. TF-IDF beats search by 8:
-scam postings share vocabulary that a word-level classifier picks up from 100 examples and a
-judge reading one posting at a time does not.
+Search beats every language-model method here: by 4 points over DSPy's typed classifier
+(p = 0.013) and 14 over the direct call, with the seed that found no rule scoring 0.59 to the
+others' 0.79 and 0.82. TF-IDF beats search by 12: scam postings share vocabulary that a
+word-level classifier picks up from 100 examples and a judge reading one posting at a time does
+not.
 
 ### TREC: what kind of answer does the question ask for?
 
@@ -152,23 +160,27 @@ labels. The input is one short question.
 
 | Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| dspy-cot | 0.884 ± 0.041 | n/a | n/a | 1.00 | 647 | 148 | 3.81 | 0.4% | 9.3e-15 |
-| dspy-typed | 0.869 ± 0.030 | 0.942 | 0.976 | 1.00 | 804 | 0 | 0.20 | 0.0% | 2.2e-12 |
-| dspy | 0.794 ± 0.033 | n/a | n/a | 1.00 | 616 | 15 | 1.61 | 0.0% | 0.094 |
-| **search** | **0.759 ± 0.016** | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.26 | 0.0% | |
-| direct | 0.759 ± 0.016 | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.72 | 0.0% | 1 |
-| tfidf | 0.444 ± 0.229 | 0.514 | 0.556 | 0 | 0 | 0 | 0.00 | 0.0% | 7.3e-50 |
-| majority | 0.170 ± 0.046 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 2.4e-128 |
+| dspy-cot | 0.884 ± 0.041 | n/a | n/a | 1.00 | 647 | 148 | 3.81 | 0.4% | 2.4e-11 |
+| dspy-typed | 0.869 ± 0.030 | 0.942 | 0.976 | 1.00 | 804 | 0 | 0.20 | 0.0% | 2.4e-8 |
+| dspy | 0.794 ± 0.033 | n/a | n/a | 1.00 | 616 | 15 | 1.61 | 0.0% | 0.69 |
+| **search** | **0.786 ± 0.068** | 0.871 | 0.949 | 1.00 | 339 | 0 | 0.11 | 0.0% | |
+| direct | 0.759 ± 0.016 | 0.849 | 0.931 | 1.00 | 148 | 0 | 0.72 | 0.0% | 0.042 |
+| tfidf | 0.444 ± 0.229 | 0.514 | 0.556 | 0 | 0 | 0 | 0.00 | 0.0% | 3.4e-55 |
+| majority | 0.170 ± 0.046 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 2.9e-121 |
 
 With no fields to write rules over, the best graph is the one question. No proposal beat it on
 validation by enough to pass the significance guard, so search kept it and scored exactly what
-the direct call scores. DSPy's chain of thought wins by 12.5 points: reasoning about a question
+the direct call scores. DSPy's chain of thought wins by 10 points: reasoning about a question
 before labeling it helps on this task, and a single judge question cannot do that. DSPy's typed
-classifier wins by 11 with no reasoning at all, on the very judge search used: GEPA rewrote the
-instructions the judge reads, and that alone took the question from 0.759 to 0.869. Search's
-proposer may reword a question too, but every proposal it scored fell short of the significance
-guard on 50 validation examples, so it kept the original. That guard is what keeps search from
-chasing noise on four Doom episodes; here it kept a real gain out.
+classifier wins by 8 with no reasoning at all, on the very judge search used: GEPA rewrote the
+instructions the judge reads, and that alone took the question from 0.759 to 0.869. Where the
+text went is what mattered. Placed in the question's instructions, DSPy's winning text scores
+0.743 on this test split, the same as no text; placed first in what the judge is shown, ahead of
+the input, it scores 0.883. A judgment can now carry such a
+[briefing](rules.md#what-a-judgment-can-be), and search wrote one on seeds 1 and 2 (0.863 and
+0.753 on test) while seed 0 kept the plain question (0.74). The mean, 0.786, is above the direct
+call (p = 0.042) and still below DSPy's; search finds a briefing on some seeds, and DSPy's GEPA
+on every one.
 
 ### Banking77: which intent does the customer's message express?
 
@@ -179,13 +191,13 @@ message each.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | dspy-typed | 0.677 ± 0.044 | 0.740 | 0.860 | 1.00 | 8120 | 0 | 2.13 | 0.0% | 0.24 |
 | dspy | 0.669 ± 0.054 | n/a | n/a | 1.00 | 1853 | 19 | 2.10 | 1.7% | 0.5 |
-| **search** | **0.657 ± 0.018** | 0.722 | 0.842 | 1.00 | 5001 | 0 | 2.47 | 0.0% | |
+| **search** | **0.657 ± 0.018** | 0.722 | 0.842 | 1.00 | 5001 | 0 | 1.44 | 0.0% | |
 | direct | 0.657 ± 0.018 | 0.722 | 0.842 | 1.00 | 5001 | 0 | 2.88 | 0.0% | 1 |
 | tfidf | 0.103 ± 0.022 | 0.119 | 0.171 | 0 | 0 | 0 | 0.00 | 0.0% | 7.4e-121 |
 | majority | 0.016 ± 0.008 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 4.3e-170 |
 
-Again search kept the direct question, which ties DSPy and DSPy's typed classifier (p = 0.24).
-DSPy's chain of thought was not run
+Again search kept the direct question, which ties DSPy and DSPy's typed classifier (p = 0.24);
+the briefings it tried for 77 intents passed on no seed. DSPy's chain of thought was not run
 here: 77 labels make it the slowest dataset for it, and TREC already shows what reasoning adds
 on free text.
 
@@ -199,19 +211,20 @@ nothing in rulesmith was changed after seeing it.
 
 | Method | Accuracy | At 80% | At 50% | Calls | Input tokens | Output tokens | Seconds | Invalid | p vs search |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **search** | **0.291 ± 0.045** | 0.307 | 0.349 | **0.68** | 309 | 0 | 0.73 | 0.0% | |
-| direct | 0.253 ± 0.019 | 0.274 | 0.304 | 1.00 | 453 | 0 | 0.85 | 0.0% | 0.0031 |
-| dspy-typed | 0.253 ± 0.019 | 0.271 | 0.300 | 1.00 | 747 | 0 | 0.19 | 0.0% | 0.013 |
-| dspy-cot | 0.247 ± 0.030 | n/a | n/a | 1.00 | 1350 | 279 | 4.85 | 1.6% | 0.014 |
-| dspy | 0.246 ± 0.013 | n/a | n/a | 1.00 | 1326 | 14 | 3.03 | 0.2% | 0.011 |
-| majority | 0.237 ± 0.058 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 0.0078 |
-| tfidf | 0.213 ± 0.015 | 0.221 | 0.229 | 0 | 0 | 0 | 0.00 | 0.0% | 5.6e-5 |
+| **search** | **0.283 ± 0.059** | 0.292 | 0.316 | **0.63** | 284 | 0 | 0.08 | 0.0% | |
+| direct | 0.253 ± 0.019 | 0.274 | 0.304 | 1.00 | 453 | 0 | 0.85 | 0.0% | 0.028 |
+| dspy-typed | 0.253 ± 0.019 | 0.271 | 0.300 | 1.00 | 747 | 0 | 0.19 | 0.0% | 0.062 |
+| dspy-cot | 0.247 ± 0.030 | n/a | n/a | 1.00 | 1350 | 279 | 4.85 | 1.6% | 0.047 |
+| dspy | 0.246 ± 0.013 | n/a | n/a | 1.00 | 1326 | 14 | 3.03 | 0.2% | 0.037 |
+| majority | 0.237 ± 0.058 | n/a | n/a | 0 | 0 | 0 | 0.00 | 0.0% | 0.026 |
+| tfidf | 0.213 ± 0.015 | 0.221 | 0.229 | 0 | 0 | 0 | 0.00 | 0.0% | 0.00042 |
 
 Every method is near chance: a title and sixteen summary numbers say little about the channel.
-Search is the best of them on every seed except the first, where DSPy scored 0.26 to its 0.24,
-and beats each method at p < 0.05. Against six methods at once that is weaker than it looks:
-with a Bonferroni correction (p < 0.01) only its wins over direct, majority and TF-IDF hold. What
-search found on seed 1, mined rules over the numbers ahead of the judge question:
+Search is the best of them on average, 0.33 and 0.31 on two seeds and 0.22 on the first, where it
+kept nothing; it beats the direct call, DSPy and its chain of thought at p < 0.05 and misses
+against the typed classifier (p = 0.062). Against six methods at once that is weaker than it
+looks: with a Bonferroni correction (p < 0.01) only its win over TF-IDF holds. What search found
+on seed 1, mined rules over the numbers ahead of the judge question:
 
 ```text
 when num_imgs >= 16: entertainment
@@ -257,7 +270,17 @@ The first job-postings run lost to TF-IDF and DSPy; after seeing that, rule mini
 tests on the length of text fields and on pairs of fields, the change that finds the logo and
 empty-profile rule above. The job-postings numbers here come from the code after that change.
 **The news dataset was chosen afterward, before any method was run on it, and nothing was
-changed on its account:** it is the check on whether those changes generalize.
+changed on its account:** it is the check on whether those changes generalize. The proposer
+changed once more after DSPy's typed classifier beat search on TREC: it may now describe the
+labels in its own words and write a briefing the judge reads before the input. Search was then
+rerun on every dataset with that proposer, so one method stands behind every search row; the
+earlier rows are in the git history.
+
+**Search is high-variance.** A budget of 200 scored calls is about ten proposals. On jobs, the
+run before this one found the scam rule on all three seeds (0.781); this one found it on two
+(0.733), and the seed that found nothing scored 0.59 to the others' 0.79 and 0.82. Three seeds
+show the spread but do not pin the mean, and a single-seed comparison between methods means
+little.
 
 **Scale.** 100 training and validation examples and 300 test examples per seed, three seeds.
 This is the few-shot setting rulesmith is built for; with thousands of labeled examples a

@@ -1,3 +1,4 @@
-read rating in [-3, 9]
-when rating >= 4: recommended
-when rating < 3 or rating == 3: not_recommended
+read rating in [1, 5]
+when rating >= 4: recommended calibrated 80/80 of 100
+when rating < 2 or rating == 2: not_recommended calibrated 6/7 of 100
+always: ask "Would this shopper recommend the clothing item they reviewed? Focus on the overall sentiment: a 3-star review that mentions fit issues, defects, or returning the item is not_recommended. A 3-star review with mixed but net-positive sentiment (likes the item but has minor complaints) is recommended." [not_recommended: "The reviewer expresses clear dissatisfaction, mentions returning the item, describes defects or major fit problems, or overall negative sentiment despite any positive mentions."] [recommended: "The reviewer expresses overall satisfaction, would buy it again, or has net-positive sentiment even with minor complaints."]

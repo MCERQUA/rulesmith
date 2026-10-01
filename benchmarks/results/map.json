@@ -1,5 +1,5 @@
 {
-  "score": 0.8416666666666667,
+  "score": 0.8333333333333334,
   "resolved_models": [
     "mlx-community/Qwen3.5-4B-4bit"
   ],
@@ -29,7 +29,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-1",
@@ -45,14 +45,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.02297736991002561,
-            "genuine": 0.9770226300899744
+            "fraudulent": 0.029312230751356316,
+            "genuine": 0.9706877692486436
           },
-          "confidence": 0.9540452601799487
+          "confidence": 0.9413755384972873
         }
       },
       "skipped": [
@@ -61,23 +61,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 889,
+          "input_tokens": 939,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 889,
+      "input_tokens": 939,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9770226300899744
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9706877692486436
     },
     {
       "id": "jobs-test-2",
@@ -104,7 +104,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-3",
@@ -120,14 +120,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.017986209962091566,
-            "genuine": 0.9820137900379085
+            "fraudulent": 0.02297736991002561,
+            "genuine": 0.9770226300899744
           },
-          "confidence": 0.9640275800758169
+          "confidence": 0.9540452601799487
         }
       },
       "skipped": [
@@ -136,23 +136,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 542,
+          "input_tokens": 592,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 542,
+      "input_tokens": 592,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9820137900379085
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9770226300899744
     },
     {
       "id": "jobs-test-4",
@@ -168,14 +168,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.0675466911396291,
-            "genuine": 0.9324533088603709
+            "fraudulent": 0.02297736991002561,
+            "genuine": 0.9770226300899744
           },
-          "confidence": 0.8649066177207418
+          "confidence": 0.9540452601799487
         }
       },
       "skipped": [
@@ -184,23 +184,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 506,
+          "input_tokens": 556,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 506,
+      "input_tokens": 556,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9324533088603709
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9770226300899744
     },
     {
       "id": "jobs-test-5",
@@ -216,14 +216,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.014063627043245474,
-            "genuine": 0.9859363729567544
+            "fraudulent": 0.012431650853185818,
+            "genuine": 0.9875683491468141
           },
-          "confidence": 0.971872745913509
+          "confidence": 0.9751366982936283
         }
       },
       "skipped": [
@@ -232,23 +232,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 830,
+          "input_tokens": 880,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 830,
+      "input_tokens": 880,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9859363729567544
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9875683491468141
     },
     {
       "id": "jobs-test-6",
@@ -275,7 +275,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-7",
@@ -291,14 +291,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.0675466911396291,
-            "genuine": 0.9324533088603709
+            "fraudulent": 0.037326887344129464,
+            "genuine": 0.9626731126558706
           },
-          "confidence": 0.8649066177207418
+          "confidence": 0.9253462253117413
         }
       },
       "skipped": [
@@ -307,23 +307,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 553,
+          "input_tokens": 603,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 553,
+      "input_tokens": 603,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9324533088603709
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9626731126558706
     },
     {
       "id": "jobs-test-8",
@@ -339,14 +339,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.06008665017400762,
-            "genuine": 0.9399133498259924
+            "fraudulent": 0.1645164628965632,
+            "genuine": 0.8354835371034369
           },
-          "confidence": 0.8798266996519848
+          "confidence": 0.6709670742068738
         }
       },
       "skipped": [
@@ -355,23 +355,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 346,
+          "input_tokens": 396,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 346,
+      "input_tokens": 396,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9399133498259924
+      "decided_by": "postings.rule_3",
+      "confidence": 0.8354835371034369
     },
     {
       "id": "jobs-test-9",
@@ -387,14 +387,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.01590639171181471,
-            "genuine": 0.9840936082881853
+            "fraudulent": 0.02595735719779685,
+            "genuine": 0.9740426428022031
           },
-          "confidence": 0.9681872165763705
+          "confidence": 0.9480852856044062
         }
       },
       "skipped": [
@@ -403,23 +403,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 631,
+          "input_tokens": 681,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 631,
+      "input_tokens": 681,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9840936082881853
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9740426428022031
     },
     {
       "id": "jobs-test-10",
@@ -446,7 +446,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-11",
@@ -473,7 +473,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-12",
@@ -489,14 +489,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.01098694263059318,
-            "genuine": 0.9890130573694068
+            "fraudulent": 0.014063627043245474,
+            "genuine": 0.9859363729567544
           },
-          "confidence": 0.9780261147388136
+          "confidence": 0.971872745913509
         }
       },
       "skipped": [
@@ -505,23 +505,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 843,
+          "input_tokens": 893,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 843,
+      "input_tokens": 893,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9890130573694068
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9859363729567544
     },
     {
       "id": "jobs-test-13",
@@ -537,14 +537,14 @@
         "decision": "fraudulent"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "fraudulent",
           "probabilities": {
-            "fraudulent": 0.9046505351008906,
-            "genuine": 0.0953494648991095
+            "fraudulent": 0.8670357598021708,
+            "genuine": 0.13296424019782926
           },
-          "confidence": 0.8093010702017811
+          "confidence": 0.7340715196043417
         }
       },
       "skipped": [
@@ -553,23 +553,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 521,
+          "input_tokens": 571,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 521,
+      "input_tokens": 571,
       "output_tokens": 0,
       "label": "fraudulent",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9046505351008906
+      "decided_by": "postings.rule_3",
+      "confidence": 0.8670357598021708
     },
     {
       "id": "jobs-test-14",
@@ -596,7 +596,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-15",
@@ -612,14 +612,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.020332353342658753,
-            "genuine": 0.9796676466573412
+            "fraudulent": 0.02595735719779685,
+            "genuine": 0.9740426428022031
           },
-          "confidence": 0.9593352933146826
+          "confidence": 0.9480852856044062
         }
       },
       "skipped": [
@@ -628,23 +628,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 501,
+          "input_tokens": 551,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 501,
+      "input_tokens": 551,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9796676466573412
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9740426428022031
     },
     {
       "id": "jobs-test-16",
@@ -671,7 +671,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-17",
@@ -687,14 +687,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.020332353342658753,
-            "genuine": 0.9796676466573412
+            "fraudulent": 0.02595735719779685,
+            "genuine": 0.9740426428022031
           },
-          "confidence": 0.9593352933146826
+          "confidence": 0.9480852856044062
         }
       },
       "skipped": [
@@ -703,23 +703,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 624,
+          "input_tokens": 674,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 624,
+      "input_tokens": 674,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9796676466573412
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9740426428022031
     },
     {
       "id": "jobs-test-18",
@@ -746,7 +746,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-19",
@@ -762,14 +762,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.007577241267860811,
-            "genuine": 0.9924227587321393
+            "fraudulent": 0.017986209962091566,
+            "genuine": 0.9820137900379085
           },
-          "confidence": 0.9848455174642785
+          "confidence": 0.9640275800758169
         }
       },
       "skipped": [
@@ -778,23 +778,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 1036,
+          "input_tokens": 1086,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 1036,
+      "input_tokens": 1086,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9924227587321393
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9820137900379085
     },
     {
       "id": "jobs-test-20",
@@ -821,7 +821,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-21",
@@ -837,14 +837,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.017986209962091566,
-            "genuine": 0.9820137900379085
+            "fraudulent": 0.01590639171181471,
+            "genuine": 0.9840936082881853
           },
-          "confidence": 0.9640275800758169
+          "confidence": 0.9681872165763705
         }
       },
       "skipped": [
@@ -853,23 +853,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 500,
+          "input_tokens": 550,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 500,
+      "input_tokens": 550,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9820137900379085
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9840936082881853
     },
     {
       "id": "jobs-test-22",
@@ -896,7 +896,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-23",
@@ -912,7 +912,7 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
@@ -928,22 +928,22 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 297,
+          "input_tokens": 347,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 297,
+      "input_tokens": 347,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
+      "decided_by": "postings.rule_3",
       "confidence": 0.8670357598021708
     },
     {
@@ -971,7 +971,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-25",
@@ -987,7 +987,7 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
@@ -1003,22 +1003,22 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 581,
+          "input_tokens": 631,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 581,
+      "input_tokens": 631,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
+      "decided_by": "postings.rule_3",
       "confidence": 0.9626731126558706
     },
     {
@@ -1046,7 +1046,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-27",
@@ -1062,14 +1062,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.0953494648991095,
-            "genuine": 0.9046505351008906
+            "fraudulent": 0.18242552380635632,
+            "genuine": 0.8175744761936437
           },
-          "confidence": 0.8093010702017811
+          "confidence": 0.6351489523872873
         }
       },
       "skipped": [
@@ -1078,23 +1078,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 446,
+          "input_tokens": 496,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 446,
+      "input_tokens": 496,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9046505351008906
+      "decided_by": "postings.rule_3",
+      "confidence": 0.8175744761936437
     },
     {
       "id": "jobs-test-28",
@@ -1121,7 +1121,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-29",
@@ -1137,14 +1137,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.02595735719779685,
-            "genuine": 0.9740426428022031
+            "fraudulent": 0.033085978388704126,
+            "genuine": 0.9669140216112958
           },
-          "confidence": 0.9480852856044062
+          "confidence": 0.9338280432225918
         }
       },
       "skipped": [
@@ -1153,23 +1153,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 366,
+          "input_tokens": 416,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 366,
+      "input_tokens": 416,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9740426428022031
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9669140216112958
     },
     {
       "id": "jobs-test-30",
@@ -1185,14 +1185,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.13296424019782926,
-            "genuine": 0.8670357598021708
+            "fraudulent": 0.11920292202211755,
+            "genuine": 0.8807970779778823
           },
-          "confidence": 0.7340715196043417
+          "confidence": 0.7615941559557649
         }
       },
       "skipped": [
@@ -1201,23 +1201,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 461,
+          "input_tokens": 511,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 461,
+      "input_tokens": 511,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.8670357598021708
+      "decided_by": "postings.rule_3",
+      "confidence": 0.8807970779778823
     },
     {
       "id": "jobs-test-31",
@@ -1233,14 +1233,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.029312230751356316,
-            "genuine": 0.9706877692486436
+            "fraudulent": 0.02595735719779685,
+            "genuine": 0.9740426428022031
           },
-          "confidence": 0.9413755384972873
+          "confidence": 0.9480852856044062
         }
       },
       "skipped": [
@@ -1249,23 +1249,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 453,
+          "input_tokens": 503,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 453,
+      "input_tokens": 503,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9706877692486436
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9740426428022031
     },
     {
       "id": "jobs-test-32",
@@ -1281,14 +1281,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.029312230751356316,
-            "genuine": 0.9706877692486436
+            "fraudulent": 0.014063627043245474,
+            "genuine": 0.9859363729567544
           },
-          "confidence": 0.9413755384972873
+          "confidence": 0.971872745913509
         }
       },
       "skipped": [
@@ -1297,23 +1297,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 457,
+          "input_tokens": 507,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 457,
+      "input_tokens": 507,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9706877692486436
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9859363729567544
     },
     {
       "id": "jobs-test-33",
@@ -1329,14 +1329,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.017986209962091566,
-            "genuine": 0.9820137900379085
+            "fraudulent": 0.037326887344129464,
+            "genuine": 0.9626731126558706
           },
-          "confidence": 0.9640275800758169
+          "confidence": 0.9253462253117413
         }
       },
       "skipped": [
@@ -1345,23 +1345,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 472,
+          "input_tokens": 522,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 472,
+      "input_tokens": 522,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9820137900379085
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9626731126558706
     },
     {
       "id": "jobs-test-34",
@@ -1388,7 +1388,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-35",
@@ -1404,14 +1404,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.02595735719779685,
-            "genuine": 0.9740426428022031
+            "fraudulent": 0.02297736991002561,
+            "genuine": 0.9770226300899744
           },
-          "confidence": 0.9480852856044062
+          "confidence": 0.9540452601799487
         }
       },
       "skipped": [
@@ -1420,23 +1420,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 635,
+          "input_tokens": 685,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 635,
+      "input_tokens": 685,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.9740426428022031
+      "decided_by": "postings.rule_3",
+      "confidence": 0.9770226300899744
     },
     {
       "id": "jobs-test-36",
@@ -1463,7 +1463,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-37",
@@ -1479,7 +1479,7 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
@@ -1495,22 +1495,22 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 716,
+          "input_tokens": 766,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 716,
+      "input_tokens": 766,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
+      "decided_by": "postings.rule_3",
       "confidence": 0.9840936082881853
     },
     {
@@ -1538,7 +1538,7 @@
       "output_tokens": 0,
       "label": "fraudulent",
       "decided_by": "postings.rule_1",
-      "confidence": 1.0
+      "confidence": 0.8095238095238095
     },
     {
       "id": "jobs-test-39",
@@ -1554,14 +1554,14 @@
         "decision": "genuine"
       },
       "answers": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "type": "choice",
           "value": "genuine",
           "probabilities": {
-            "fraudulent": 0.37754066879814546,
-            "genuine": 0.6224593312018546
+            "fraudulent": 0.24508501313237172,
+            "genuine": 0.7549149868676283
           },
-          "confidence": 0.2449186624037092
+          "confidence": 0.5098299737352565
         }
       },
       "skipped": [
@@ -1570,23 +1570,23 @@
         "reviews"
       ],
       "calls": {
-        "postings.rule_2": {
+        "postings.rule_3": {
           "model": "mlx-community/Qwen3.5-4B-4bit",
-          "input_tokens": 421,
+          "input_tokens": 471,
           "output_tokens": 0,
           "request": [
-            "rule_2"
+            "rule_3"
           ]
         }
       },
       "models": [
         "mlx-community/Qwen3.5-4B-4bit"
       ],
-      "input_tokens": 421,
+      "input_tokens": 471,
       "output_tokens": 0,
       "label": "genuine",
-      "decided_by": "postings.rule_2",
-      "confidence": 0.6224593312018546
+      "decided_by": "postings.rule_3",
+      "confidence": 0.7549149868676283
     },
     {
       "id": "clothing-test-0",
@@ -1613,7 +1613,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-1",
@@ -1640,7 +1640,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-2",
@@ -1667,7 +1667,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-3",
@@ -1694,7 +1694,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-4",
@@ -1721,7 +1721,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-5",
@@ -1748,7 +1748,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-6",
@@ -1775,7 +1775,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-7",
@@ -1802,7 +1802,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-8",
@@ -1829,7 +1829,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-9",
@@ -1856,7 +1856,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-10",
@@ -1871,19 +1871,40 @@
         "reviews": "not_recommended",
         "decision": "not_recommended"
       },
-      "answers": {},
+      "answers": {
+        "reviews.rule_3": {
+          "type": "choice",
+          "value": "not_recommended",
+          "probabilities": {
+            "not_recommended": 0.9740426428022031,
+            "recommended": 0.02595735719779685
+          },
+          "confidence": 0.9480852856044062
+        }
+      },
       "skipped": [
         "intents",
         "has_company_logo",
         "postings"
       ],
-      "calls": {},
-      "models": [],
-      "input_tokens": 0,
+      "calls": {
+        "reviews.rule_3": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 304,
+          "output_tokens": 0,
+          "request": [
+            "rule_3"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 304,
       "output_tokens": 0,
       "label": "not_recommended",
-      "decided_by": "reviews.rule_2",
-      "confidence": 1.0
+      "decided_by": "reviews.rule_3",
+      "confidence": 0.9740426428022031
     },
     {
       "id": "clothing-test-11",
@@ -1910,7 +1931,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-12",
@@ -1937,7 +1958,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-13",
@@ -1964,7 +1985,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-14",
@@ -1991,34 +2012,55 @@
       "output_tokens": 0,
       "label": "not_recommended",
       "decided_by": "reviews.rule_2",
-      "confidence": 1.0
+      "confidence": 0.7777777777777778
     },
     {
       "id": "clothing-test-15",
       "expected": "not_recommended",
-      "correct": true,
-      "cost": 0.0,
+      "correct": false,
+      "cost": 1.0,
       "outputs": {
-        "label": "not_recommended"
+        "label": "recommended"
       },
       "node_values": {
         "rating": 3,
-        "reviews": "not_recommended",
-        "decision": "not_recommended"
+        "reviews": "recommended",
+        "decision": "recommended"
       },
-      "answers": {},
+      "answers": {
+        "reviews.rule_3": {
+          "type": "choice",
+          "value": "recommended",
+          "probabilities": {
+            "not_recommended": 0.18242552380635632,
+            "recommended": 0.8175744761936437
+          },
+          "confidence": 0.6351489523872873
+        }
+      },
       "skipped": [
         "intents",
         "has_company_logo",
         "postings"
       ],
-      "calls": {},
-      "models": [],
-      "input_tokens": 0,
+      "calls": {
+        "reviews.rule_3": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 379,
+          "output_tokens": 0,
+          "request": [
+            "rule_3"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 379,
       "output_tokens": 0,
-      "label": "not_recommended",
-      "decided_by": "reviews.rule_2",
-      "confidence": 1.0
+      "label": "recommended",
+      "decided_by": "reviews.rule_3",
+      "confidence": 0.8175744761936437
     },
     {
       "id": "clothing-test-16",
@@ -2045,7 +2087,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-17",
@@ -2072,7 +2114,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-18",
@@ -2099,7 +2141,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-19",
@@ -2126,7 +2168,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-20",
@@ -2141,19 +2183,40 @@
         "reviews": "not_recommended",
         "decision": "not_recommended"
       },
-      "answers": {},
+      "answers": {
+        "reviews.rule_3": {
+          "type": "choice",
+          "value": "not_recommended",
+          "probabilities": {
+            "not_recommended": 0.991422514586288,
+            "recommended": 0.008577485413711986
+          },
+          "confidence": 0.9828450291725761
+        }
+      },
       "skipped": [
         "intents",
         "has_company_logo",
         "postings"
       ],
-      "calls": {},
-      "models": [],
-      "input_tokens": 0,
+      "calls": {
+        "reviews.rule_3": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 351,
+          "output_tokens": 0,
+          "request": [
+            "rule_3"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 351,
       "output_tokens": 0,
       "label": "not_recommended",
-      "decided_by": "reviews.rule_2",
-      "confidence": 1.0
+      "decided_by": "reviews.rule_3",
+      "confidence": 0.991422514586288
     },
     {
       "id": "clothing-test-21",
@@ -2180,7 +2243,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-22",
@@ -2207,7 +2270,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-23",
@@ -2234,7 +2297,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-24",
@@ -2249,19 +2312,40 @@
         "reviews": "not_recommended",
         "decision": "not_recommended"
       },
-      "answers": {},
+      "answers": {
+        "reviews.rule_3": {
+          "type": "choice",
+          "value": "not_recommended",
+          "probabilities": {
+            "not_recommended": 0.5621765008857981,
+            "recommended": 0.4378234991142019
+          },
+          "confidence": 0.12435300177159614
+        }
+      },
       "skipped": [
         "intents",
         "has_company_logo",
         "postings"
       ],
-      "calls": {},
-      "models": [],
-      "input_tokens": 0,
+      "calls": {
+        "reviews.rule_3": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 342,
+          "output_tokens": 0,
+          "request": [
+            "rule_3"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 342,
       "output_tokens": 0,
       "label": "not_recommended",
-      "decided_by": "reviews.rule_2",
-      "confidence": 1.0
+      "decided_by": "reviews.rule_3",
+      "confidence": 0.5621765008857981
     },
     {
       "id": "clothing-test-25",
@@ -2288,7 +2372,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-26",
@@ -2315,7 +2399,7 @@
       "output_tokens": 0,
       "label": "not_recommended",
       "decided_by": "reviews.rule_2",
-      "confidence": 1.0
+      "confidence": 0.7777777777777778
     },
     {
       "id": "clothing-test-27",
@@ -2342,7 +2426,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-28",
@@ -2369,7 +2453,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-29",
@@ -2396,7 +2480,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-30",
@@ -2423,7 +2507,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-31",
@@ -2450,7 +2534,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-32",
@@ -2477,7 +2561,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-33",
@@ -2504,7 +2588,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-34",
@@ -2531,7 +2615,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-35",
@@ -2558,7 +2642,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-36",
@@ -2585,7 +2669,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-37",
@@ -2612,7 +2696,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-38",
@@ -2639,7 +2723,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "clothing-test-39",
@@ -2666,7 +2750,7 @@
       "output_tokens": 0,
       "label": "recommended",
       "decided_by": "reviews.rule_1",
-      "confidence": 1.0
+      "confidence": 0.9878048780487805
     },
     {
       "id": "banking77-test-0",
