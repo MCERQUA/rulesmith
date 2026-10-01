@@ -56,7 +56,10 @@ your original terminal. Ruling downloads its model on first use and answers one
 request at a time, hence `--max-workers 1`.
 
 Ruling can also fine-tune the judge on your labeled examples and serve the
-result; rulesmith does not know or care that a judge is tuned, and the
+result: `rulesmith tune task.json --output tuning` writes the records its
+trainer reads, with the test split held out, runs the training from the
+checkout above, and prints the line that serves the adapter. The graph does not
+know or care that its judge is tuned, and the
 [benchmarks](benchmarks.md#a-judge-tuned-on-the-same-examples) show what a tune
 on a hundred examples is worth: it lifts the judge, and the graph on top of it
 gains most where the input has fields.

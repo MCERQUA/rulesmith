@@ -39,6 +39,7 @@ from rulesmith.optimize import (
 )
 from rulesmith.rules import compile_rules
 from rulesmith.runtime import DecisionProgram
+from rulesmith.tuning import direct_question
 
 Rows = dict[str, list[tuple[State, str]]]
 COVERAGES = (0.8, 0.5)
@@ -121,11 +122,7 @@ def direct_plan(task: Task) -> Plan:
             "nodes": {
                 "label": {
                     "type": "call",
-                    "question": {
-                        "type": "choice",
-                        "instructions": task.description,
-                        "criteria": task.criteria(),
-                    },
+                    "question": direct_question(task),
                     "inputs": {"observation": {"type": "state"}},
                 }
             },

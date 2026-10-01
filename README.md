@@ -39,7 +39,8 @@ against DSPy's text classifiers and its typed classifier on the same judge.
 Where fields carry the signal, rulesmith ties or beats them with a fraction of
 the model calls. Where the input is one piece of free text, it adds nothing
 over a direct question, and DSPy can beat it by rewriting that question. A
-judge tuned on the same hundred examples keeps that split.
+judge tuned on the same hundred examples keeps that split, and `rulesmith tune`
+makes one with Ruling.
 
 ## Installation
 

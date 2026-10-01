@@ -5,6 +5,7 @@ import importlib
 import json
 import os
 import signal
+import subprocess
 import sys
 from collections import Counter
 from contextlib import ExitStack, nullcontext, redirect_stdout
@@ -33,6 +34,7 @@ from rulesmith.optimize import (
 )
 from rulesmith.rules import RuleError, render_rules
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, Remembered
+from rulesmith.tuning import BASE, tune
 
 # The games load only for a task that plays one (see game), so a core install without their
 # packages still validates and runs every other graph.
@@ -234,6 +236,25 @@ def parser() -> argparse.ArgumentParser:
         "--closed",
         action="store_true",
         help="Draw each unit as one box rather than opening it, so a map reads as a map",
+    )
+    tuning = commands.add_parser(
+        "tune", help="Fine-tune the judge on a task's examples with Ruling, test split held out"
+    )
+    tuning.add_argument("task", type=Path)
+    tuning.add_argument(
+        "--output", type=Path, required=True, help="Directory for the records and the adapter"
+    )
+    tuning.add_argument(
+        "--ruling-dir",
+        type=Path,
+        default=Path(os.environ.get("RULING_DIR", "../ruling")),
+        help="A Ruling checkout (default: $RULING_DIR, else ../ruling)",
+    )
+    tuning.add_argument("--base", default=BASE, help="The model the adapter is trained on")
+    tuning.add_argument(
+        "train_args",
+        nargs="*",
+        help="Anything after -- goes to `ruling train` and overrides the recipe",
     )
     ablation = commands.add_parser(
         "ablate", help="Measure what each reading, judgment and name in a graph is worth"
@@ -513,6 +534,19 @@ def main() -> None:
         return
     if args.command == "draw":
         print(mermaid(read_plan(cli, args.plan), closed=args.closed))
+        return
+    if args.command == "tune":
+        task = load_task(cli, args.task)
+        if not isinstance(task, Task):
+            cli.error("tune needs a labeled task; a game has no labels to tune on")
+        extra = list(args.train_args)
+        try:
+            report = tune(task, args.output, args.ruling_dir, args.base, extra)
+        except (FileExistsError, FileNotFoundError) as error:
+            cli.error(str(error))
+        except subprocess.CalledProcessError as error:
+            cli.error(f"ruling train failed with exit code {error.returncode}")
+        print(dump(report), end="")
         return
     if args.command == "arena":
         arena(cli, args)

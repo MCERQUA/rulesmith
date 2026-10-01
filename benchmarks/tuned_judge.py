@@ -4,10 +4,11 @@ sees, one adapter per dataset and seed, scored beside the stock judges.
     python3 benchmarks/tuned_judge.py build      # training and holdout records under runs/lora/data
     python3 benchmarks/tuned_judge.py compare    # the comparison tables from benchmarks/results
 
-`build` writes, for each dataset and seed, a training file of the 100 training and validation
-examples and a holdout file of the 300 test examples, each example asked the direct question
-with the right label attached, in the record shape `ruling train` reads. The holdout file is
-what the trainer checks for overlap, so no test example can leak into an adapter. `compare`
+`build` writes, for each dataset and seed, what `rulesmith tune` writes for one task:
+a training file of the 100 training and validation examples and a holdout file of the 300
+test examples, each asked the direct question with the right label, in the record shape
+`ruling train` reads. The holdout file is what the trainer checks for overlap, so no test
+example can leak into an adapter. `compare`
 reads the stock results, the stock Instruct results and the tuned results and prints, per
 dataset and method, accuracy over seeds, selective accuracy, calls per row, and an exact
 McNemar test of tuned against the stock Instruct judge on the same test rows. The driver that
@@ -21,7 +22,8 @@ from statistics import mean, stdev
 import numpy  # noqa: F401  imported before dspy's lazy import of numpy re-enters it
 import pyarrow.parquet  # noqa: F401
 
-from rulesmith.bench import DATASETS, direct_plan, mcnemar, sample
+from rulesmith.bench import DATASETS, mcnemar, sample
+from rulesmith.tuning import records
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "runs" / "lora" / "data"
@@ -34,24 +36,6 @@ SETTINGS = {
     "Instruct tuned": "benchmarks/results/tuned",
 }
 METHODS = ("direct", "search", "dspy-typed")
-
-
-def records(task) -> dict[str, list[dict]]:
-    """Training and holdout records for one task: the direct question over its labels, asked of
-    every example, with the label the example carries."""
-    question = direct_plan(task).nodes["label"].question.model_dump()
-
-    def record(example) -> dict:
-        return {
-            "state": example.state,
-            "questions": {"label": question},
-            "labels": {"label": example.label},
-        }
-
-    return {
-        "train": [record(e) for e in [*task.train, *task.validation]],
-        "holdout": [record(e) for e in task.test],
-    }
 
 
 def build() -> None:

@@ -15,6 +15,7 @@ every flag.
 | `draw` | Write a graph as a Mermaid flowchart; `--closed` draws a map's units as single boxes |
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
+| `tune` | Fine-tune the judge on a task's examples with Ruling, test split held out |
 
 Every command that asks a judge (`run`, `evaluate`, `optimize`, `calibrate`,
 `arena`, `record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,
@@ -70,9 +71,19 @@ Output (trimmed):
 
 Jev answers requests in parallel, so the default `--max-workers 4` applies;
 Ruling serializes them, so use `--max-workers 1`. A Ruling judge fine-tuned on
-your labels (`RULING_ADAPTER`) is served and asked the same way; the
-[benchmarks](benchmarks.md#a-judge-tuned-on-the-same-examples) measure what it
-changes. Jev calls are billed: the
+your labels is served (`RULING_ADAPTER`) and asked the same way, and
+`rulesmith tune task.json --output tuning` makes one: it writes the records
+Ruling's trainer reads, every training and validation example asked the direct
+question with its label in `train.jsonl` and the test examples in
+`holdout.jsonl`, which the trainer refuses to overlap, then runs `ruling train`
+from the checkout at `--ruling-dir` (default `$RULING_DIR`, else `../ruling`)
+with the recipe the benchmark validated, 200 steps with the best of ten
+validation checkpoints kept, on `--base`, a pure-attention model Ruling trains
+at full speed. Anything after `--` goes to `ruling train` and overrides the
+recipe. It prints where the adapter is and the line that serves it; rulesmith
+then asks that judge like any other. The
+[benchmarks](benchmarks.md#a-judge-tuned-on-the-same-examples) measure what a
+tune on a hundred examples changes. Jev calls are billed: the
 search budget counts examples, not requests or dollars, and `--call-cost` makes
 search prefer graphs that ask less. The same search against Jev:
 
