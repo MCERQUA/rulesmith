@@ -15,7 +15,11 @@ evaluate and keep.
 2. **Reflect.** When the current graph misses a training example, `GraphProposer`
    (a `dspy.Predict` with plain-text `ChatAdapter` fields, which any chat
    endpoint accepts) gets the graph, the inputs, its outputs, and the expected
-   labels or episode rewards. Search revises one part at a time:
+   labels or episode rewards. Where the inputs have fields, it is also shown the
+   few rules the training examples support best, each with how often it held,
+   ranked by how many more examples it gets right than guessing its label would:
+   the same for every search on the same examples, so finding the rule the data
+   holds depends less on a lucky proposal. Search revises one part at a time:
    **readings** holds reads and judgments; **rules** holds names, votes and the
    rules that decide. The proposer returns the replacement part, preserving
    references to nodes owned by the unchanged one.

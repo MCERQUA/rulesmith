@@ -150,8 +150,8 @@ postings at the real rate, the rule fires on 14% of them with precision 0.24: th
 postings it calls scams are genuine, though it catches 71% of scams. On the balanced samples
 its precision is 0.85 to 0.89 on held-out test postings, as on the examples search saw, so it
 did not overfit its examples; it fits the balanced rate it was searched on. For real use,
-search on a sample at the real rate, with a cost matrix that prices flagging a genuine
-posting.
+give the task its real `prevalence`, so search and scoring weigh a false flag as the real
+traffic it stands for; `bench run --real-rate` does that with the dataset's own rates.
 
 Search beats every language-model method here: by 4 points over DSPy's typed classifier
 (p = 0.013) and 14 over the direct call, with the seed that found no rule scoring 0.59 to the

@@ -299,3 +299,25 @@ def test_the_cli_writes_fitted_cutoffs_and_reports_the_validation_change(tmp_pat
     assert printed["cutoffs"][0]["to"] == cutoff
     # Validation is reported, never fitted on: two of three were right before, all three after.
     assert printed["validation"] == {"before": pytest.approx(2 / 3), "after": 1}
+
+
+def test_at_the_real_rate_a_line_is_not_lowered_to_catch_scams_at_the_cost_of_false_flags(
+    provider, client
+):
+    noul_by_state(provider)
+    # Ten scams sit at 0.30 to 0.45 and six of the ten genuine postings among them. Sampled half
+    # and half, a line near 0.25 catches every scam for six false flags and wins; at one scam in
+    # twenty, each genuine posting it flags costs nineteen times what a missed scam does, and the
+    # line stays where it was.
+    positives = [0.30, 0.31, 0.33, 0.34, 0.35, 0.37, 0.40, 0.42, 0.43, 0.45]
+    negatives = [0.05, 0.1, 0.15, 0.2, 0.36, 0.38, 0.39, 0.41, 0.44, 0.46]
+    balanced = scam_task(positives, negatives)
+    fitted, _ = fit_cutoffs(compile_rules(SCAM_RULES), balanced, client, "fixture")
+    lowered = next(n for n in fitted.nodes.values() if n.when is not None).when.value
+    assert lowered < 0.5
+    real = Task.model_validate(
+        balanced.model_dump() | {"prevalence": {"fraudulent": 0.05, "genuine": 0.95}}
+    )
+    fitted, report = fit_cutoffs(compile_rules(SCAM_RULES), real, client, "fixture")
+    assert next(n for n in fitted.nodes.values() if n.when is not None).when.value == 0.5
+    assert not report[0]["kept"]

@@ -18,7 +18,7 @@ import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient
 
 from rulesmith.ablate import effects
-from rulesmith.calibrate import calibrate, correct, drift, fit_cutoffs, measure
+from rulesmith.calibrate import at_prevalence, calibrate, correct, drift, fit_cutoffs, measure
 from rulesmith.diagram import mermaid
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Graph, Plan, Task
@@ -730,6 +730,9 @@ def main() -> None:
             report["opponent"] = opponent_of(args)
             summary = {"score": report["score"], "output": str(args.output)}
             if isinstance(task, Task):
+                real = at_prevalence(task, report["examples"])
+                if real is not None:
+                    report["at_prevalence"] = summary["at_prevalence"] = real
                 report["drift"] = summary["drift"] = drift(plan, report["examples"], args.drift)
                 for moved in report["drift"]:
                     print(

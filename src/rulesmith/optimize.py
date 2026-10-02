@@ -20,7 +20,7 @@ from typesafe_sdk import TypeSafeClient
 
 from rulesmith.calibrate import tally, unmeasured
 from rulesmith.graph import Example, Measured, Plan, StrictModel, Task
-from rulesmith.mine import fields, mine
+from rulesmith.mine import evidence, fields, mine
 from rulesmith.rules import RuleError, parts, whole
 from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError, Remembered
 
@@ -113,6 +113,10 @@ class Labels:
 
     def __init__(self, task: Task):
         self.task = task
+        # A mistake on an example costs as much as the real traffic it stands for, so search
+        # and evaluation rank programs as they would rank on the real rate. Scores stay in [0, 1].
+        self.weights = task.weights()
+        self.worst = task.worst * max(self.weights.values())
 
     def __call__(self, program: DecisionProgram, example: Example) -> Outcome:
         if example.label is None:
@@ -128,8 +132,13 @@ class Labels:
             if answered is None
             else min(self.task.cost(label, answered) for label in right)
         )
-        score = 1 - cost / self.task.worst
+        score = 1 - cost * self.weights[example.label] / self.worst
         also = f" (also right: {', '.join(example.accepted)})" if example.accepted else ""
+        rate = (
+            f" It stands for {self.weights[example.label]:g} examples of real traffic."
+            if self.task.prevalence is not None
+            else ""
+        )
         return Outcome(
             score=score,
             record={
@@ -146,7 +155,7 @@ class Labels:
                 or passed(self.task, answered, example.label, score)
                 or (
                     f"Expected label: {example.label}{also}. Answered: {answered}, which costs "
-                    f"{cost:g} where the worst mistake costs {self.task.worst:g}. "
+                    f"{cost:g} where the worst mistake costs {self.task.worst:g}.{rate} "
                     f"Score: {score:g}."
                 ),
             },
@@ -370,13 +379,24 @@ def keeping(config: SearchConfig) -> str:
 
 
 def field_summary(task: SearchTask) -> str:
-    """What the fields of the inputs hold, so a proposer can see which a rule could read."""
+    """What the fields of the inputs hold, so a proposer can see which a rule could read, and
+    the rules the training examples support best: the same for every search on the same
+    examples, so whether a search finds the rule the data holds depends less on its luck."""
     examples = [example for example in task.train if hasattr(example, "state")]
     summary = fields(examples)
     if not summary:
         return ""
     described = "; ".join(f"{name}: {held}" for name, held in summary.items())
-    return f"Fields of the inputs, as seen in training: {described}.\n"
+    found = evidence(examples) if isinstance(task, Task) else []
+    supported = (
+        "Rules the training examples support best, counted on the training examples; small "
+        "counts can be chance, so use, combine, or ignore them as the feedback warrants:\n"
+        + "\n".join(found)
+        + "\n"
+        if found
+        else ""
+    )
+    return f"Fields of the inputs, as seen in training: {described}.\n{supported}"
 
 
 def text_only(task: SearchTask) -> str:

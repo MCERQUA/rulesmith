@@ -103,3 +103,83 @@ def test_an_example_without_a_label_cannot_be_scored_against_labels():
         Labels(task)(always("accept"), task.train[0])
     # With no training labels to count, the starting graph is the first label the task allows.
     assert task.baseline_plan() == Plan.constant("accept")
+
+
+# A scam task sampled half and half, where scams are one posting in twenty in real traffic.
+def scam_task(**changes) -> Task:
+    labels = ["fraudulent", "genuine"]
+    rows = lambda split, n: [  # noqa: E731
+        {"id": f"{split}{i}", "state": f"{split} posting {i}", "label": labels[i % 2]}
+        for i in range(n)
+    ]
+    data = {
+        "description": "Is it a scam?",
+        "labels": labels,
+        "train": rows("t", 10),
+        "validation": rows("v", 10),
+        "test": rows("h", 10),
+    }
+    return Task.model_validate(data | changes)
+
+
+REAL = {"fraudulent": 0.05, "genuine": 0.95}
+
+
+def test_prevalence_must_name_every_label_and_sum_to_one():
+    with pytest.raises(ValidationError, match="prevalence"):
+        scam_task(prevalence={"fraudulent": 0.05})
+    with pytest.raises(ValidationError, match="prevalence"):
+        scam_task(prevalence={"fraudulent": 0.5, "genuine": 0.6})
+    assert scam_task(prevalence=REAL).weights() == pytest.approx(
+        {"fraudulent": 0.1, "genuine": 1.9}
+    )
+
+
+def test_at_the_real_rate_a_false_flag_costs_more_than_a_miss():
+    # Sampled half and half, one wrong answer of each kind costs the same; at one scam in twenty,
+    # flagging a genuine posting is the mistake that happens nineteen times as often.
+    balanced, real = Labels(scam_task()), Labels(scam_task(prevalence=REAL))
+    genuine = scam_task().train[1]
+    scam = scam_task().train[0]
+    assert balanced(always("fraudulent"), genuine).score == balanced(always("genuine"), scam).score
+    assert real(always("fraudulent"), genuine).score < real(always("genuine"), scam).score
+
+
+def test_search_and_evaluation_rank_programs_as_real_traffic_would():
+    # Flagging everything is right on half the balanced sample and on one posting in twenty for
+    # real; never flagging is right on half, and on nineteen in twenty for real.
+    task = scam_task(prevalence=REAL)
+    flag, never = constant_plan("fraudulent"), constant_plan("genuine")
+    for split in (task.validation, task.test):
+        flagged = evaluate_plan(Plan.model_validate(flag), split, None, "none", Labels(task))
+        cleared = evaluate_plan(Plan.model_validate(never), split, None, "none", Labels(task))
+        assert flagged["score"] < cleared["score"]
+    unweighted = Labels(scam_task())
+    flagged = evaluate_plan(Plan.model_validate(flag), task.test, None, "none", unweighted)
+    cleared = evaluate_plan(Plan.model_validate(never), task.test, None, "none", unweighted)
+    assert flagged["score"] == cleared["score"]
+
+
+def test_evaluation_reports_precision_and_recall_at_the_real_rate():
+    # Half and half: a rule flags four of five scams and one of five genuine postings, so its
+    # flags look 80% precise. At one scam in twenty, that one false flag stands for 19 genuine
+    # postings for every 1 the four scams stand for, and real precision is 0.4 / 2.3.
+    from rulesmith.calibrate import at_prevalence
+
+    task = scam_task(prevalence=REAL)
+    records = [
+        {"expected": "fraudulent", "label": "fraudulent" if i < 4 else "genuine"} for i in range(5)
+    ] + [{"expected": "genuine", "label": "fraudulent" if i < 1 else "genuine"} for i in range(5)]
+    found = at_prevalence(task, records)
+    weights = task.weights()
+    flagged = 4 * weights["fraudulent"] + 1 * weights["genuine"]
+    assert found["labels"]["fraudulent"]["precision"] == pytest.approx(
+        4 * weights["fraudulent"] / flagged
+    )
+    assert found["labels"]["fraudulent"]["recall"] == pytest.approx(0.8)
+    right = 4 * weights["fraudulent"] + 4 * weights["genuine"]
+    assert found["accuracy"] == pytest.approx(
+        right / (5 * weights["fraudulent"] + 5 * weights["genuine"])
+    )
+    # Without a prevalence there is no real rate to report.
+    assert at_prevalence(scam_task(), records) is None

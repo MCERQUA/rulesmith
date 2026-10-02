@@ -1,5 +1,7 @@
 """Rules mined from the data, offered to search before any proposal is written."""
 
+import re
+
 from test_graph import call
 
 from rulesmith.graph import Plan, Task
@@ -180,3 +182,37 @@ def test_an_empty_string_is_never_offered_as_a_category():
     plan = mine(task(rows), Plan.constant("no"))
     reads = [node for node in (plan.nodes.values() if plan else []) if node.type == "read"]
     assert all("" not in (node.categories or []) for node in reads)
+
+
+def noisy_reviews(count: int = 60) -> list[dict]:
+    """Ratings settle reviews nine times in ten, and an age that means nothing covers almost all
+    of them: a rule over age is right as often as guessing, one over rating far more often."""
+    rows = []
+    for index in range(count):
+        rating = index % 5 + 1
+        label = "yes" if rating >= 4 else "no"
+        if index % 10 == 9:
+            label = "no" if label == "yes" else "yes"
+        state = {"rating": rating, "age": 20 + index % 50, "review": f"review {index}"}
+        rows.append({"id": str(index), "state": state, "label": label})
+    return rows
+
+
+def test_evidence_ranks_rules_by_how_far_they_beat_chance_and_reads_as_rules():
+    from rulesmith.mine import evidence
+
+    found = evidence(task(noisy_reviews()).train)
+    assert found and "rating" in found[0] and "age" not in found[0]
+    # Each line is a rule the language reads, with how often it held on the examples it covers.
+    rule, counted = found[0].split("  # ")
+    compile_rules(f"read rating in [1, 5]\nread age in [0, 100]\n{rule}\nalways: no")
+    assert re.fullmatch(r"right on \d+ of the \d+ training examples it covers", counted)
+    # Counting the same examples gives the same evidence, so two searches see the same thing.
+    assert evidence(task(noisy_reviews()).train) == found
+
+
+def test_the_proposer_is_shown_the_evidence_when_the_inputs_have_fields():
+    from rulesmith.optimize import SearchConfig, proposer_prompt
+
+    prompt = proposer_prompt(task(noisy_reviews()), SearchConfig())
+    assert "counted on the training examples" in prompt and "when rating" in prompt

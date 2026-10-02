@@ -60,6 +60,11 @@ class Dataset:
     # The rules a person would write in a few minutes, where a field obviously decides most cases.
     handwritten: str | None = None
 
+    def prevalence(self) -> dict[str, float]:
+        """Each label's share of the dataset's own training pool: the rate real traffic has."""
+        found = [label for _, label in self.rows()["train"]]
+        return {label: found.count(label) / len(found) for label in sorted(set(found))}
+
     def labels(self) -> dict[str, str]:
         """Every label the dataset trains on, with what the direct question says about it."""
         found = sorted({label for _, label in self.rows()["train"]})
@@ -192,6 +197,9 @@ def record(method: str, seed: int, task: Task, plan: Plan, client, model: str, *
     started = time.perf_counter()
     scored = evaluate_plan(plan, task.test, client, model, Labels(task))
     seconds = time.perf_counter() - started
+    real = calibrate.at_prevalence(task, scored["examples"])
+    if real is not None:
+        extra = extra | {"at_prevalence": real}
     return result(method, seed, graph_answers(scored["examples"]), seconds, **extra)
 
 
@@ -565,19 +573,26 @@ def run(
     models: dict[str, str],
     resources: Models | None = None,
     deadline: float = math.inf,
+    real_rate: bool = False,
 ) -> list[dict]:
     """Every method on every seed, written to `output` after each one finishes. Seeds go in
     order, each finishing every method before the next begins, so a run cut short by `deadline`
-    (seconds since the epoch) loses whole seeds rather than whole methods."""
+    (seconds since the epoch) loses whole seeds rather than whole methods. With `real_rate`, each
+    task carries the dataset's own label rates as its prevalence, so search and scoring weigh
+    each example as the real traffic it stands for."""
     resources = resources or Models()
-    results = {"dataset": dataset.name, **sizes, "runs": []}
+    results = {"dataset": dataset.name, **sizes, "real_rate": real_rate, "runs": []}
     if output.exists():
         results = json.loads(output.read_text())
         if {key: results[key] for key in sizes} != sizes:
             raise ValueError(f"{output} holds runs of other sizes; write to a new file")
+        if results.get("real_rate", False) != real_rate:
+            raise ValueError(f"{output} holds runs at another rate (real_rate={not real_rate})")
     done = {(run["method"], run["seed"]) for run in results["runs"]}
     for seed in seeds:
         task = sample(dataset, sizes["train"], sizes["validation"], sizes["test"], seed)
+        if real_rate:
+            task = Task.model_validate(task.model_dump() | {"prevalence": dataset.prevalence()})
         for method in methods:
             if (method, seed) in done:
                 continue
@@ -771,6 +786,12 @@ def main() -> None:
     bench.add_argument(
         "--retries", type=int, default=10, help="Retries for a failed generative request"
     )
+    bench.add_argument(
+        "--real-rate",
+        action="store_true",
+        help="Weigh each example as the real traffic it stands for, at the dataset's own label "
+        "rates, in search and in scoring; graph results report precision and recall there",
+    )
     bench.add_argument("--output", type=Path, required=True)
     games = commands.add_parser("chess", help="Play chess graphs against a fixed-strength engine")
     games.add_argument("task", type=Path, help="A chess task; its move limit and openings apply")
@@ -834,7 +855,17 @@ def main() -> None:
             timeout=args.timeout,
         )
         deadline = time.time() + args.hours * 3600 if args.hours else math.inf
-        run(dataset, args.seeds, args.methods, sizes, args.output, models, resources, deadline)
+        run(
+            dataset,
+            args.seeds,
+            args.methods,
+            sizes,
+            args.output,
+            models,
+            resources,
+            deadline,
+            real_rate=args.real_rate,
+        )
     print(report(json.loads(args.output.read_text())))
 
 

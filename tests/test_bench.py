@@ -320,3 +320,23 @@ def test_the_typed_dspy_baseline_asks_the_judge_the_direct_question_and_is_fitte
     fitted, summary = fitted_weights(program, task)
     assert summary["kept"] is False and summary["train_before"] == summary["train_after"]
     assert typed_answers(fitted, task)[0] == answers
+
+
+def test_a_real_rate_run_scores_at_the_rate_the_dataset_has(tmp_path):
+    # Scams are one row in ten of the pool, drawn half and half; at the real rate a rule that
+    # flags everything is right on one row in ten, though it is right on half the sample.
+    pool = [(f"posting {i}", "fraudulent" if i % 10 == 0 else "genuine") for i in range(400)]
+    rows = {"train": pool[:300], "test": pool[300:]}
+    dataset = Dataset(
+        "scams", "Is it a scam?", lambda: rows, str, balanced=True, handwritten="always: fraudulent"
+    )
+    assert dataset.prevalence() == {"fraudulent": 0.1, "genuine": 0.9}
+    sizes = {"train": 10, "validation": 10, "test": 10}
+    runs = run(dataset, [0], ["handwritten"], sizes, tmp_path / "real.json", {}, real_rate=True)
+    real = runs[0]["at_prevalence"]
+    assert runs[0]["accuracy"] == pytest.approx(0.5)
+    assert real["accuracy"] == pytest.approx(0.1)
+    assert real["labels"]["fraudulent"]["precision"] == pytest.approx(0.1)
+    # A results file is for one rate; adding a balanced run to it would mix them.
+    with pytest.raises(ValueError, match="real"):
+        run(dataset, [1], ["handwritten"], sizes, tmp_path / "real.json", {})

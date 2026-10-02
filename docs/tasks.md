@@ -117,7 +117,7 @@ Or write `task.json` directly. This minimal example shows the required shape:
 ## How answers are scored
 
 By default an answer scores 1 when it matches the example's label and 0
-otherwise. Two additions in `task.json` refine that, and neither calls a model.
+otherwise. A few additions in `task.json` refine that, and none calls a model.
 
 **Some mistakes cost more.** `costs[expected][answered]` prices a wrong answer;
 anything unlisted costs 1. The dearest mistake scores 0 and a cheaper one scores
@@ -129,6 +129,22 @@ in between, so search avoids the expensive ones first:
 
 Approving fraud is ten times worse than sending it to review. The feedback search
 sees names what each mistake cost.
+
+**Examples sampled at another rate than real traffic.** A rare label is often
+sampled up, half scams and half genuine postings, so there are enough of each to
+learn from; scored as sampled, a rule that flags too much looks better than it
+is. `prevalence` gives each label's share of real traffic, and each example's
+mistakes then count as much as the real traffic it stands for, in search, in
+`calibrate`'s cutoff fit and in `evaluate`:
+
+```json
+"prevalence": {"fraudulent": 0.05, "genuine": 0.95}
+```
+
+Sampled half and half, a false flag now costs nineteen times what a missed scam
+does, as it would on real traffic. `rulesmith evaluate` adds `at_prevalence`:
+accuracy, and each label's precision and recall, as they would be at those
+rates. Shares must cover every label and sum to 1; `costs` still apply on top.
 
 **Some examples have more than one right answer.** `accepted` lists labels that
 count as fully right besides `label`:

@@ -8,6 +8,7 @@ graph, which answers whatever they leave, so a judge the starting graph asks is 
 the cases no field settles.
 """
 
+import json
 import re
 from collections import Counter
 from collections.abc import Iterable
@@ -15,7 +16,7 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from rulesmith.graph import Example, LiteralInput, Plan, Task
-from rulesmith.rules import RuleError, render_rules
+from rulesmith.rules import RuleError, number, render_rules
 
 # A categorical field with more values than this is text, not a category a rule can name.
 MOST_CATEGORIES = 12
@@ -167,6 +168,65 @@ def rule_list(
         rules.append((rule, label))
         left -= covered
     return rules
+
+
+SYMBOLS = {"eq": "==", "ge": ">=", "lt": "<"}
+
+
+def written(test: Test) -> str:
+    """A test as rule text."""
+    path, measure = test.feature
+    name = ("length of " if measure == "length" else "") + ".".join(path)
+    value = json.dumps(test.value) if isinstance(test.value, str) else number(test.value)
+    return f"{name} {SYMBOLS[test.op]} {value}"
+
+
+def evidence(examples: list[Example], most: int = 5, share: float = 0.1) -> list[str]:
+    """The rules the examples support best, counted on them, for a proposer to use or ignore. A
+    rule is ranked by how many more examples it gets right than guessing its label at the rate
+    the examples have it would, so a rule that covers nearly everything at the base rate ranks
+    low and a sharp one high. Pairs are drawn from the strongest single tests, and a rule that
+    mostly covers what a higher one covers is left out, so the few shown say different things."""
+    features = columns(examples)
+    if not features:
+        return []
+    rows = [row(example.state, features) for example in examples]
+    labels = [example.label for example in examples]
+    prior = {label: count / len(labels) for label, count in Counter(labels).items()}
+    enough = max(3, round(share * len(examples)))
+
+    def scored(rule: Rule, covered: frozenset):
+        if len(covered) < enough:
+            return None
+        label, hits = Counter(labels[i] for i in covered).most_common(1)[0]
+        return hits - len(covered) * prior[label], rule, label, hits, covered
+
+    tests = candidates(features)
+    covers = {test: frozenset(i for i, r in enumerate(rows) if test.holds(r)) for test in tests}
+    singles = sorted(
+        (found for test in tests if (found := scored((test,), covers[test]))),
+        key=lambda found: -found[0],
+    )
+    strongest = [found[1][0] for found in singles[:40]]
+    pairs = (
+        scored((a, b), covers[a] & covers[b])
+        for a, b in combinations(strongest, 2)
+        if a.feature != b.feature
+    )
+    ranked = sorted(singles + [found for found in pairs if found], key=lambda found: -found[0])
+    picked = []
+    for found in ranked:
+        covered = found[4]
+        if any(len(covered & other[4]) / len(covered | other[4]) > 0.6 for other in picked):
+            continue
+        picked.append(found)
+        if len(picked) == most:
+            break
+    return [
+        f"when {' and '.join(written(t) for t in rule)}: {label}  # right on {hits} of the "
+        f"{len(covered)} training examples it covers"
+        for _, rule, label, hits, covered in picked
+    ]
 
 
 def mine(

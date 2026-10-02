@@ -175,16 +175,28 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
     without each fold in turn and scored on it, and those scores together must beat the line as
     it stands. One example on the far side of a line is not evidence to move it; a few are.
     The report has a row per line: where it was and where it ended, how many places were tried,
-    the training accuracy just before and after its move, and whether it moved."""
+    the training accuracy just before and after its move, and whether it moved. A task with a
+    prevalence counts each example as the real traffic it stands for, so the line is placed for
+    the rate the graph will meet, not the rate the examples were sampled at."""
     examples = [e for e in task.train if e.label is not None]
     lines = cuts(plan)
     if not examples or not lines:
         return plan, []
+    weights = task.weights()
+    weight = [weights[e.label] for e in examples]
+    total = sum(weight)
+
+    def right(candidate: Plan) -> list[float]:
+        return [
+            w if r else 0.0
+            for w, r in zip(weight, correct(candidate, examples, client, model), strict=True)
+        ]
+
     seen = observed(plan, examples, client, model)
     started = {cut: cut.value(plan) for cut in lines}
     tried = dict.fromkeys(lines, 0)
-    after = correct(plan, examples, client, model)
-    change: dict[Cut, tuple[list[bool], list[bool]]] = {}
+    after = right(plan)
+    change: dict[Cut, tuple[list[float], list[float]]] = {}
     for _ in range(3):
         moved = False
         for cut in lines:
@@ -193,10 +205,7 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
             if not candidates:
                 continue
             tried[cut] += len(candidates)
-            scores = {
-                value: correct(cut.moved(plan, value), examples, client, model)
-                for value in candidates
-            }
+            scores = {value: right(cut.moved(plan, value)) for value in candidates}
             scores[current] = after
             best = choose(scores, current)
             if best != current and held_out_wins(scores, current, len(examples)):
@@ -211,8 +220,8 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
             "from": started[cut],
             "to": cut.value(plan),
             "tried": tried[cut],
-            "train_before": sum(change.get(cut, (after, after))[0]) / len(examples),
-            "train_after": sum(change.get(cut, (after, after))[1]) / len(examples),
+            "train_before": sum(change.get(cut, (after, after))[0]) / total,
+            "train_after": sum(change.get(cut, (after, after))[1]) / total,
             "kept": cut.value(plan) != started[cut],
         }
         for cut in lines
@@ -260,7 +269,7 @@ def correct(plan: Plan, examples: list, client, model: str) -> list[bool]:
     return [record["correct"] for record in outcomes(plan, examples, client, model)]
 
 
-def choose(scores: dict[float, list[bool]], current: float, fold: int | None = None) -> float:
+def choose(scores: dict[float, list[float]], current: float, fold: int | None = None) -> float:
     """The line with the most right answers, outside `fold` if one is named; among equals, the
     one nearest to where the line stands, so a tie never moves it."""
 
@@ -270,7 +279,7 @@ def choose(scores: dict[float, list[bool]], current: float, fold: int | None = N
     return max(scores, key=lambda value: (total(value), -abs(value - current)))
 
 
-def held_out_wins(scores: dict[float, list[bool]], current: float, count: int) -> bool:
+def held_out_wins(scores: dict[float, list[float]], current: float, count: int) -> bool:
     """Whether choosing the line without each fold and scoring it on that fold beats, over all the
     folds, the line as it stands."""
     folds = min(FOLDS, count)
@@ -402,3 +411,28 @@ def drift(plan: Plan, records: list[dict], alpha: float) -> list[dict]:
                 }
             )
     return flagged
+
+
+def at_prevalence(task: Task, records: list[dict]) -> dict | None:
+    """Accuracy, and each label's precision and recall, as they would be on real traffic: each
+    scored example counted as the share of it that its label stands for. None for a task with no
+    prevalence, whose examples are taken to be sampled as they come."""
+    if task.prevalence is None:
+        return None
+    weights = task.weights()
+    scored = [(r["expected"], r.get("label"), weights[r["expected"]]) for r in records]
+    total = sum(w for _, _, w in scored)
+    labels = {}
+    for label in task.labels:
+        hit = sum(w for e, a, w in scored if e == label and a == label)
+        answered = sum(w for _, a, w in scored if a == label)
+        present = sum(w for e, _, w in scored if e == label)
+        labels[label] = {
+            "precision": hit / answered if answered else None,
+            "recall": hit / present if present else None,
+        }
+    return {
+        "prevalence": task.prevalence,
+        "accuracy": sum(w for e, a, w in scored if e == a) / total,
+        "labels": labels,
+    }

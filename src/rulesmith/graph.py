@@ -613,6 +613,24 @@ class Task(StrictModel):
         description="What each label means, for a question over them all; its words where unlisted",
     )
     abstain: Abstain | None = None
+    prevalence: dict[Text, Annotated[float, Field(gt=0)]] | None = Field(
+        default=None,
+        description="Each label's share of real traffic, where the examples were sampled at "
+        "other rates: a rare label sampled to half the examples makes its mistakes look common",
+    )
+
+    def weights(self) -> dict[str, float]:
+        """How much an example of each label stands for in real traffic: its prevalence over
+        its share of the labeled examples. Every label weighs 1 without a prevalence."""
+        if self.prevalence is None:
+            return dict.fromkeys(self.labels, 1.0)
+        labeled = [e.label for e in self.train + self.validation + self.test if e.label]
+        return {
+            label: self.prevalence[label] / (labeled.count(label) / len(labeled))
+            if label in labeled
+            else 1.0
+            for label in self.labels
+        }
 
     @model_validator(mode="after")
     def disjoint_splits(self) -> Self:
@@ -641,6 +659,11 @@ class Task(StrictModel):
             raise ValueError(f"descriptions name labels the task does not have: {sorted(unknown)}")
         if self.worst == 0:
             raise ValueError("costs make every mistake free, so no answer is worse than another")
+        if self.prevalence is not None:
+            if set(self.prevalence) != set(self.labels):
+                raise ValueError("prevalence must give a share for every label and no other")
+            if abs(sum(self.prevalence.values()) - 1) > 1e-6:
+                raise ValueError("prevalence shares must sum to 1")
         if self.abstain is not None:
             passed = self.abstain.label
             if passed not in self.labels:
