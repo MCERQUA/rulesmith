@@ -79,7 +79,7 @@ def test_every_judge_is_marked_and_named_as_the_rules_test_it():
     # The arrows read 'team == "billing"'; a reader must find the box that is 'team' and see
     # that it is the one place the model is asked.
     plan = compile_rules(
-        (Path(__file__).resolve().parents[1] / "examples/rules/routing.rules").read_text()
+        (Path(__file__).resolve().parents[1] / "examples/support-routing/graph.rules").read_text()
     )
     drawn = mermaid(plan)
     ids = {name: f"n{index}" for index, name in enumerate(plan.nodes)}

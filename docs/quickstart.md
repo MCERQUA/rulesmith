@@ -82,7 +82,7 @@ export OPENAI_API_KEY=local-no-auth
 `task.json` in this shape:
 
 ```sh
-cp examples/task.json task.json
+cp examples/support-routing/task.json task.json
 ```
 
 ```json
@@ -146,7 +146,7 @@ on a resumed run searches further.
 uv run rulesmith evaluate task.json runs/my-task/plan.json \
   --backend ruling --max-workers 1 --split test --output runs/my-task/test.json
 
-uv run rulesmith run runs/my-task/plan.json examples/state.json \
+uv run rulesmith run runs/my-task/plan.json examples/support-routing/input.json \
   --backend ruling --max-workers 1
 ```
 
@@ -177,3 +177,14 @@ Output (trimmed):
   "confidence": 0.991
 }
 ```
+
+## Keeping a decision
+
+Keep each decision in a folder of its own, in git, the way [examples](../examples) does: the
+task it was measured on (`task.json`), the graph as it runs (`graph.rules`, or `map.json` for a
+map), and its score on the test split (`evaluation.json`, from `rulesmith evaluate`). A change
+to the rules is then a diff a reviewer can read beside the scorecard it moved, and rerunning
+`evaluate` reproduces the number. Rule counts and cutoffs hold for the judge they were measured
+on, which the scorecard names; after changing the judge, run `calibrate` and `evaluate` again
+and commit both.
+

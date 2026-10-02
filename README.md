@@ -90,10 +90,10 @@ export OPENAI_API_KEY=local-no-auth
 Then search from a labeled task, and run what it finds:
 
 ```sh
-cp examples/task.json task.json
+cp examples/support-routing/task.json task.json
 uv run rulesmith optimize task.json --reflection-model "$REFLECTION_MODEL" \
   --reflection-base-url "$REFLECTION_BASE_URL" --output runs/my-task
-uv run rulesmith run runs/my-task/plan.rules examples/state.json
+uv run rulesmith run runs/my-task/plan.rules examples/support-routing/input.json
 ```
 
 `optimize` writes `plan.json`, the same graph as editable `plan.rules`, and
@@ -212,7 +212,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-545 passed, 6 skipped in 283.11s (0:04:43)
+560 passed, 6 skipped in 416.46s (0:06:56)
 All checks passed!
 56 files already formatted
 ```

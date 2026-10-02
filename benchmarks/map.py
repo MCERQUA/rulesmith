@@ -1,8 +1,8 @@
 """The demonstration map: three decisions of a marketplace's trust-and-safety work, each a unit
 search found on a public dataset, behind a router that costs nothing.
 
-    python3 benchmarks/map.py build       # write examples/map from the benchmark results
-    python3 benchmarks/map.py summarize benchmarks/results/map.json
+    python3 benchmarks/map.py build       # write examples/trust-safety from the benchmark results
+    python3 benchmarks/map.py summarize examples/trust-safety/evaluation.json
 
 `build` takes the graph search found on the jobs, clothing and Banking77 benchmarks (the seed
 with the best validation score of each, from benchmarks/results) and writes them as unit
@@ -24,7 +24,7 @@ from rulesmith.graph import Plan
 from rulesmith.rules import render_rules
 
 ROOT = Path(__file__).resolve().parents[1]
-MAP = ROOT / "examples" / "map"
+MAP = ROOT / "examples" / "trust-safety"
 # Unit, the benchmark it was searched on, and the field that marks an input as its kind.
 UNITS = {
     "postings": ("jobs", "has_company_logo", [0, 1]),
@@ -61,7 +61,7 @@ def build() -> None:
     sources.append(unit)
     nodes["decision"] = {"type": "coalesce", "sources": sources}
     graph = {"nodes": nodes, "outputs": {"label": {"type": "node", "node": "decision"}}}
-    (MAP / "trust-safety.json").write_text(json.dumps(graph, indent=2) + "\n")
+    (MAP / "map.json").write_text(json.dumps(graph, indent=2) + "\n")
     (MAP / "task.json").write_text(json.dumps(task(), indent=2) + "\n")
 
 

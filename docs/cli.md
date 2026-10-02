@@ -31,8 +31,8 @@ A `.rules` file is a graph wherever the CLI takes one, so the examples run as
 they stand:
 
 ```sh
-uv run rulesmith validate examples/task.json examples/rules/routing.rules
-uv run rulesmith run examples/rules/routing.rules examples/state.json \
+uv run rulesmith validate examples/support-routing/task.json examples/support-routing/graph.rules
+uv run rulesmith run examples/support-routing/graph.rules examples/support-routing/input.json \
   --backend ruling --max-workers 1
 ```
 

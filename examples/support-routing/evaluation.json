@@ -1,0 +1,158 @@
+{
+  "score": 1.0,
+  "resolved_models": [
+    "mlx-community/Qwen3.5-4B-4bit"
+  ],
+  "examples": [
+    {
+      "id": "test-billing-1",
+      "expected": "billing",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "billing"
+      },
+      "node_values": {
+        "rule_3": "sales",
+        "team": "billing",
+        "rule_1": "billing",
+        "decision": "billing"
+      },
+      "answers": {
+        "team": {
+          "type": "choice",
+          "value": "billing",
+          "probabilities": {
+            "billing": 0.9946584138553598,
+            "technical": 0.003165779698705604,
+            "sales": 0.002175806445934476
+          },
+          "confidence": 0.9919876207830397
+        }
+      },
+      "skipped": [
+        "rule_2"
+      ],
+      "calls": {
+        "team": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 146,
+          "output_tokens": 0,
+          "request": [
+            "team"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 146,
+      "output_tokens": 0,
+      "label": "billing",
+      "decided_by": "rule_1",
+      "confidence": 0.9946584138553598
+    },
+    {
+      "id": "test-technical-1",
+      "expected": "technical",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "technical"
+      },
+      "node_values": {
+        "rule_3": "sales",
+        "team": "technical",
+        "rule_2": "technical",
+        "decision": "technical"
+      },
+      "answers": {
+        "team": {
+          "type": "choice",
+          "value": "technical",
+          "probabilities": {
+            "billing": 0.00020341774478255988,
+            "technical": 0.9997511936212471,
+            "sales": 4.5388633970365015e-05
+          },
+          "confidence": 0.9996267904318706
+        }
+      },
+      "skipped": [
+        "rule_1"
+      ],
+      "calls": {
+        "team": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 146,
+          "output_tokens": 0,
+          "request": [
+            "team"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 146,
+      "output_tokens": 0,
+      "label": "technical",
+      "decided_by": "rule_2",
+      "confidence": 0.9997511936212471
+    },
+    {
+      "id": "test-sales-1",
+      "expected": "sales",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "sales"
+      },
+      "node_values": {
+        "rule_3": "sales",
+        "team": "sales",
+        "decision": "sales"
+      },
+      "answers": {
+        "team": {
+          "type": "choice",
+          "value": "sales",
+          "probabilities": {
+            "billing": 0.000261182171587066,
+            "technical": 3.1193762010990966e-05,
+            "sales": 0.999707624066402
+          },
+          "confidence": 0.999561436099603
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2"
+      ],
+      "calls": {
+        "team": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 144,
+          "output_tokens": 0,
+          "request": [
+            "team"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 144,
+      "output_tokens": 0,
+      "label": "sales",
+      "decided_by": "rule_3",
+      "confidence": 0.999707624066402
+    }
+  ],
+  "split": "test",
+  "backend": "ruling",
+  "model": "default",
+  "scored_by": "labels",
+  "opponent": null,
+  "drift": []
+}

@@ -37,7 +37,7 @@ def test_live_gepa_returns_a_valid_program(live_client):
     if not reflection_model:
         pytest.fail("--live requires RULESMITH_REFLECTION_MODEL and its provider credential")
     root = Path(__file__).resolve().parents[1]
-    task = Task.model_validate_json((root / "examples/task.json").read_text())
+    task = Task.model_validate_json((root / "examples/support-routing/task.json").read_text())
     initial = Plan.model_validate(
         {
             "nodes": {},

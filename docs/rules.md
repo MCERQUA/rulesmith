@@ -132,12 +132,12 @@ is reported under `cutoffs`, with its old and new place and the training
 accuracy before and after, and `validation` gives the accuracy on the
 validation examples before and after the fit, which the fit never sees.
 
-On the [triage graph](../examples/rules/triage.rules) against a
-[hand-written task](../examples/triage-task.json) of forty tickets, with a local
+On the [triage graph](../examples/ticket-triage/graph.rules) against a
+[hand-written task](../examples/ticket-triage/task.json) of forty tickets, with a local
 Ruling judge:
 
 ```sh
-uv run rulesmith calibrate examples/triage-task.json examples/rules/triage.rules \
+uv run rulesmith calibrate examples/ticket-triage/task.json examples/ticket-triage/graph.rules \
   --backend ruling --max-workers 1 --output runs/triage.rules
 ```
 
@@ -233,10 +233,10 @@ answer is already a value in the input, read it.
 
 ## Worked examples
 
-One worked example of each, runnable from
-[examples/rules](../examples/rules):
+One worked example of each, runnable from [examples](../examples), where each
+decision has a folder of its own:
 
-**Route a ticket** ([routing.rules](../examples/rules/routing.rules)) — a choice is
+**Route a ticket** ([support-routing](../examples/support-routing/graph.rules)) — a choice is
 a label, and the rules act on it:
 
 ```
@@ -248,7 +248,7 @@ always: sales
 ```
 
 **Triage by how blocked the customer is**
-([triage.rules](../examples/rules/triage.rules)) — a score is ordered, so one
+([ticket-triage](../examples/ticket-triage/graph.rules)) — a score is ordered, so one
 judgment feeds several thresholds, and a read decides who jumps the queue:
 
 ```
@@ -302,7 +302,7 @@ flowchart TD
 </details>
 
 **Spend the judge only where it decides something**
-([gating.rules](../examples/rules/gating.rules)) — readings settle the clear cases,
+([order-review](../examples/order-review/graph.rules)) — readings settle the clear cases,
 and the question is asked only about orders big enough to matter:
 
 ```
@@ -370,7 +370,7 @@ flowchart TD
 </details>
 
 **Check a draft reply before sending it**
-([grounding.rules](../examples/rules/grounding.rules)) — probabilities compose, so
+([reply-check](../examples/reply-check/graph.rules)) — probabilities compose, so
 two judgments set a floor and a ceiling with a human in between:
 
 ```
@@ -423,7 +423,7 @@ flowchart TD
 ## Beyond rules
 
 The full graph language is available. This hand-written example
-([examples/dag.json](../examples/dag.json)) asks two questions in parallel, then
+([examples/support-routing/dag.json](../examples/support-routing/dag.json)) asks two questions in parallel, then
 runs only the specialist that matches. Drawn with `rulesmith draw`:
 
 ```mermaid

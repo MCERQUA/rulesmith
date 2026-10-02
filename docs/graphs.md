@@ -25,8 +25,8 @@ edge list, and JSON key order does not affect execution.
 }
 ```
 
-Examples: [seed.json](../examples/seed.json) (one call) and
-[dag.json](../examples/dag.json) (parallel calls, a conditional specialist, and joins).
+Examples: [seed.json](../examples/support-routing/seed.json) (one call) and
+[dag.json](../examples/support-routing/dag.json) (parallel calls, a conditional specialist, and joins).
 
 ## Nodes
 
@@ -132,7 +132,7 @@ graphs rules cannot express: solid arrows carry values, a gray box is a
 condition, and a dashed arrow leads from a condition to the rule it gates.
 
 ```sh
-uv run rulesmith draw examples/rules/routing.rules
+uv run rulesmith draw examples/support-routing/graph.rules
 ```
 
 Output, as GitHub renders it:
@@ -244,9 +244,9 @@ so when it cannot. A unit is embedded as a `plan`, or named by `path`: a `.json`
 or `.rules` file relative to the file naming it, which may name units of its own.
 Every command loads a map's units before validating it, and from Python
 `rulesmith.maps.load(path)` does the same, so what runs is always an ordinary
-graph. [examples/support-map.json](../examples/support-map.json) routes a
+graph. [examples/ticket-handling/map.json](../examples/ticket-handling/map.json) routes a
 ticket and hands billing tickets to
-[units/billing.rules](../examples/units/billing.rules):
+[units/billing.rules](../examples/ticket-handling/units/billing.rules):
 
 ```json
 "billing": {
@@ -301,7 +301,7 @@ else (here, only when the router answered billing), and its work rolls up into
 the result under its name:
 
 ```sh
-uv run rulesmith run examples/support-map.json ticket.json --backend ruling --max-workers 1
+uv run rulesmith run examples/ticket-handling/map.json ticket.json --backend ruling --max-workers 1
 ```
 
 Output (trimmed), for a ticket about a duplicate $40 charge:
@@ -332,7 +332,7 @@ files and the maps that name them. A unit is searched in place against a task of
 its own, with the rest of the map frozen:
 
 ```sh
-uv run rulesmith optimize billing-task.json examples/support-map.json --unit billing \
+uv run rulesmith optimize billing-task.json examples/ticket-handling/map.json --unit billing \
   --backend ruling --max-workers 1 --reflection-model "$REFLECTION_MODEL" --output runs/billing
 ```
 
@@ -347,7 +347,7 @@ scores under `unit.map_validation`.
 
 ## Writing a graph by hand
 
-1. Start from [seed.json](../examples/seed.json) or [dag.json](../examples/dag.json).
+1. Start from [seed.json](../examples/support-routing/seed.json) or [dag.json](../examples/support-routing/dag.json).
 2. Give each node an ID and connect nodes through `inputs`, `source`, `sources`, or `when`.
 3. Point a `label` output at the final decision.
 4. Run `validate`, then use the graph directly or as a seed:

@@ -110,7 +110,7 @@ def test_the_cli_takes_a_map_wherever_it_takes_a_graph(tmp_path):
 
 def test_the_example_map_loads_from_its_files():
     root = Path(__file__).resolve().parents[1]
-    plan = load(root / "examples" / "support-map.json")
+    plan = load(root / "examples" / "ticket-handling" / "map.json")
     assert plan.nodes["billing"].plan.nodes
 
 

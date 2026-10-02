@@ -33,7 +33,7 @@ needs no judge at all:
 ```python
 from rulesmith.rules import compile_rules, render_rules
 
-plan = compile_rules(Path("examples/rules/gating.rules").read_text())
+plan = compile_rules(Path("examples/order-review/graph.rules").read_text())
 print(render_rules(plan))  # and back again: the graph reads as the rules it came from
 
 triage = compile_rules("""

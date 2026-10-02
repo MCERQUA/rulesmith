@@ -115,9 +115,9 @@ flowchart TD
     class n1_c0,n3_c0,n3_c1,c0,c1 condition
 ```
 
-The files are in [examples/map](../examples/map): the map
-[trust-safety.json](../examples/map/trust-safety.json), the
-[three unit files](../examples/map/units), and a [task](../examples/map/task.json)
+The files are in [examples/trust-safety](../examples/trust-safety): the map
+[map.json](../examples/trust-safety/map.json), the
+[three unit files](../examples/trust-safety/units), and a [task](../examples/trust-safety/task.json)
 of held-out rows from all three datasets with all 81 of their labels. The units
 are the searched graphs as they were found:
 
@@ -149,7 +149,7 @@ Scored with `rulesmith evaluate` on the task's test split, 40 held-out rows
 from each dataset, against a local Ruling judge (`Qwen3.5-4B-4bit`, one option
 ordering per question). Each row is credited to the unit that decided it, from
 `decided_by`; the output is in
-[benchmarks/results/map.json](../benchmarks/results/map.json).
+[examples/trust-safety/evaluation.json](../examples/trust-safety/evaluation.json).
 
 | Unit | Rows | Accuracy in the map | Judge calls per row | Alone, on its benchmark (300 rows) |
 | --- | --- | --- | --- | --- |
@@ -187,8 +187,8 @@ into the table above.
 
 ```sh
 uv run python3 benchmarks/map.py build
-uv run rulesmith validate examples/map/task.json examples/map/trust-safety.json --max-nodes 40 --max-depth 16
-uv run rulesmith evaluate examples/map/task.json examples/map/trust-safety.json --split test \
-  --backend ruling --max-workers 1 --max-nodes 40 --max-depth 16 --output benchmarks/results/map.json
-uv run python3 benchmarks/map.py summarize benchmarks/results/map.json
+uv run rulesmith validate examples/trust-safety/task.json examples/trust-safety/map.json --max-nodes 40 --max-depth 16
+uv run rulesmith evaluate examples/trust-safety/task.json examples/trust-safety/map.json --split test \
+  --backend ruling --max-workers 1 --max-nodes 40 --max-depth 16 --output examples/trust-safety/evaluation.json
+uv run python3 benchmarks/map.py summarize examples/trust-safety/evaluation.json
 ```

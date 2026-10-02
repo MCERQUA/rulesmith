@@ -126,7 +126,7 @@ def test_a_unit_is_drawn_as_a_box_you_can_see_into():
 def test_the_example_map_loads_with_its_unit_in_a_file_of_its_own():
     from rulesmith.maps import load
 
-    path = Path(__file__).resolve().parents[1] / "examples" / "support-map.json"
+    path = Path(__file__).resolve().parents[1] / "examples" / "ticket-handling" / "map.json"
     plan = load(path)
     assert any(node.type == "graph" for node in plan.nodes.values())
     assert json.loads(path.read_text())["nodes"]["billing"]["path"] == "units/billing.rules"

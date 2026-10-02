@@ -1,0 +1,422 @@
+{
+  "score": 0.625,
+  "resolved_models": [
+    "mlx-community/Qwen3.5-4B-4bit"
+  ],
+  "examples": [
+    {
+      "id": "t26",
+      "expected": "escalate",
+      "correct": false,
+      "cost": 1.0,
+      "outputs": {
+        "label": "queue_normal"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 2,
+        "severity": 1.714922208331005,
+        "decision": "queue_normal"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 1.714922208331005,
+          "probabilities": {
+            "0": 0.09221438575447677,
+            "1": 0.32185983189480755,
+            "2": 0.36471497061594993,
+            "3": 0.22121081173476584
+          },
+          "confidence": 0.2725005848614731
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2",
+        "rule_3"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 154,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 154,
+      "output_tokens": 0,
+      "label": "queue_normal",
+      "decided_by": "rule_4",
+      "confidence": 0.2725005848614731
+    },
+    {
+      "id": "t12",
+      "expected": "queue_normal",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "queue_normal"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 3,
+        "severity": 0.780579490541345,
+        "decision": "queue_normal"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 0.780579490541345,
+          "probabilities": {
+            "0": 0.33882823105474336,
+            "1": 0.5586333116536532,
+            "2": 0.08566919298711857,
+            "3": 0.01686926430448491
+          },
+          "confidence": 0.5417640473491683
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2",
+        "rule_3"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 157,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 157,
+      "output_tokens": 0,
+      "label": "queue_normal",
+      "decided_by": "rule_4",
+      "confidence": 0.5417640473491683
+    },
+    {
+      "id": "t29",
+      "expected": "queue_urgent",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "queue_urgent"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 0,
+        "severity": 2.1301752474729323,
+        "rule_3": "queue_urgent",
+        "decision": "queue_urgent"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 2.1301752474729323,
+          "probabilities": {
+            "0": 0.04353423955395861,
+            "1": 0.10443321170763653,
+            "2": 0.5303556104499191,
+            "3": 0.32167693828848587
+          },
+          "confidence": 0.48682137089596034
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 154,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 154,
+      "output_tokens": 0,
+      "label": "queue_urgent",
+      "decided_by": "rule_3",
+      "confidence": 0.48682137089596034
+    },
+    {
+      "id": "t19",
+      "expected": "queue_normal",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "queue_normal"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 1,
+        "severity": 1.0499076127879998,
+        "decision": "queue_normal"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 1.0499076127879998,
+          "probabilities": {
+            "0": 0.15180689370282088,
+            "1": 0.6803512963099048,
+            "2": 0.13396911348372836,
+            "3": 0.03387269650354609
+          },
+          "confidence": 0.6464785998063586
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2",
+        "rule_3"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 156,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 156,
+      "output_tokens": 0,
+      "label": "queue_normal",
+      "decided_by": "rule_4",
+      "confidence": 0.6464785998063586
+    },
+    {
+      "id": "t38",
+      "expected": "page_oncall",
+      "correct": false,
+      "cost": 1.0,
+      "outputs": {
+        "label": "queue_urgent"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 1,
+        "severity": 2.1659435720418596,
+        "rule_3": "queue_urgent",
+        "decision": "queue_urgent"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 2.1659435720418596,
+          "probabilities": {
+            "0": 0.05039771244918321,
+            "1": 0.15523588303290015,
+            "2": 0.37239152454479035,
+            "3": 0.42197487997312627
+          },
+          "confidence": 0.16594357204185972
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 161,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 161,
+      "output_tokens": 0,
+      "label": "queue_urgent",
+      "decided_by": "rule_3",
+      "confidence": 0.16594357204185972
+    },
+    {
+      "id": "t31",
+      "expected": "page_oncall",
+      "correct": false,
+      "cost": 1.0,
+      "outputs": {
+        "label": "queue_urgent"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 1,
+        "severity": 2.975598469703212,
+        "rule_3": "queue_urgent",
+        "decision": "queue_urgent"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 2.975598469703212,
+          "probabilities": {
+            "0": 0.004022785248157887,
+            "1": 0.0006990552562266735,
+            "2": 0.010935064039860694,
+            "3": 0.9843430954557547
+          },
+          "confidence": 0.9755984697032123
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 162,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 162,
+      "output_tokens": 0,
+      "label": "queue_urgent",
+      "decided_by": "rule_3",
+      "confidence": 0.9755984697032123
+    },
+    {
+      "id": "t07",
+      "expected": "queue_normal",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "queue_normal"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 0,
+        "severity": 0.24831742998889872,
+        "decision": "queue_normal"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 0.24831742998889872,
+          "probabilities": {
+            "0": 0.8402786398761499,
+            "1": 0.08856471705884425,
+            "2": 0.05371721626496353,
+            "3": 0.017439426800042478
+          },
+          "confidence": 0.7516825700111013
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2",
+        "rule_3"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 152,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 152,
+      "output_tokens": 0,
+      "label": "queue_normal",
+      "decided_by": "rule_4",
+      "confidence": 0.7516825700111013
+    },
+    {
+      "id": "t08",
+      "expected": "queue_normal",
+      "correct": true,
+      "cost": 0.0,
+      "outputs": {
+        "label": "queue_normal"
+      },
+      "node_values": {
+        "rule_4": "queue_normal",
+        "read_variables_customer_tier": 1,
+        "severity": 0.12768230803849026,
+        "decision": "queue_normal"
+      },
+      "answers": {
+        "severity": {
+          "type": "score",
+          "value": 0.12768230803849026,
+          "probabilities": {
+            "0": 0.9138691009810335,
+            "1": 0.051556966689137576,
+            "2": 0.027596455640133775,
+            "3": 0.00697747668969504
+          },
+          "confidence": 0.8723176919615098
+        }
+      },
+      "skipped": [
+        "rule_1",
+        "rule_2",
+        "rule_3"
+      ],
+      "calls": {
+        "severity": {
+          "model": "mlx-community/Qwen3.5-4B-4bit",
+          "input_tokens": 153,
+          "output_tokens": 0,
+          "request": [
+            "severity"
+          ]
+        }
+      },
+      "models": [
+        "mlx-community/Qwen3.5-4B-4bit"
+      ],
+      "input_tokens": 153,
+      "output_tokens": 0,
+      "label": "queue_normal",
+      "decided_by": "rule_4",
+      "confidence": 0.8723176919615098
+    }
+  ],
+  "split": "test",
+  "backend": "ruling",
+  "model": "default",
+  "scored_by": "labels",
+  "opponent": null,
+  "drift": []
+}

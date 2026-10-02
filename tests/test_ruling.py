@@ -37,7 +37,7 @@ def ruling_model(ruling_client):
 
 @pytest.fixture
 def support_task():
-    return Task.model_validate_json((ROOT / "examples/task.json").read_text())
+    return Task.model_validate_json((ROOT / "examples/support-routing/task.json").read_text())
 
 
 def assert_routed_assessment(result, plan, model):
@@ -65,7 +65,7 @@ def assert_routed_assessment(result, plan, model):
 def test_ruling_executes_dependent_calls_conditional_branches_and_joins(
     ruling_client, ruling_model, support_task
 ):
-    plan = Plan.model_validate_json((ROOT / "examples/dag.json").read_text())
+    plan = Plan.model_validate_json((ROOT / "examples/support-routing/dag.json").read_text())
     state = support_task.train[0].state
     result = DecisionProgram(plan, ruling_client, ruling_model)(state=state)
     assert_routed_assessment(dict(result), plan, ruling_model)
@@ -91,7 +91,7 @@ def test_ruling_cli_runs_without_a_hosted_provider_credential(
             "-m",
             "rulesmith.cli",
             "run",
-            str(ROOT / "examples/dag.json"),
+            str(ROOT / "examples/support-routing/dag.json"),
             str(state),
             "--backend",
             "ruling",
@@ -104,7 +104,7 @@ def test_ruling_cli_runs_without_a_hosted_provider_credential(
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    plan = Plan.model_validate_json((ROOT / "examples/dag.json").read_text())
+    plan = Plan.model_validate_json((ROOT / "examples/support-routing/dag.json").read_text())
     assert_routed_assessment(json.loads(result.stdout), plan, ruling_model)
 
 
@@ -118,7 +118,7 @@ def test_real_gepa_evaluates_a_fixed_graph_proposal_with_ruling(
     initial = Plan.model_validate(
         {"nodes": {}, "outputs": {"label": {"type": "literal", "value": "sales"}}}
     )
-    proposed = Plan.model_validate_json((ROOT / "examples/dag.json").read_text())
+    proposed = Plan.model_validate_json((ROOT / "examples/support-routing/dag.json").read_text())
     reflections = []
 
     def propose(prompt):

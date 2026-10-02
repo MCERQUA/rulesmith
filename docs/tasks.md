@@ -97,7 +97,7 @@ always: review
 Start with the complete labeled sample:
 
 ```sh
-cp examples/task.json task.json
+cp examples/support-routing/task.json task.json
 ```
 
 Or write `task.json` directly. This minimal example shows the required shape:

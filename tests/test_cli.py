@@ -107,7 +107,11 @@ def test_cli_evaluation_persists_actual_sdk_results(tmp_path, provider, monkeypa
 @pytest.mark.parametrize("example", ["seed.json", "dag.json"])
 def test_repository_example_matches_the_schema(example):
     root = Path(__file__).resolve().parents[1]
-    result = invoke("validate", root / "examples/task.json", root / "examples" / example)
+    result = invoke(
+        "validate",
+        root / "examples/support-routing/task.json",
+        root / "examples" / "support-routing" / example,
+    )
     assert result.returncode == 0, result.stderr
 
 
@@ -566,7 +570,11 @@ def invoke_core(*args):
 
 
 def test_a_core_install_validates_and_runs_a_classification_graph(tmp_path):
-    validated = invoke_core("validate", ROOT / "examples/task.json", ROOT / "examples/seed.json")
+    validated = invoke_core(
+        "validate",
+        ROOT / "examples/support-routing/task.json",
+        ROOT / "examples/support-routing/seed.json",
+    )
     assert validated.returncode == 0, validated.stderr
     assert json.loads(validated.stdout)["labels"] == ["billing", "technical", "sales"]
     plan = tmp_path / "plan.rules"

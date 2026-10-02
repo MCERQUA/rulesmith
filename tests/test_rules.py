@@ -152,7 +152,9 @@ def test_graphs_beyond_rules_stay_in_json():
     with pytest.raises(RuleError, match="merge"):
         render_rules(Plan.model_validate(merged))
     # A judgment shown the input under its own key cannot be written as rules either.
-    pair = json.loads((Path(__file__).resolve().parents[1] / "examples/dag.json").read_text())
+    pair = json.loads(
+        (Path(__file__).resolve().parents[1] / "examples/support-routing/dag.json").read_text()
+    )
     with pytest.raises(RuleError, match="ticket"):
         render_rules(Plan.model_validate(pair))
 
@@ -169,19 +171,24 @@ def test_rules_only_name_labels_the_task_allows():
     plan.check(task.labels, 16, 8)
 
 
-EXAMPLES = sorted((Path(__file__).resolve().parents[1] / "examples/rules").glob("*.rules"))
+EXAMPLES = sorted((Path(__file__).resolve().parents[1] / "examples").glob("*/graph.rules"))
 
 
-@pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.stem)
+@pytest.mark.parametrize("path", EXAMPLES, ids=lambda path: path.parent.name)
 def test_every_example_program_compiles_and_survives_the_round_trip(path):
     plan = compile_rules(path.read_text())
     assert render_rules(compile_rules(render_rules(plan))) == render_rules(plan)
     kinds = {node.question.type for node in plan.nodes.values() if node.type == "call"}
     # Each example shows one kind of judgment doing the work that kind is for, and the last
     # keeps its judgment behind readings, asked only when they cannot settle the case.
-    shown = {"routing": "choice", "triage": "score", "grounding": "noul", "gating": "noul"}
-    assert kinds == {shown[path.stem]}
-    if path.stem == "gating":
+    shown = {
+        "support-routing": "choice",
+        "ticket-triage": "score",
+        "reply-check": "noul",
+        "order-review": "noul",
+    }
+    assert kinds == {shown[path.parent.name]}
+    if path.parent.name == "order-review":
         assert all(node.when is not None for node in plan.nodes.values() if node.type == "call")
 
 
