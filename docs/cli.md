@@ -62,6 +62,9 @@ Output (trimmed):
 }
 ```
 
+`run --trace decisions.jsonl` also appends the decision to that file, as
+described under [Use from Python](python.md).
+
 ## Backends
 
 | Backend | Flag | Model | Endpoint | Credential |

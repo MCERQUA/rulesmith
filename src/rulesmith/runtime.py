@@ -1,10 +1,13 @@
 """Execute typed DAGs as DSPy modules through the official TypeSafe client."""
 
+import hashlib
 import json
 import math
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
+from datetime import UTC, datetime
 from graphlib import TopologicalSorter
+from pathlib import Path
 
 import dspy
 from pydantic import ConfigDict, Field, TypeAdapter
@@ -367,6 +370,10 @@ def sureness(answer: dict) -> float:
     return max(answer["value"], 1 - answer["value"])
 
 
+def digest(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
 class DecisionProgram(dspy.Module):
     def __init__(
         self,
@@ -374,12 +381,14 @@ class DecisionProgram(dspy.Module):
         client: TypeSafeClient | None,
         model: str,
         execution: ExecutionConfig | None = None,
+        trace: Path | None = None,
     ):
         super().__init__()
         self.plan = plan
         self.client = client
         self.model = model
         self.execution = execution or ExecutionConfig()
+        self.trace = trace
         if client is None and any(isinstance(node, Call) for node in plan.nodes.values()):
             raise ValueError("graphs containing calls require a TypeSafe client")
         self.fallbacks = fallbacks(plan)
@@ -430,6 +439,36 @@ class DecisionProgram(dspy.Module):
 
     def forward(self, state: State) -> dspy.Prediction:
         state = TypeAdapter(State, config=ConfigDict(allow_inf_nan=False)).validate_python(state)
+        if self.trace is None:
+            return self._decide(state)
+        try:
+            prediction = self._decide(state)
+        except GraphExecutionError as failure:
+            self._record(state, failure.prediction, str(failure))
+            raise
+        self._record(state, prediction, None)
+        return prediction
+
+    def _record(self, state: State, prediction: dspy.Prediction, error: str | None) -> None:
+        """Append what was decided, by which rule, on which graph and input, to the trace.
+        Inputs are kept as digests, so a trace can be shared without the data it judged."""
+        record = {
+            "time": datetime.now(UTC).isoformat(),
+            "graph_sha256": digest(self.plan.model_dump_json()),
+            "input_sha256": digest(json.dumps(state, sort_keys=True)),
+            "model": self.model,
+            "label": prediction.get("label"),
+            "outputs": prediction.outputs,
+            "decided_by": prediction.get("decided_by"),
+            "confidence": prediction.get("confidence"),
+            "asked": list(prediction.answers),
+            "error": error,
+        }
+        # One unbuffered append per record, so concurrent decisions never split each other's line.
+        with self.trace.open("ab", buffering=0) as trace:
+            trace.write((json.dumps(record) + "\n").encode())
+
+    def _decide(self, state: State) -> dspy.Prediction:
         values, answers, calls, units = {}, {}, {}, {}
         sorter = TopologicalSorter(self.plan.dependencies())
         sorter.prepare()

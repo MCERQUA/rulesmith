@@ -632,3 +632,16 @@ def test_reflection_options_reach_the_proposers_requests(tmp_path, provider, mon
     assert result.returncode == 0, result.stderr
     chats = [body for path, body in provider.requests if path == "/v1/chat/completions"]
     assert chats and all(body.get("reasoning") == {"max_tokens": 64} for body in chats)
+
+
+def test_run_appends_each_decision_to_a_trace(tmp_path):
+    rules = tmp_path / "policy.rules"
+    rules.write_text("always: review\n")
+    state = write(tmp_path / "state.json", "Please refund the duplicate charge.")
+    trace = tmp_path / "decisions.jsonl"
+    for _ in range(2):
+        result = invoke("run", rules, state, "--trace", trace)
+        assert result.returncode == 0, result.stderr
+    records = [json.loads(line) for line in trace.read_text().splitlines()]
+    assert [record["label"] for record in records] == ["review", "review"]
+    assert records[0]["input_sha256"] == records[1]["input_sha256"]

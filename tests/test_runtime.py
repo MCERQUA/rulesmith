@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -264,3 +267,46 @@ def test_categorical_reads_drive_switches():
 def test_reads_declare_exactly_one_domain(read):
     with pytest.raises(ValidationError):
         read_plan(**read)
+
+
+def traced(path):
+    return [json.loads(line) for line in path.read_text().splitlines()]
+
+
+def test_a_trace_appends_one_record_per_decision_and_keeps_what_was_there(tmp_path):
+    trace = tmp_path / "decisions.jsonl"
+    trace.write_text('{"earlier": true}\n')
+    plan = read_plan()
+    program = DecisionProgram(plan, None, "none", trace=trace)
+    program(state={"rangefinder": [9, 9, 9, 500, 9, 9, 9]})
+    program(state={"rangefinder": [900, 900, 900, 20, 900, 900, 900]})
+    earlier, first, second = traced(trace)
+    assert earlier == {"earlier": True}
+    assert [first["label"], second["label"]] == ["MOVE_FORWARD", "TURN_LEFT"]
+    assert first["decided_by"] == "move" and first["error"] is None
+    graph = hashlib.sha256(plan.model_dump_json().encode()).hexdigest()
+    assert first["graph_sha256"] == second["graph_sha256"] == graph
+    assert first["input_sha256"] != second["input_sha256"]
+
+
+@given(st.dictionaries(st.text(max_size=5), st.integers(), max_size=6))
+def test_an_input_is_traced_by_content_whatever_its_key_order(tmp_path_factory, state):
+    trace = tmp_path_factory.mktemp("trace") / "decisions.jsonl"
+    plan = Plan.model_validate(
+        {"nodes": {}, "outputs": {"label": {"type": "literal", "value": "x"}}}
+    )
+    program = DecisionProgram(plan, None, "none", trace=trace)
+    program(state=state)
+    program(state=dict(reversed(list(state.items()))))
+    first, second = traced(trace)
+    assert first["input_sha256"] == second["input_sha256"]
+
+
+def test_a_decision_the_graph_could_not_make_is_traced_and_still_raised(tmp_path):
+    trace = tmp_path / "decisions.jsonl"
+    program = DecisionProgram(read_plan(), None, "none", trace=trace)
+    with pytest.raises(GraphExecutionError, match="label"):
+        program(state={"rangefinder": [1, 2]})
+    (record,) = traced(trace)
+    assert record["label"] is None
+    assert "label" in record["error"]

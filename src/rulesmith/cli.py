@@ -267,6 +267,7 @@ def parser() -> argparse.ArgumentParser:
     run = commands.add_parser("run", help="Run a graph on one input and print what it decided")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
+    run.add_argument("--trace", type=Path, help="Append the decision to this JSON-lines file")
     provider_arguments(run)
     return root
 
@@ -693,7 +694,7 @@ def main() -> None:
             )
             score = Episodes(task, stack.enter_context(env))
         if args.command == "run":
-            prediction = DecisionProgram(plan, client, model, execution)(
+            prediction = DecisionProgram(plan, client, model, execution, args.trace)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")
