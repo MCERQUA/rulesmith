@@ -184,6 +184,17 @@ itself: `with TypeSafeClient() as client:` and `model="jev-latest"`.
 The rest, from loading rules to running search from Python, is in
 [Python](docs/python.md).
 
+## Use with Claude Code
+
+[skills/rulesmith](skills/rulesmith/SKILL.md) is a Claude Code skill: the
+workflow from a task to a kept decision, the commands for each step, and what
+to report. Copy the folder into a project's `.claude/skills/`, or into
+`~/.claude/skills/` for every project:
+
+```sh
+cp -r skills/rulesmith ~/.claude/skills/
+```
+
 ## Learn more
 
 - [Quickstart](docs/quickstart.md): the full walk-through, with every command's output.

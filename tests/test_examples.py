@@ -28,3 +28,24 @@ def test_each_decision_has_one_graph_that_fits_its_task_and_scorecard(folder):
     assert scorecard.exists(), f"{folder.name} has a task but no evaluation.json"
     tested = {example["id"] for example in json.loads(task.read_text())["test"]}
     assert {row["id"] for row in json.loads(scorecard.read_text())["examples"]} == tested
+
+
+def test_the_skill_names_only_commands_and_flags_rulesmith_has():
+    # The skill is read by an agent that will run what it says, so a renamed command or flag
+    # must fail here rather than in the agent's hands.
+    import re
+
+    from rulesmith.cli import parser
+
+    commands = next(
+        action for action in parser()._actions if isinstance(action.choices, dict)
+    ).choices
+    skill = (ROOT / "skills" / "rulesmith" / "SKILL.md").read_text()
+    blocks = re.findall(r"```sh\n(.*?)```", skill, re.S)
+    invocations = re.split(r"uv run rulesmith ", "\n".join(blocks).replace("\\\n", " "))[1:]
+    assert invocations
+    for line in invocations:
+        name, *words = line.split()
+        assert name in commands, name
+        known = {flag for action in commands[name]._actions for flag in action.option_strings}
+        assert {word for word in words if word.startswith("--")} <= known, name
