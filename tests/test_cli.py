@@ -645,3 +645,14 @@ def test_run_appends_each_decision_to_a_trace(tmp_path):
     records = [json.loads(line) for line in trace.read_text().splitlines()]
     assert [record["label"] for record in records] == ["review", "review"]
     assert records[0]["input_sha256"] == records[1]["input_sha256"]
+
+
+def test_validate_names_an_output_some_input_could_leave_unanswered(tmp_path):
+    task = write(tmp_path / "task.json", task_data())
+    rules = tmp_path / "policy.rules"
+    rules.write_text("read amount in [0, 1000]\nwhen amount >= 500: review\n")
+    result = invoke("validate", task, rules)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["unanswered"] == ["label"]
+    rules.write_text("read amount in [0, 1000]\nwhen amount >= 500: review\nalways: accept\n")
+    assert "unanswered" not in json.loads(invoke("validate", task, rules).stdout)

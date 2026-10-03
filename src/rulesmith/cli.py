@@ -578,6 +578,10 @@ def main() -> None:
         plan.check(task.labels, args.max_nodes, args.max_depth)
     if args.command == "validate":
         checked = {"nodes": len(plan.nodes), "labels": task.labels}
+        # Valid, since the inputs a task sees may always carry what the rules read, but worth
+        # knowing: an input that does not is an error at run time, not an answer.
+        if unanswered := plan.unanswered():
+            checked["unanswered"] = unanswered
         # A map's units, so what was validated across files is on record.
         if named := units(args.plan):
             checked["units"] = named

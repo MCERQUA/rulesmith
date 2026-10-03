@@ -520,6 +520,12 @@ always: MOVE_FORWARD
   An action is a label, a conditional such as
   `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`, or an ask without a name, whose
   answer is the label: `always: ask "Fight or fall back?" [ATTACK: "Ammo and health allow it."] [MOVE_BACKWARD: "They do not."]`.
+  When no rule fires, the output has no value and the run fails rather than
+  guess. `rulesmith validate` lists any output an input could leave that way
+  under `unanswered`; a list ending on `always:` never does. A comparison with a
+  reading the input lacks is false, so `when not (...)` over every rule above it
+  catches what they missed, while a rule list of comparisons alone misses
+  inputs without the reading, and values that fall between its cutoffs.
 - **Conditions** join with `and` and `or`, group with parentheses, invert with `not`,
   name a reading to test that it has a value, or compare one with `>=`, `>`, `<=`, `<`
   or `==`, against a number, a quoted label, or another reading

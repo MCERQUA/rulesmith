@@ -247,3 +247,111 @@ def test_baseline_seed_predicts_the_majority_training_label_without_calls():
     plan.check(task.labels, max_nodes=1, max_depth=1)
     assert plan.nodes == {}
     assert plan.outputs["label"].value == "review"
+
+
+def unanswered(rules):
+    from rulesmith.rules import compile_rules
+
+    return compile_rules(rules).unanswered()
+
+
+@pytest.mark.parametrize(
+    "rules,expected",
+    [
+        ("when a >= 5: high\nalways: low", []),
+        ("when a >= 5: high\nwhen a < 5: low", ["label"]),
+        ("always: a >= 5 ? high : low", ["label"]),
+        ('ask risky = "Is this risky?"\nwhen risky >= 0.5: high\nalways: low', []),
+        ('ask risky = "Is this risky?"\nalways: risky >= 0.5 ? high : low', []),
+        ('ask risky = "Is this risky?" when a >= 5\nalways: risky >= 0.5 ? high : low', ["label"]),
+        ("when a >= 5: high\nwhen not (a >= 5): low", []),
+        ("when a >= 5: high\nwhen not (a >= 5 or a < 2): low", ["label"]),
+    ],
+)
+def test_a_graph_names_the_outputs_some_input_could_leave_unanswered(rules, expected):
+    assert unanswered("read a in [0, 10]\n" + rules) == expected
+
+
+def test_a_unit_that_can_go_unanswered_leaves_its_map_unanswered():
+    from rulesmith.rules import compile_rules
+
+    unit = compile_rules("read a in [0, 10]\nwhen a >= 5: high").model_dump()
+    plan = Plan.model_validate(
+        {
+            "nodes": {"unit": {"type": "graph", "plan": unit}},
+            "outputs": {"label": {"type": "node", "node": "unit"}},
+        }
+    )
+    assert plan.unanswered() == ["label"]
+
+
+CONDITIONS = st.sampled_from(
+    [
+        "a >= 5",
+        "b < 3",
+        "a",
+        "not b",
+        "a >= 2 and b",
+        "a < 8 or b >= 1",
+        "not (a >= 5 or b < 3)",
+        "not (a >= 5 and b)",
+        "not a or a >= 5",
+    ]
+)
+ACTIONS = st.sampled_from(["high", "low", "a >= 5 ? high : low", "b >= 4 ? high : low"])
+
+
+@given(
+    st.lists(st.tuples(st.none() | CONDITIONS, ACTIONS), min_size=1, max_size=4),
+    st.none() | st.integers(0, 10),
+    st.none() | st.integers(0, 10),
+)
+def test_a_graph_said_to_always_answer_answers_every_input(rules, a, b):
+    from rulesmith.rules import compile_rules
+    from rulesmith.runtime import DecisionProgram
+
+    lines = [f"when {cond}: {act}" if cond else f"always: {act}" for cond, act in rules]
+    plan = compile_rules("read a in [0, 10]\nread b in [0, 10]\n" + "\n".join(lines))
+    state = {key: value for key, value in {"a": a, "b": b}.items() if value is not None}
+    if not plan.unanswered():
+        assert DecisionProgram(plan, None, "none")(state=state).label in ("high", "low")
+
+
+def split_plan(cases):
+    def specialist(team):
+        return {
+            "type": "value",
+            "value": f"{team} desk",
+            "when": {"type": "compare", "node": "team", "op": "eq", "value": team},
+        }
+
+    return Plan.model_validate(
+        {
+            "nodes": {
+                "team": {
+                    "type": "call",
+                    "question": {
+                        "type": "choice",
+                        "instructions": "Which team?",
+                        "criteria": {
+                            "billing": "Charges.",
+                            "technical": "Errors.",
+                            "sales": "Quotes.",
+                        },
+                    },
+                    "inputs": {"ticket": {"type": "state"}},
+                },
+                **{f"{team}_desk": specialist(team) for team in cases},
+                "desk": {"type": "coalesce", "sources": [f"{team}_desk" for team in cases]},
+            },
+            "outputs": {"label": {"type": "node", "node": "desk"}},
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "cases,expected",
+    [(["billing", "technical", "sales"], []), (["billing", "technical"], ["label"])],
+)
+def test_a_join_of_one_case_per_answer_a_choice_can_give_always_answers(cases, expected):
+    assert split_plan(cases).unanswered() == expected

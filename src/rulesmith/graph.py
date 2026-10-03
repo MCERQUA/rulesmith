@@ -148,6 +148,22 @@ def references(value: JsonValue) -> set[str]:
     return named
 
 
+def truth(condition: Condition, known: dict[str, bool]) -> bool | None:
+    """A condition's value given what is known of its tests, or None while it still depends
+    on one that is not known, each test keyed by its JSON."""
+    if isinstance(condition, Not):
+        inner = truth(condition.condition, known)
+        return None if inner is None else not inner
+    if isinstance(condition, (All, Any)):
+        truths = [truth(child, known) for child in condition.conditions]
+        # True settles an any, and false settles an all.
+        deciding = isinstance(condition, Any)
+        if deciding in truths:
+            return deciding
+        return None if None in truths else not deciding
+    return known.get(condition.model_dump_json())
+
+
 def predicates(condition: Condition | None) -> list[Compare | Relation | Present]:
     if condition is None:
         return []
@@ -387,6 +403,95 @@ class Plan(StrictModel):
             isinstance(node, Call) or (isinstance(node, Graph) and node.plan.asks())
             for node in self.nodes.values()
         )
+
+    def answers(self, output: str) -> bool:
+        """Whether every input gets a value for this output, an optional input counting as
+        given. The check is static and errs toward no: a read is taken as possibly absent, and
+        the tests in conditions as independent of one another, except that a judgment's choice
+        is one of its labels. So a rule list ending on an unconditional rule, a judgment, or a
+        rule for whatever the rules above it left out always answers."""
+        sure: dict[str, bool] = {}
+        domains = self.domains()
+
+        def given(source: Source) -> bool:
+            if isinstance(source, NodeInput):
+                return source.optional or answers(source.node)
+            return True
+
+        def answers(key: str) -> bool:
+            if key not in sure:
+                node = self.nodes[key]
+                sure[key] = made(node) and (node.when is None or covered([node.when]))
+            return sure[key]
+
+        def covered(conditions: list[Condition]) -> bool:
+            """Whether one of these conditions holds whatever the tests in them come to."""
+            leaves = {leaf.model_dump_json(): leaf for c in conditions for leaf in predicates(c)}
+            chosen: dict[str, list[str]] = {}
+            unknowns = []
+            for key, leaf in leaves.items():
+                if isinstance(domains.get(leaf.node), frozenset) and (
+                    isinstance(leaf, Present) or (isinstance(leaf, Compare) and leaf.op == "eq")
+                ):
+                    chosen.setdefault(leaf.node, []).append(key)
+                elif isinstance(leaf, Present) and answers(leaf.node):
+                    unknowns.append([{key: True}])
+                else:
+                    unknowns.append([{key: True}, {key: False}])
+            for node, keys in chosen.items():
+                # One outcome per label the choice can give, and one for no answer at all.
+                outcomes = [
+                    {
+                        key: isinstance(leaves[key], Present) or leaves[key].value == label
+                        for key in keys
+                    }
+                    for label in domains[node]
+                ]
+                if not answers(node):
+                    outcomes.append(dict.fromkeys(keys, False))
+                unknowns.append(outcomes)
+
+            def holds(known: dict[str, bool], rest: list) -> bool:
+                truths = [truth(condition, known) for condition in conditions]
+                if True in truths:
+                    return True
+                if None not in truths:
+                    return False
+                return all(holds(known | outcome, rest[1:]) for outcome in rest[0])
+
+            return holds({}, unknowns)
+
+        def made(node: Node) -> bool:
+            """Whether the node has a value whenever its own condition lets it run."""
+            if isinstance(node, Read):
+                return False
+            if isinstance(node, Value):
+                return True
+            if isinstance(node, (Call, Merge)):
+                return all(given(source) for source in node.inputs.values())
+            if isinstance(node, Coalesce) or (isinstance(node, Vote) and node.rule == "majority"):
+                runs = [self.nodes[source] for source in node.sources]
+                guards = [source.when for source in runs if made(source)]
+                return None in guards or (bool(guards) and covered(guards))
+            if isinstance(node, Vote):
+                return all(answers(source) for source in node.sources)
+            if isinstance(node, Sum):
+                return all(answers(term.node) for term in node.terms)
+            if isinstance(node, Graph):
+                return given(node.input) and node.plan.answers(node.output)
+            # A threshold, a switch, or a confidence, which validation keeps to choices and
+            # scores, the kinds of judgment that report one.
+            return answers(node.source)
+
+        return given(self.outputs[output])
+
+    def unanswered(self) -> list[str]:
+        """The required outputs some input could leave without a value."""
+        return [
+            name
+            for name, source in self.outputs.items()
+            if not (isinstance(source, NodeInput) and source.optional) and not self.answers(name)
+        ]
 
     def order(self) -> tuple[str, ...]:
         dependencies = self.dependencies()
