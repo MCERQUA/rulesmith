@@ -452,7 +452,7 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.output.exists():
         cli.error(f"output already exists: {args.output}")
     plan = read_plan(cli, args.plan, task)
-    model, judge_client = judge(args, True)
+    model, judge_client = judge(args, plan.asks())
     held_out = [e for e in task.validation if e.label is not None]
     with judge_client as client:
         # Every pass asks the same questions; the later ones reread the first's answers.
