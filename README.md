@@ -201,7 +201,7 @@ cp -r skills/rulesmith ~/.claude/skills/
 
 - [Quickstart](docs/quickstart.md): the full walk-through, with every command's output.
 - [Tasks](docs/tasks.md): the task file, drafting labels, structured inputs, costs, and graders.
-- [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration and fitted cutoffs, and worked examples.
+- [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration and fitted cutoffs, escalating to a larger judge, reading fields out of free text, and worked examples.
 - [Graph format](docs/graphs.md): the JSON behind each node, execution, composing graphs from graphs, and drawing and ablating one.
 - [Maps](docs/maps.md): units in their own files behind a router, searched in place, and the first map scored end to end on public data.
 - [Optimization](docs/optimization.md): how search runs, its settings, reports, testing, and limits.
@@ -225,7 +225,7 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-607 passed, 6 skipped in 406.91s (0:06:46)
+609 passed, 6 skipped in 363.04s (0:06:03)
 All checks passed!
 63 files already formatted
 ```

@@ -200,3 +200,86 @@ def test_search_is_told_which_judges_it_may_escalate_to_and_their_price():
     assert "'using NAME'" not in proposer_prompt(task, config)
     told = proposer_prompt(task, config, ["large"])
     assert "'using NAME'" in told and "large (0.2 a question)" in told
+
+
+def confident_traffic(provider, larger, count=24):
+    """A small judge right exactly when at least 0.6 sure, and a large one always right: the
+    state carries each example's sureness and label."""
+
+    def small(request):
+        _, sure, label = request["state"]["observation"].split("|")
+        sure = float(sure)
+        wrong = "technical" if label == "billing" else "billing"
+        provider.answers = {"team": team(label if sure >= 0.6 else wrong, sure)}
+
+    def big(request):
+        larger.answers = {"rule_3": team(request["state"]["observation"].split("|")[2], 0.9)}
+
+    provider.on_request, larger.on_request = small, big
+    larger.body = {**larger.body, "model": "large-model"}
+    rows = [
+        {
+            "id": f"t{i}",
+            "state": f"t{i}|{0.3 + 0.65 * i / count:.3f}|{'billing' if i % 2 else 'technical'}",
+        }
+        for i in range(count)
+    ]
+    rows = [row | {"label": row["state"].split("|")[2]} for row in rows]
+    return Task.model_validate(
+        {
+            "description": "Route tickets.",
+            "labels": ["billing", "technical"],
+            "train": rows,
+            "validation": [{"id": "v", "state": "v|0.9|billing", "label": "billing"}],
+            "test": [{"id": "e", "state": "e|0.9|billing", "label": "billing"}],
+        }
+    )
+
+
+def test_a_priced_judge_moves_the_escalation_line_down_to_where_it_pays(
+    provider, client, larger, large
+):
+    from rulesmith.calibrate import fit_cutoffs
+    from rulesmith.runtime import Prices
+
+    task = confident_traffic(provider, larger)
+    plan = compile_rules(ESCALATING.replace("0.7", "0.95"))
+    models = Models({"large": large})
+    # Free, escalating more is never worse, so the line stays where it was written.
+    unpriced, _ = fit_cutoffs(plan, task, client, "small", models)
+    assert unpriced == plan
+    # Priced, every question the large judge need not answer is worth keeping.
+    priced, report = fit_cutoffs(plan, task, client, "small", models, Prices(judges={"large": 0.2}))
+    lines = [row["to"] for row in report if row["kept"]]
+    assert lines and all(0.5 <= line <= 0.65 for line in lines)
+    # It still escalates every case the small judge gets wrong.
+    from rulesmith.calibrate import correct
+
+    assert all(correct(priced, task.train, client, "small", models))
+
+
+def test_calibrate_takes_the_prices_search_takes(tmp_path, provider, larger):
+    task = confident_traffic(provider, larger)
+    path = write(tmp_path / "task.json", task.model_dump(mode="json", exclude_none=True))
+    rules = tmp_path / "graph.rules"
+    rules.write_text(ESCALATING.replace("0.7", "0.95") + "\n")
+    output = tmp_path / "calibrated.rules"
+    result = invoke(
+        "calibrate",
+        path,
+        rules,
+        "--output",
+        output,
+        "--backend",
+        "ruling",
+        "--base-url",
+        provider.url,
+        "--max-workers",
+        1,
+        "--judge",
+        f"large=ruling:large-model@{larger.url}",
+        "--judge-cost",
+        "large=0.2",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "0.95" not in output.read_text()

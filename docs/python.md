@@ -39,6 +39,26 @@ be shared without the data it judged:
 {"time": "2026-10-03T16:32:46.539951+00:00", "graph_sha256": "7295e26f…", "input_sha256": "44636a77…", "model": "none", "label": "hold_for_review", "outputs": {"label": "hold_for_review"}, "decided_by": "rule_1", "confidence": 1.0, "asked": [], "error": null}
 ```
 
+A graph that asks a named judge with `using`, or reads fields with `extract`,
+is given those models beside its own judge:
+
+```python
+import dspy
+
+from rulesmith.extract import Extractor
+from rulesmith.runtime import Judge, Models
+
+with (
+    TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") as small,
+    TypeSafeClient(base_url="http://127.0.0.1:8012", api_key="local-no-auth") as large,
+):
+    models = Models(
+        judges={"large": Judge(large, "default")},
+        extractor=Extractor(dspy.LM("openai/qwen3.8-27b", api_base="http://127.0.0.1:8080/v1")),
+    )
+    program = DecisionProgram(plan, small, model="default", models=models)
+```
+
 Rules load the same way, and a graph of reads alone needs no judge at all:
 
 ```python

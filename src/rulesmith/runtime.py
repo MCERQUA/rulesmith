@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from graphlib import TopologicalSorter
 from pathlib import Path
-from typing import NamedTuple
+from typing import Annotated, NamedTuple
 
 import dspy
 from pydantic import ConfigDict, Field, TypeAdapter
@@ -410,6 +410,38 @@ class Models:
         """The same models, each answering a question about an input once."""
         judges = {name: Judge(Remembered(j.client), j.model) for name, j in self.judges.items()}
         return Models(judges, self.extractor)
+
+
+OWN_JUDGE = "the judge"
+EXTRACTOR = "the extractor"
+
+
+def payer(call: dict) -> str:
+    """Who a recorded call was made to: the graph's own judge, a named one, or the extractor."""
+    if "extracted" in call:
+        return EXTRACTOR
+    return f"judge {call['judge']}" if call.get("judge") else OWN_JUDGE
+
+
+class Prices(StrictModel):
+    """What a model call costs, as a share of an example's score, so that of two graphs that
+    answer alike the cheaper one wins: a question to the graph's own judge, a question to each
+    named judge, and an extraction. A named judge without a price costs what the own one does."""
+
+    call: float = Field(default=0, ge=0, le=1)
+    judges: dict[str, Annotated[float, Field(ge=0, le=1)]] = Field(default_factory=dict)
+    extract: float = Field(default=0, ge=0, le=1)
+
+    def of(self, paid: str) -> float:
+        if paid == EXTRACTOR:
+            return self.extract
+        if paid == OWN_JUDGE:
+            return self.call
+        return self.judges.get(paid.removeprefix("judge "), self.call)
+
+    def charge(self, calls: dict) -> float:
+        """The price of every call one decision made."""
+        return sum(self.of(payer(call)) for call in calls.values())
 
 
 class DecisionProgram(dspy.Module):

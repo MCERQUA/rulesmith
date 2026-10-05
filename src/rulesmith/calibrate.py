@@ -31,7 +31,14 @@ from rulesmith.graph import (
     Threshold,
     Value,
 )
-from rulesmith.runtime import DecisionProgram, GraphExecutionError, Models, calibrated, sureness
+from rulesmith.runtime import (
+    DecisionProgram,
+    GraphExecutionError,
+    Models,
+    Prices,
+    calibrated,
+    sureness,
+)
 
 # Temperatures tried, evenly spaced in log from a fifth to five: calibration corrects a judge's
 # confidence, it does not invert it.
@@ -171,7 +178,12 @@ FOLDS = 5
 
 
 def fit_cutoffs(
-    plan: Plan, task: Task, client, model: str, models: Models | None = None
+    plan: Plan,
+    task: Task,
+    client,
+    model: str,
+    models: Models | None = None,
+    prices: Prices | None = None,
 ) -> tuple[Plan, list[dict]]:
     """The plan with every cut moved to where it gets the most training examples right, one cut
     at a time, holding the questions and the rules' words still. A move is kept only when it
@@ -181,7 +193,9 @@ def fit_cutoffs(
     The report has a row per line: where it was and where it ended, how many places were tried,
     the training accuracy just before and after its move, and whether it moved. A task with a
     prevalence counts each example as the real traffic it stands for, so the line is placed for
-    the rate the graph will meet, not the rate the examples were sampled at."""
+    the rate the graph will meet, not the rate the examples were sampled at. With `prices`, each
+    example also pays for the calls it made, so a line on how sure a small judge was is placed
+    where escalating to a dearer one pays, not wherever escalating is never worse."""
     examples = [e for e in task.train if e.label is not None]
     lines = cuts(plan)
     if not examples or not lines:
@@ -190,12 +204,13 @@ def fit_cutoffs(
     weight = [weights[e.label] for e in examples]
     total = sum(weight)
 
+    prices = prices or Prices()
+
     def right(candidate: Plan) -> list[float]:
+        decided = outcomes(candidate, examples, client, model, models)
         return [
-            w if r else 0.0
-            for w, r in zip(
-                weight, correct(candidate, examples, client, model, models), strict=True
-            )
+            w * (record["correct"] - prices.charge(record["calls"]))
+            for w, record in zip(weight, decided, strict=True)
         ]
 
     seen = observed(plan, examples, client, model, models)

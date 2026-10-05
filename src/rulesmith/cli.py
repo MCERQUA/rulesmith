@@ -34,7 +34,14 @@ from rulesmith.optimize import (
     optimize_plan,
 )
 from rulesmith.rules import NAME, RuleError, render_rules
-from rulesmith.runtime import DecisionProgram, ExecutionConfig, Judge, Models, Remembered
+from rulesmith.runtime import (
+    DecisionProgram,
+    ExecutionConfig,
+    Judge,
+    Models,
+    Prices,
+    Remembered,
+)
 from rulesmith.tuning import BASE, tune
 
 # The games load only for a task that plays one (see game), so a core install without their
@@ -192,27 +199,7 @@ def parser() -> argparse.ArgumentParser:
                 help="With --unit: a task for the whole map, scored on its validation examples "
                 "before and after the unit changes; a winner that makes the map worse is refused",
             )
-            command.add_argument(
-                "--call-cost",
-                type=float,
-                default=SearchConfig().call_cost,
-                help="Score off an example per judge question, to prefer graphs that ask less",
-            )
-            command.add_argument(
-                "--judge-cost",
-                type=named_cost,
-                action="append",
-                default=[],
-                metavar="NAME=COST",
-                help="Score off an example per question to a named judge; a named judge without "
-                "one costs --call-cost",
-            )
-            command.add_argument(
-                "--extract-cost",
-                type=float,
-                default=SearchConfig().extract_cost,
-                help="Score off an example per extraction it runs, to keep only those that pay",
-            )
+            cost_arguments(command)
             command.add_argument(
                 "--keep-judge",
                 type=float,
@@ -246,6 +233,7 @@ def parser() -> argparse.ArgumentParser:
     fit.add_argument("plan", type=Path)
     fit.add_argument("--output", type=Path, required=True, help="A .rules or .json plan")
     provider_arguments(fit)
+    cost_arguments(fit)
     draw = commands.add_parser("draw", help="Write a graph as a Mermaid flowchart")
     draw.add_argument("plan", type=Path)
     draw.add_argument(
@@ -327,6 +315,40 @@ def named_judge(text: str) -> tuple[str, str, str | None, str | None]:
             f"{text!r} is not NAME=BACKEND[:MODEL][@URL], with BACKEND one of {sorted(BACKENDS)}"
         )
     return name, backend, model or None, url or None
+
+
+def cost_arguments(command: argparse.ArgumentParser) -> None:
+    """What each model call costs, for search to prefer the cheaper of two graphs and for
+    calibrate to place an escalation line where escalating pays."""
+    command.add_argument(
+        "--call-cost",
+        type=float,
+        default=Prices().call,
+        help="Score off an example per judge question, to prefer graphs that ask less",
+    )
+    command.add_argument(
+        "--judge-cost",
+        type=named_cost,
+        action="append",
+        default=[],
+        metavar="NAME=COST",
+        help="Score off an example per question to a named judge; a named judge without one "
+        "costs --call-cost",
+    )
+    command.add_argument(
+        "--extract-cost",
+        type=float,
+        default=Prices().extract,
+        help="Score off an example per extraction it runs, to keep only those that pay",
+    )
+
+
+def prices(cli: argparse.ArgumentParser, args: argparse.Namespace) -> Prices:
+    named = {name for name, *_ in args.judge}
+    for name, _ in args.judge_cost:
+        if name not in named:
+            cli.error(f"--judge-cost {name} prices a judge no --judge names")
+    return Prices(call=args.call_cost, judges=dict(args.judge_cost), extract=args.extract_cost)
 
 
 def named_cost(text: str) -> tuple[str, float]:
@@ -546,6 +568,7 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.output.exists():
         cli.error(f"output already exists: {args.output}")
     plan = read_plan(cli, args.plan, task)
+    priced = prices(cli, args)
     model, judge_client = judge(args, plan.asks())
     held_out = [e for e in task.validation if e.label is not None]
     with ExitStack() as stack:
@@ -555,7 +578,7 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         models = graph_models(cli, args, stack, plan).remembered()
         fitted, temperatures = calibrate(plan, task, remembered, model, models)
         before = correct(fitted, held_out, remembered, model, models)
-        fitted, cutoffs = fit_cutoffs(fitted, task, remembered, model, models)
+        fitted, cutoffs = fit_cutoffs(fitted, task, remembered, model, models, priced)
         after = correct(fitted, held_out, remembered, model, models)
         fitted = measure(fitted, task, remembered, model, models)
     written = (
@@ -571,6 +594,9 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         if getattr(node, "measured", None) is not None
     }
     report = {"temperatures": temperatures, "cutoffs": cutoffs, "rules": counted}
+    if priced != Prices():
+        # A line placed against prices holds for those prices; say which they were.
+        report["prices"] = priced.model_dump()
     if held_out:
         # Validation is scored, never fitted on, so this is what the fit is worth on fresh examples.
         report["validation"] = {
@@ -736,10 +762,7 @@ def main() -> None:
             cli.error(f"output already exists: {args.output}{hint}")
         args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.command == "optimize":
-        named = {name for name, *_ in args.judge}
-        for name, _ in args.judge_cost:
-            if name not in named:
-                cli.error(f"--judge-cost {name} prices a judge no --judge names")
+        priced = prices(cli, args)
         config = SearchConfig(
             max_nodes=args.max_nodes,
             max_depth=args.max_depth,
@@ -749,9 +772,9 @@ def main() -> None:
             seed=args.seed,
             parallel_examples=args.parallel_examples,
             merges=args.merges,
-            call_cost=args.call_cost,
-            call_costs=dict(args.judge_cost),
-            extract_cost=args.extract_cost,
+            call_cost=priced.call,
+            call_costs=priced.judges,
+            extract_cost=priced.extract,
             significance=args.significance,
             mine=args.mine,
             keep_judge=args.keep_judge,

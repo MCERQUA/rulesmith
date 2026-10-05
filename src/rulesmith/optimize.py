@@ -28,7 +28,9 @@ from rulesmith.runtime import (
     ExecutionConfig,
     GraphExecutionError,
     Models,
+    Prices,
     Remembered,
+    payer,
 )
 
 
@@ -240,6 +242,10 @@ class SearchConfig(StrictModel):
         "by Laplace's rule; a rule over a field anyone can set is otherwise a way around it",
     )
 
+    @property
+    def prices(self) -> Prices:
+        return Prices(call=self.call_cost, judges=self.call_costs, extract=self.extract_cost)
+
 
 def score_all(score: Scorer, program: DecisionProgram, examples: Sequence, parallel: int) -> list:
     """Every example's outcome, in order, scoring up to `parallel` examples at once."""
@@ -271,17 +277,6 @@ def assemble(candidate: dict[str, str], labels: dict[str, str] | None = None) ->
         return whole(candidate, labels)
     except RuleError as error:
         raise ValueError(str(error)) from error
-
-
-OWN_JUDGE = "the judge"
-EXTRACTOR = "the extractor"
-
-
-def payer(call: dict) -> str:
-    """Who a recorded call was made to, as search's feedback names it."""
-    if "extracted" in call:
-        return EXTRACTOR
-    return f"judge {call['judge']}" if call.get("judge") else OWN_JUDGE
 
 
 class GraphAdapter(GEPAAdapter[object, dict, dict]):
@@ -363,12 +358,13 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         """An example's score less the price of the judge questions it asked, each at its own
         judge's price, and feedback that says so, since a proposer cannot lower a cost it is not
         told about."""
+        prices = self.config.prices
         asked = Counter(payer(call) for call in outcome.record.get("calls", {}).values())
-        price = sum(count * self.price(paid) for paid, count in asked.items())
+        price = sum(count * prices.of(paid) for paid, count in asked.items())
         if not price:
             return outcome.score, outcome.trace
         each = ", ".join(
-            f"{count} call(s) to {paid} at {self.price(paid):g} each"
+            f"{count} call(s) to {paid} at {prices.of(paid):g} each"
             for paid, count in sorted(asked.items())
         )
         told = (
@@ -377,13 +373,6 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         )
         trace = outcome.trace | {"Feedback": outcome.trace.get("Feedback", "") + told}
         return max(0.0, outcome.score - price), trace
-
-    def price(self, paid: str) -> float:
-        if paid == EXTRACTOR:
-            return self.config.extract_cost
-        if paid == OWN_JUDGE:
-            return self.config.call_cost
-        return self.config.call_costs.get(paid.removeprefix("judge "), self.config.call_cost)
 
     def batch(self, candidate, outputs, scores, trajectories) -> EvaluationBatch:
         if trajectories is not None and self.proposed in candidate.values():

@@ -167,6 +167,24 @@ corrects a judge's scale where it is off and leaves it where it is right; it
 does not turn a direct question into the searched graph, which scores 0.79 to
 0.82 on the seeds where it found its scam rule.
 
+**Placing an escalation line.** Where a rule escalates on how sure the judge
+was, as in [asking a larger judge](#asking-a-larger-judge-when-the-small-one-is-unsure),
+accuracy alone always favors escalating more: the larger judge is never worse.
+Give `calibrate` the prices search takes, `--call-cost`, `--judge-cost
+NAME=COST` and `--extract-cost`, and each training example also pays for the
+calls it made, so the line lands where escalating stops paying for itself:
+
+```sh
+uv run rulesmith calibrate task.json graph.rules --output calibrated.rules \
+  --backend ruling --max-workers 1 \
+  --judge large=ruling:mlx-community/Qwen3.6-35B-A3B-4bit@http://127.0.0.1:8012 \
+  --judge-cost large=0.2
+```
+
+The report then records the prices under `prices`, and `train_before` and
+`train_after` are training accuracy less what the calls cost. A line placed for
+one price holds for that price; calibrate again when it changes.
+
 ## How sure a rule is
 
 Every decision reports `decided_by`, the rule or judgment that settled it, and a
@@ -255,7 +273,9 @@ declined, so the larger judge costs nothing on the inputs the small one settles.
 Each call in a result and a scorecard names the judge it went to, so how often
 a graph escalated is counted, not guessed. In search, `--judge-cost large=0.2`
 prices a question to that judge, and the proposer is told which judges it may
-use and what each costs.
+use and what each costs. `calibrate` takes the same prices to place the
+escalation line where escalating pays; see
+[what a judgment can be](#what-a-judgment-can-be).
 
 [Ruling](https://github.com/bradAGI/ruling) can also escalate on its own, with
 `RULING_CASCADE_TO`: every question below one confidence goes to a second
