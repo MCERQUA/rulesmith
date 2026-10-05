@@ -483,7 +483,7 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
             "so measure those graphs with rulesmith.ablate.effects over recorded states"
         )
     states = [example.state for example in examples]
-    calls = plan.asks()
+    calls = plan.asks_own_judge()
     model, judge_client = judge(args, calls)
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
@@ -525,7 +525,7 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         plans[path.stem].check(task.labels, args.max_nodes, args.max_depth)
     if len(plans) < 2:
         cli.error("the arena needs at least two entrants")
-    model, judge_client = judge(args, any(plan.asks() for plan in plans.values()))
+    model, judge_client = judge(args, any(plan.asks_own_judge() for plan in plans.values()))
     execution = ExecutionConfig(max_workers=args.max_workers)
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
@@ -594,7 +594,7 @@ def serve_decisions(cli: argparse.ArgumentParser, args: argparse.Namespace) -> N
         if name in graphs:
             cli.error(f"two decisions are named {name}; serve them from folders of their own")
         graphs[name] = plan
-    model, judge_client = judge(args, any(plan.asks() for plan in graphs.values()))
+    model, judge_client = judge(args, any(plan.asks_own_judge() for plan in graphs.values()))
     execution = ExecutionConfig(max_workers=args.max_workers)
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
@@ -694,7 +694,7 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         cli.error(f"output already exists: {args.output}")
     plan = read_plan(cli, args.plan, task)
     priced = prices(cli, args)
-    model, judge_client = judge(args, plan.asks())
+    model, judge_client = judge(args, plan.asks_own_judge())
     held_out = [e for e in task.validation if e.label is not None]
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
@@ -941,7 +941,8 @@ def main() -> None:
     execution = ExecutionConfig(max_workers=args.max_workers)
     model, judge_client = judge(
         args,
-        args.command == "optimize" or any(graph.asks() for graph in (plan, opponent) if graph),
+        args.command == "optimize"
+        or any(graph.asks_own_judge() for graph in (plan, opponent) if graph),
     )
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)

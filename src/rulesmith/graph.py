@@ -516,10 +516,12 @@ class Plan(StrictModel):
             if isinstance(node, Read) and node.source == extraction
         }
 
-    def asks(self) -> bool:
-        """Whether running this graph asks a judge anything, in it or in a unit of it."""
+    def asks_own_judge(self) -> bool:
+        """Whether running this graph asks the judge it runs with, in it or in a unit of it; a
+        judgment asked of a named judge goes to that one instead."""
         return any(
-            isinstance(node, Call) or (isinstance(node, Graph) and node.plan.asks())
+            (isinstance(node, Call) and node.judge is None)
+            or (isinstance(node, Graph) and node.plan.asks_own_judge())
             for node in self.nodes.values()
         )
 

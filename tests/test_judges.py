@@ -283,3 +283,38 @@ def test_calibrate_takes_the_prices_search_takes(tmp_path, provider, larger):
     )
     assert result.returncode == 0, result.stderr
     assert "0.95" not in output.read_text()
+
+
+def test_a_graph_that_asks_only_named_judges_needs_no_judge_of_its_own(tmp_path, larger):
+    import os
+    import subprocess
+    import sys
+
+    larger.body = {
+        **larger.body,
+        "model": "large-model",
+        "answers": {"rule_1": team("billing", 0.9)},
+    }
+    rules = tmp_path / "graph.rules"
+    rules.write_text(f'always: ask "Which team?" {TEAMS} using large\n')
+    state = write(tmp_path / "state.json", "Refund me.")
+    # The default backend is hosted and wants a key; a graph that never asks it must not.
+    environment = {k: v for k, v in os.environ.items() if k != "TYPESAFE_API_KEY"}
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "rulesmith.cli",
+            "run",
+            rules,
+            state,
+            "--judge",
+            f"large=ruling:large-model@{larger.url}",
+        ],
+        capture_output=True,
+        text=True,
+        env=environment,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["label"] == "billing"
