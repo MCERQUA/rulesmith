@@ -578,6 +578,8 @@ class DecisionProgram(dspy.Module):
             "decided_by": prediction.get("decided_by"),
             "confidence": prediction.get("confidence"),
             "asked": list(prediction.answers),
+            # Which model each call went to, so escalation is counted in production too.
+            "called": {key: payer(call) for key, call in prediction.calls.items()},
             "error": error,
         }
         # One unbuffered append per record, so concurrent decisions never split each other's line.

@@ -41,6 +41,7 @@ from rulesmith.runtime import (
     Models,
     Prices,
     Remembered,
+    digest,
 )
 from rulesmith.serve import make_server
 from rulesmith.tuning import BASE, tune
@@ -274,6 +275,21 @@ def parser() -> argparse.ArgumentParser:
     ablation.add_argument("--split", choices=("train", "validation", "test"), default="validation")
     ablation.add_argument("--output", type=Path)
     provider_arguments(ablation)
+    watching = commands.add_parser(
+        "drift",
+        help="Check a decision's traces against what its rules were calibrated on; exits 1 when a "
+        "rule has drifted",
+    )
+    watching.add_argument("decision", type=Path, help="A decision folder or graph file")
+    watching.add_argument(
+        "traces", type=Path, nargs="+", help="Trace files, or directories of them"
+    )
+    watching.add_argument(
+        "--significance",
+        type=float,
+        default=0.01,
+        help="Flag a rule whose share of decisions is this unlikely under its calibrated share",
+    )
     serving = commands.add_parser(
         "serve", help="Answer decisions over HTTP at POST /decisions/<name>, as run prints them"
     )
@@ -504,24 +520,58 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     print(dump({"ratings": report["ratings"], "output": str(args.output)}), end="")
 
 
+def decision(cli: argparse.ArgumentParser, path: Path) -> tuple[str, Plan]:
+    """A decision folder's name and graph, read against its task's labels when it has a task, or
+    a graph file's stem and graph: the graph as `run` and `serve` would run it."""
+    if not path.is_dir():
+        return path.stem, read_plan(cli, path)
+    file = next((path / f for f in ("graph.rules", "map.json") if (path / f).exists()), None)
+    if file is None:
+        cli.error(f"{path} holds no graph.rules or map.json")
+    task = load_task(cli, path / "task.json") if (path / "task.json").exists() else None
+    return path.name, read_plan(cli, file, task)
+
+
+def watch_drift(cli: argparse.ArgumentParser, args: argparse.Namespace) -> int:
+    """How the decisions a graph made in production compare with what its rules were counted
+    on. Only decisions by this exact graph count: a rule's name is its place in the list, so an
+    earlier version's rule_2 is another rule."""
+    _, plan = decision(cli, args.decision)
+    made = digest(plan.model_dump_json())
+    files = [
+        f
+        for path in args.traces
+        for f in (sorted(path.rglob("*.jsonl")) if path.is_dir() else [path])
+    ]
+    records = [
+        record
+        for file in files
+        for line in file.read_text().splitlines()
+        if line.strip() and (record := json.loads(line))["graph_sha256"] == made
+    ]
+    if not records:
+        cli.error(f"no traced decision was made by this graph ({made[:12]})")
+    called = Counter(paid for record in records for paid in record.get("called", {}).values())
+    report = {
+        "graph_sha256": made,
+        "decisions": len(records),
+        "errors": sum(record["error"] is not None for record in records),
+        "calls": dict(sorted(called.items())),
+        "drift": drift(plan, records, args.significance),
+    }
+    print(dump(report), end="")
+    return 1 if report["drift"] else 0
+
+
 def serve_decisions(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """Serve each decision under its folder's name, or its file's, until stopped. A folder with a
     task reads its rules against the task's labels, as calibrate and evaluate do."""
     graphs = {}
     for path in args.decisions:
-        name, file, task = path.stem, path, None
-        if path.is_dir():
-            name = path.name
-            file = next(
-                (path / f for f in ("graph.rules", "map.json") if (path / f).exists()), None
-            )
-            if file is None:
-                cli.error(f"{path} holds no graph.rules or map.json")
-            if (path / "task.json").exists():
-                task = load_task(cli, path / "task.json")
+        name, plan = decision(cli, path)
         if name in graphs:
             cli.error(f"two decisions are named {name}; serve them from folders of their own")
-        graphs[name] = read_plan(cli, file, task)
+        graphs[name] = plan
     model, judge_client = judge(args, any(plan.asks() for plan in graphs.values()))
     execution = ExecutionConfig(max_workers=args.max_workers)
     with ExitStack() as stack:
@@ -736,6 +786,8 @@ def main() -> None:
     if args.command == "serve":
         serve_decisions(cli, args)
         return
+    if args.command == "drift":
+        sys.exit(watch_drift(cli, args))
     task = None if args.command == "run" else load_task(cli, args.task)
     plan = read_plan(cli, args.plan, task) if args.plan else task.baseline_plan()
     whole, unit = None, getattr(args, "unit", None)

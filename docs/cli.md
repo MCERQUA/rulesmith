@@ -8,6 +8,7 @@ every flag.
 | `validate` | Check a graph against a task's labels and size limits, without running it |
 | `run` | Execute a graph once on one input |
 | `serve` | Answer decisions over HTTP, one endpoint per decision folder, with an optional trace |
+| `drift` | Check a decision's production traces against what its rules were calibrated on; exits 1 when a rule has drifted |
 | `evaluate` | Score a graph on a task split |
 | `optimize` | Search for a better graph, writing `plan.json`, editable `plan.rules` and `report.json` |
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
@@ -97,6 +98,34 @@ The answer is what `run` prints, label, rule and confidence included.
 422 with the error and what the graph did decide; a body that is not JSON gets
 400; an unknown name gets 404. With `--trace`, every decision is appended to the
 file the console's production panel reads.
+
+## Watching a decision in production
+
+A rule that decides a far larger or smaller share of real traffic than of the
+examples it was calibrated on is a sign the inputs have moved, before anyone
+knows whether its accuracy did. `drift` reads a decision's traces, keeps the
+decisions its current graph made, and tests each measured rule's share against
+its calibrated one:
+
+```sh
+uv run rulesmith drift examples/ticket-triage traces/
+```
+
+```json
+{
+  "graph_sha256": "…",
+  "decisions": 1200,
+  "errors": 3,
+  "calls": {"judge large": 41, "the judge": 388},
+  "drift": [{"rule": "rule_1", "measured_share": 0.12, "share": 0.31, "p": 1.2e-41}]
+}
+```
+
+`calls` counts every model call by the model it went to, so an escalation rate
+that creeps up shows here too. The command exits 1 when any rule drifted and 0
+otherwise, so a scheduled job can alert on it. Decisions by earlier versions of
+the graph are left out: a rule's name is its place in the list. Each trace record
+names the model each call went to under `called`.
 
 ## Backends
 
