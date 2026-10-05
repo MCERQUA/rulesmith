@@ -12,6 +12,7 @@ from rulesmith.graph import (
     NodeInput,
     Plan,
     Present,
+    Quantify,
     Read,
     Sum,
     Switch,
@@ -20,7 +21,14 @@ from rulesmith.graph import (
     Vote,
     tested,
 )
-from rulesmith.rules import GENERATED, name_of, number, path_of, render_condition
+from rulesmith.rules import (
+    GENERATED,
+    name_of,
+    number,
+    path_of,
+    render_condition,
+    render_quantifier,
+)
 
 SHAPES = {
     Read: ("[/", "/]"),
@@ -33,6 +41,7 @@ SHAPES = {
     Vote: ("[/", "\\]"),
     Confidence: ("[", "]"),
     Sum: ("[", "]"),
+    Quantify: ("[", "]"),
     Value: ("((", "))"),
 }
 # Colors by what a node costs to run, with dark text so each reads on a light or dark page: the
@@ -52,7 +61,7 @@ STYLES = {
 }
 
 
-def label(name: str, node) -> str:
+def label(name: str, node, reads: dict[str, Read], plan: Plan) -> str:
     """What a box says: enough to recognize the node, not its whole definition."""
     if isinstance(node, Read):
         return f"read {path_of(node)}"
@@ -80,6 +89,8 @@ def label(name: str, node) -> str:
         return f"how sure {node.source} was"
     if isinstance(node, Sum):
         return f"{name}: sum"
+    if isinstance(node, Quantify):
+        return render_quantifier(node, reads, plan)
     if isinstance(node, Merge):
         return f"{name}<br/>merge"
     return name
@@ -111,7 +122,8 @@ def mermaid(plan: Plan, closed: bool = False) -> str:
 def guard(condition, reads: dict[str, Read], plan: Plan) -> str:
     """A condition as its box says it. In rules a bare name tests that the node answered, which
     reads fine after `when`; alone in a box it needs the verb."""
-    if isinstance(condition, Present):
+    # A test over a list's items already reads as a condition.
+    if isinstance(condition, Present) and not isinstance(plan.nodes.get(condition.node), Quantify):
         return f"{name_of(condition.node, reads, plan)} is present"
     return render_condition(condition, reads, plan)
 
@@ -159,7 +171,9 @@ def draw(
                 lines.append(f"    {ids[node.input.node]} --> {whole[name]}")
             continue
         open_shape, close_shape = SHAPES[type(node)]
-        lines.append(f'    {ids[name]}{open_shape}"{safe(label(name, node))}"{close_shape}')
+        lines.append(
+            f'    {ids[name]}{open_shape}"{safe(label(name, node, reads, plan))}"{close_shape}'
+        )
     for name, node in plan.nodes.items():
         if isinstance(node, Coalesce):
             # Tried in order, so the order is the point: a judge last is asked only when every
@@ -205,7 +219,7 @@ def feeds(node) -> set[str]:
         return {node.source}
     if isinstance(node, (Coalesce, Vote)):
         return set(node.sources)
-    if isinstance(node, (Switch, Threshold, Confidence)):
+    if isinstance(node, (Switch, Threshold, Confidence, Quantify)):
         return {node.source}
     if isinstance(node, Sum):
         return {term.node for term in node.terms}

@@ -25,6 +25,7 @@ from rulesmith.graph import (
     Not,
     Plan,
     Present,
+    Quantify,
     Read,
     Relation,
     StateInput,
@@ -46,7 +47,9 @@ NUMBER = re.compile(r"-?\d+(\.\d+)?(e-?\d+)?")
 # A keyword counts only as a word of its own: 'flags.not' is a path, not a negation.
 COMPARING = re.compile(r"[<>=]|(?:^|\s)(?:and|or|not)(?:\s|$)")
 # The compiler names what the rules leave unnamed, so a written name must not look like one.
-GENERATED = re.compile(r"(read|rule|decision|confidence)_\w*|decision")
+GENERATED = re.compile(r"(read|rule|decision|confidence|any|all)_\w*|decision")
+QUANTIFIED = re.compile(r"(any|all) (\S+) (?:has|have) (.+)")
+COUNTED = re.compile(r"count of (\S+) where (.+)")
 QUOTED = re.compile(r'\s*"(?:[^"\\]|\\.)*"')
 PAIR = re.compile(r'\[([^:\]]+):\s*("(?:[^"\\]|\\.)*")\]')
 LEVEL = re.compile(r"\[([^:\]\[]+)\]")
@@ -203,6 +206,12 @@ def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
         return path_of(reads[node])
     if plan is not None and isinstance(plan.nodes.get(node), Confidence):
         return f"{plan.nodes[node].source}.confidence"
+    if (
+        plan is not None
+        and isinstance(plan.nodes.get(node), Quantify)
+        and GENERATED.fullmatch(node)
+    ):
+        return render_quantifier(plan.nodes[node], reads, plan)
     return node
 
 
@@ -224,7 +233,9 @@ def render_rules(plan: Plan, labels: dict[str, str] | None = None) -> str:
         # A field is declared with the extraction it belongs to.
         if read.source is not None:
             continue
-        domain = render_domain(read)
+        domain = (
+            f"each {{{render_fields(read.each)}}}" if read.each is not None else render_domain(read)
+        )
         named = "" if GENERATED.fullmatch(name) else f"{name} = "
         lines.append(f"read {named}{path_of(read)} {domain}")
     lines += declarations(plan, acting, reads, labels)
@@ -242,7 +253,19 @@ def render_rules(plan: Plan, labels: dict[str, str] | None = None) -> str:
     return "\n".join(lines)
 
 
-def render_domain(read: Read) -> str:
+def render_fields(fields: dict) -> str:
+    return ", ".join(f"{name} {render_domain(field)}" for name, field in fields.items())
+
+
+def render_quantifier(node: Quantify, reads: dict[str, Read], plan: Plan) -> str:
+    listed = name_of(node.source, reads, plan)
+    where = group(node.where, {}, None)
+    if node.rule == "count":
+        return f"count of {listed} where {where}"
+    return f"{node.rule} {listed} {'has' if node.rule == 'any' else 'have'} {where}"
+
+
+def render_domain(read) -> str:
     if read.bounds:
         return f"in [{number(read.bounds[0])}, {number(read.bounds[1])}]"
     return f"one of [{listed(read.categories, 'the category')}]"
@@ -274,7 +297,8 @@ def declarations(
             declare(needed)
         node = plan.nodes[name]
         # A confidence is written where it is tested, as the judgment's name and '.confidence'.
-        if not isinstance(node, Confidence):
+        inline = isinstance(node, Quantify) and GENERATED.fullmatch(name)
+        if not isinstance(node, Confidence) and not inline:
             lines.append(declaration(name, node, reads, plan, labels))
 
     rank = {Call: 0, Vote: 1}
@@ -295,9 +319,7 @@ def declaration(
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
         return f"ask {name} = {render_action(node, reads, plan, labels).removeprefix('ask ')}{gate}"
     if isinstance(node, Extract):
-        fields = ", ".join(
-            f"{field} {render_domain(read)}" for field, read in plan.fields(name).items()
-        )
+        fields = render_fields(plan.fields(name))
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
         given = render_given(node, reads, plan)
         return f"extract {name} = {quoted(node.instructions)} {{{fields}}}{given}{gate}"
@@ -308,6 +330,8 @@ def declaration(
         return f"let {name} = {render_condition(node.when, reads, plan)}"
     if isinstance(node, Sum) and node.when is None:
         return f"let {name} = {render_sum(node, reads, plan)}"
+    if isinstance(node, Quantify) and node.when is None:
+        return f"let {name} = {render_quantifier(node, reads, plan)}"
     raise RuleError(f"{node.type} node {name!r} has no rule form")
 
 
@@ -509,6 +533,9 @@ def read_rule(
     if line.startswith("let ") and "=" in line:
         name, _, body = line[4:].partition("=")
         body = body.strip()
+        if counted := COUNTED.fullmatch(body):
+            claim(name.strip(), quantifier("count", *counted.groups(), names, nodes), nodes, names)
+            return
         arithmetic = ARITHMETIC.search(f" {body}") or re.match(r"-\s*[A-Za-z_]", body)
         if arithmetic and not COMPARING.search(body):
             node = parse_sum(body, names, nodes)
@@ -609,7 +636,10 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     node: dict = {"type": "read", "path": [int(p) if p.isdigit() else p for p in path.split(".")]}
     if measure == "length":
         node["measure"] = measure
-    node |= parse_domain(path, domain)
+    if domain.startswith("each "):
+        node["each"] = parse_fields(domain[5:].strip().removeprefix("{").removesuffix("}"))
+    else:
+        node |= parse_domain(path, domain)
     if alias:
         claim(alias.group(1), node, nodes, names)
         return
@@ -656,18 +686,41 @@ def declare_extraction(text: str, nodes: dict, names: dict) -> None:
     if found["gate"]:
         node["when"] = parse_condition(found["gate"], names, nodes)
     claim(name, node, nodes, names)
-    # Commas inside a field's brackets belong to its domain, not between fields.
-    for spec in re.findall(r"[^,\[]+\[[^\]]*\]", found["fields"]):
-        field, _, domain = spec.strip(" ,").partition(" ")
-        if not NAME.fullmatch(field):
-            raise RuleError(f"{field!r} is not a field name; use letters, digits and underscores")
-        read = {"type": "read", "source": name, "path": [field]} | parse_domain(
-            field, domain.strip()
-        )
+    for field, domain in parse_fields(found["fields"]).items():
+        read = {"type": "read", "source": name, "path": [field]} | domain
         written = f"{name}.{field}"
         reading = names.get(written) or fresh(f"read_{name}_{field}", nodes)
         nodes[reading] = read
         names[written] = reading
+
+
+def parse_fields(text: str) -> dict[str, dict]:
+    """'amount in [0, 100], kind one of [a, b]' as each field's domain."""
+    fields = {}
+    # Commas inside a field's brackets belong to its domain, not between fields.
+    for spec in re.findall(r"[^,\[]+\[[^\]]*\]", text):
+        field, _, domain = spec.strip(" ,").partition(" ")
+        if not NAME.fullmatch(field):
+            raise RuleError(f"{field!r} is not a field name; use letters, digits and underscores")
+        fields[field] = parse_domain(field, domain.strip())
+    if not fields:
+        raise RuleError(
+            f"no fields in {{{text}}}; write 'name in [low, high]' or 'name one of [a, b]'"
+        )
+    return fields
+
+
+def quantifier(rule: str, path: str, condition: str, names: dict, nodes: dict) -> dict:
+    """A test over a declared list's items, on the fields its reading declares."""
+    listed = named(path, names, nodes)
+    fields = nodes[listed].get("each")
+    if fields is None:
+        raise RuleError(f"{path} is not declared as a list; write 'read {path} each {{...}}'")
+    try:
+        where = parse_condition(condition, {field: field for field in fields})
+    except RuleError as error:
+        raise RuleError(f"the items of {path} have only {sorted(fields)}: {error}") from error
+    return {"type": "quantify", "source": listed, "rule": rule, "where": where}
 
 
 def given_inputs(listed: str | None, names: dict, nodes: dict) -> dict:
@@ -746,6 +799,13 @@ def split_outside(text: str, joiner: str) -> list[str]:
 
 
 def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
+    quantified = QUANTIFIED.fullmatch(text)
+    if quantified and nodes is not None:
+        rule, path, condition = quantified.groups()
+        node = quantifier(rule, path, ungrouped(condition), reads, nodes)
+        name = fresh(f"{rule}_" + re.sub(r"\W", "_", path), nodes)
+        nodes[name] = node
+        return {"type": "present", "node": name}
     if text.startswith("not "):
         # What follows may be a group of its own, so read it as a whole condition.
         return {"type": "not", "condition": parse_condition(text[4:], reads, nodes)}

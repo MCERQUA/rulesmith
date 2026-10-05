@@ -432,6 +432,38 @@ def field_summary(task: SearchTask) -> str:
     return f"Fields of the inputs, as seen in training: {described}.\n{supported}"
 
 
+def record_lists(state, path: tuple[str, ...] = ()) -> dict[str, set[str]]:
+    """Every list of objects in an input, by path, with the fields its items carry."""
+    found: dict[str, set[str]] = {}
+    if isinstance(state, dict):
+        for key, value in state.items():
+            for listed, keys in record_lists(value, (*path, str(key))).items():
+                found.setdefault(listed, set()).update(keys)
+    elif isinstance(state, list) and state and all(isinstance(item, dict) for item in state):
+        found[".".join(path)] = {key for item in state for key in item}
+    return found
+
+
+def listing(task: SearchTask) -> str:
+    """How to test a list's items, told only where the inputs hold lists of records."""
+    found: dict[str, set[str]] = {}
+    for example in task.train:
+        for listed, keys in record_lists(getattr(example, "state", None)).items():
+            found.setdefault(listed, set()).update(keys)
+    if not found:
+        return ""
+    named = "; ".join(f"{path} ({', '.join(sorted(keys))})" for path, keys in sorted(found.items()))
+    path, keys = min(found.items())
+    field = min(keys)
+    return (
+        f"These fields are lists of records, with their items' fields: {named}. Read one as "
+        f"'read {path} each {{{field} in [low, high]}}', declaring each field it tests as a "
+        f"reading is declared, then test 'any {path} has {field} > 5' or 'all {path} have "
+        f"{field} > 5', a compound test in parentheses, or count with 'let n = count of {path} "
+        f"where {field} > 5'. An item missing a field fails a test on it.\n"
+    )
+
+
 def text_only(task: SearchTask) -> str:
     """What to tell a proposer whose inputs have no fields: the question is the whole program,
     so improve it, and start with a briefing, which is where this judge takes guidance."""
@@ -556,6 +588,7 @@ def proposer_prompt(
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
         f"{field_summary(task) or text_only(task)}"
+        f"{listing(task)}"
         f"{abstaining(task)}"
         f"{keeping(config)}"
         f"At most {config.max_nodes} nodes and dependency depth {config.max_depth}.\n"

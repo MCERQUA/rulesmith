@@ -249,6 +249,28 @@ which is better, or serving as the metric a search optimizes against rather than
 the policy it searches. What a judge will not do is extract or compute: if the
 answer is already a value in the input, read it.
 
+## Testing a list's items
+
+Inputs carry lists: an order's line items, a thread's messages, a customer's
+past orders. A list is read as its items' fields, each declared with its domain,
+and rules test whether any or all items meet a condition, or count those that do:
+
+```
+read order.items each {price in [0, 100000], status one of [paid, open]}
+let big = count of order.items where price > 500
+when any order.items has (price > 500 and status == "open"): review
+when big >= 2: review
+when all order.items have status == "paid": ship
+always: hold
+```
+
+A compound test on an item goes in parentheses. An item that is not an object,
+or lacks a field or holds one outside its domain, fails a test on that field,
+the way a comparison with a missing reading is false. `all` over an empty list
+holds, and a missing list leaves the rule to the next one. A count is a number,
+so it can be compared, summed, or thresholded like any reading. Search is told
+this syntax only when the task's inputs hold lists of records.
+
 ## Asking a larger judge when the small one is unsure
 
 A judgment may end `using <name>` to be asked of a named judge instead of the
@@ -598,6 +620,9 @@ always: MOVE_FORWARD
   labels, as in `ask intent = "Which intent is this?" [task labels]`, asks over
   every task label as the task's `descriptions` describe it. A choice over exactly
   those, in the task's order, is shown to the proposer in this short form.
+- **Lists** are read as their items' fields, `read <path> each {field in [low, high], field one of [a, b]}`,
+  and tested with `any <path> has <test>` or `all <path> have <test>`, or counted with
+  `let n = count of <path> where <test>`.
 - **Extractions** read free text into fields:
   `extract <name> = "what to read" {field in [low, high], field one of [a, b]}`,
   optionally then `given [...]` and `when <condition>`. Rules test a field as

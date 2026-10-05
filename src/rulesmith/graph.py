@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections import Counter
 from graphlib import CycleError, TopologicalSorter
 from typing import Annotated, Literal, Self
@@ -130,7 +131,9 @@ def references(value: JsonValue) -> set[str]:
         named.add(value["node"])
     if kind == "relation" and isinstance(value.get("other"), str):
         named.add(value["other"])
-    if kind in ("switch", "threshold", "confidence") and isinstance(value.get("source"), str):
+    if kind in ("switch", "threshold", "confidence", "quantify") and isinstance(
+        value.get("source"), str
+    ):
         named.add(value["source"])
     if kind in ("coalesce", "vote") and isinstance(value.get("sources"), list):
         named.update(source for source in value["sources"] if isinstance(source, str))
@@ -150,6 +153,32 @@ def references(value: JsonValue) -> set[str]:
     if kind == "graph":
         named.update(references(value.get("input")))
     return named
+
+
+def check_items(condition: Condition, fields: dict[str, ItemField]) -> None:
+    """A test on a list's items names only fields the items declare, compared as their kind."""
+    domains = {
+        name: frozenset(field.categories) if field.categories else field.bounds
+        for name, field in fields.items()
+    }
+    for leaf in predicates(condition):
+        named = [leaf.node] + ([leaf.other] if isinstance(leaf, Relation) else [])
+        for name in named:
+            if name not in domains:
+                raise ValueError(f"the items have no field {name!r}; they have {sorted(domains)}")
+        if isinstance(leaf, Present):
+            continue
+        domain = domains[leaf.node]
+        if isinstance(leaf, Relation):
+            if type(domain) is not type(domains[leaf.other]):
+                raise ValueError("a relation compares two values of the same kind")
+            if leaf.op != "eq" and not isinstance(domain, tuple):
+                raise ValueError("an ordering relation requires numeric fields")
+        elif isinstance(leaf.value, str):
+            if leaf.op != "eq" or not isinstance(domain, frozenset) or leaf.value not in domain:
+                raise ValueError(f"the field {leaf.node} is never {leaf.value!r}")
+        elif not isinstance(domain, tuple):
+            raise ValueError(f"numeric comparison requires a numeric field, and {leaf.node} is not")
 
 
 def truth(condition: Condition, known: dict[str, bool]) -> bool | None:
@@ -321,6 +350,21 @@ class Extract(Guarded):
     inputs: dict[Text, Source] = Field(min_length=1)
 
 
+class ItemField(StrictModel):
+    """A field of each item in a list, with its domain, as a reading declares one."""
+
+    bounds: tuple[float, float] | None = None
+    categories: list[Text] | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def one_domain(self) -> Self:
+        if (self.bounds is None) == (self.categories is None):
+            raise ValueError("an item's field declares exactly one of bounds or categories")
+        if self.bounds is not None and self.bounds[0] > self.bounds[1]:
+            raise ValueError("an item's field bounds must be increasing")
+        return self
+
+
 class Read(Guarded):
     """A value taken from the original input by path, with its declared domain; with `source`,
     a field of that extraction instead."""
@@ -330,6 +374,12 @@ class Read(Guarded):
     path: list[str | int] = Field(min_length=1)
     bounds: tuple[float, float] | None = None
     categories: list[Text] | None = Field(default=None, min_length=1)
+    each: dict[Name, ItemField] | None = Field(
+        default=None,
+        min_length=1,
+        description="A list, read as its items' fields: an item that is not an object, or a "
+        "field missing or outside its domain, leaves that field absent for that item",
+    )
     measure: Literal["value", "length"] = Field(
         default="value",
         description="The value itself, or how long it is when it is a text or a list: an empty "
@@ -338,8 +388,8 @@ class Read(Guarded):
 
     @model_validator(mode="after")
     def one_domain(self) -> Self:
-        if (self.bounds is None) == (self.categories is None):
-            raise ValueError("a read declares exactly one of bounds or categories")
+        if sum(domain is not None for domain in (self.bounds, self.categories, self.each)) != 1:
+            raise ValueError("a read declares exactly one of bounds, categories or each")
         if self.measure == "length" and self.bounds is None:
             raise ValueError("a length is a number, so its read declares bounds")
         if self.bounds is not None and self.bounds[0] > self.bounds[1]:
@@ -347,6 +397,17 @@ class Read(Guarded):
         if self.source is not None and (len(self.path) != 1 or self.measure != "value"):
             raise ValueError("a field of an extraction is read by its name alone")
         return self
+
+
+class Quantify(Guarded):
+    """A test over a list's items: `any` holds when some item meets `where`, `all` when every
+    item does, and either is absent otherwise, as a named condition is; `count` is how many
+    do. `where` tests the items' fields by name, and a field an item lacks fails its test."""
+
+    type: Literal["quantify"] = "quantify"
+    source: Text
+    rule: Literal["any", "all", "count"]
+    where: Condition
 
 
 class Graph(Guarded):
@@ -389,6 +450,7 @@ Node = Annotated[
     | Value
     | Read
     | Extract
+    | Quantify
     | Confidence
     | Vote
     | Sum
@@ -418,7 +480,7 @@ class Plan(StrictModel):
                 refs.update(s.node for s in node.inputs.values() if isinstance(s, NodeInput))
             elif isinstance(node, Read) and node.source is not None:
                 refs.add(node.source)
-            elif isinstance(node, (Switch, Threshold, Confidence)):
+            elif isinstance(node, (Switch, Threshold, Confidence, Quantify)):
                 refs.add(node.source)
             elif isinstance(node, (Coalesce, Vote)):
                 refs.update(node.sources)
@@ -534,6 +596,8 @@ class Plan(StrictModel):
                 return all(answers(source) for source in node.sources)
             if isinstance(node, Sum):
                 return all(answers(term.node) for term in node.terms)
+            if isinstance(node, Quantify):
+                return node.rule == "count" and answers(node.source)
             if isinstance(node, Graph):
                 return given(node.input) and node.plan.answers(node.output)
             # A threshold, a switch, or a confidence, which validation keeps to choices and
@@ -579,6 +643,8 @@ class Plan(StrictModel):
                 domain = literal_domain(node.value)
             elif isinstance(node, Read):
                 domain = frozenset(node.categories) if node.categories else node.bounds
+            elif isinstance(node, Quantify) and node.rule == "count":
+                domain = (0, math.inf)
             elif isinstance(node, Confidence):
                 domain = (0.0, 1.0)
             elif isinstance(node, Graph):
@@ -638,6 +704,13 @@ class Plan(StrictModel):
             ):
                 raise ValueError("answer view requires a call node")
         for key, node in self.nodes.items():
+            if isinstance(node, Quantify):
+                listed = self.nodes[node.source]
+                if not isinstance(listed, Read) or listed.each is None:
+                    raise ValueError(
+                        f"{key!r} counts items of {node.source!r}, which is not a list"
+                    )
+                check_items(node.where, listed.each)
             if isinstance(node, Read) and node.source is not None:
                 if not isinstance(self.nodes.get(node.source), Extract):
                     raise ValueError(

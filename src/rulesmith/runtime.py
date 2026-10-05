@@ -33,6 +33,7 @@ from rulesmith.graph import (
     Confidence,
     Extract,
     Graph,
+    ItemField,
     LiteralInput,
     Merge,
     Node,
@@ -41,6 +42,7 @@ from rulesmith.graph import (
     Noul,
     Plan,
     Present,
+    Quantify,
     Question,
     Read,
     Relation,
@@ -209,6 +211,10 @@ def read_path(node: Read, state: State):
             value = value[str(step)]
         else:
             return MISSING
+    if node.each is not None:
+        if not isinstance(value, list):
+            return MISSING
+        return [items(node.each, item) for item in value]
     if node.measure == "length":
         if not isinstance(value, str | list):
             return MISSING
@@ -222,6 +228,22 @@ def read_path(node: Read, state: State):
     # A value outside the declared domain is skipped like a missing path, so every value
     # downstream nodes see stays within the domain validation relied on.
     return value if allowed else MISSING
+
+
+def items(fields: dict[str, ItemField], item) -> dict:
+    """An item's declared fields that are there and within their domains; a field outside its
+    domain is absent, so a test on it fails as a test on a missing reading does."""
+    found = {}
+    for name, declared in fields.items():
+        value = item.get(name, MISSING) if isinstance(item, dict) else MISSING
+        if declared.categories is not None:
+            allowed = isinstance(value, str) and value in declared.categories
+        else:
+            allowed = isinstance(value, int | float) and not isinstance(value, bool)
+            allowed = allowed and declared.bounds[0] <= value <= declared.bounds[1]
+        if allowed:
+            found[name] = value
+    return found
 
 
 def resolve_node(node: Node, state: State, values: dict, answers: dict, suppressed: bool = False):
@@ -263,6 +285,15 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
     if isinstance(node, Read):
         # A field is read from what its extraction filled, absent when the extraction never ran.
         return read_path(node, state if node.source is None else values.get(node.source, MISSING))
+    if isinstance(node, Quantify):
+        if node.source not in values:
+            return MISSING
+        meeting = [matches(node.where, item) for item in values[node.source]]
+        if node.rule == "count":
+            return sum(meeting)
+        # Like a named condition: a value only when it holds, so a rule tests it by naming it.
+        held = any(meeting) if node.rule == "any" else all(meeting)
+        return True if held else MISSING
     if isinstance(node, Confidence):
         # A probability answer is its own confidence, so there is nothing separate to report.
         answer = answers.get(node.source)
