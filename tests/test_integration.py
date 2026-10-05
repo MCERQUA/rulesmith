@@ -668,6 +668,14 @@ def every_construct_plan():
                 "inputs": {"ticket": {"type": "state"}},
             },
             "amount": {"type": "read", "source": "details", "path": ["amount"], "bounds": [0, 1e4]},
+            # A list read as its items' fields, and a count of the items that meet a test.
+            "lines": {"type": "read", "path": ["lines"], "each": {"cost": {"bounds": [0, 100]}}},
+            "costly": {
+                "type": "quantify",
+                "source": "lines",
+                "rule": "count",
+                "where": {"type": "compare", "node": "cost", "op": "ge", "value": 50},
+            },
             # A unit: another graph, handed the input, answering with its label.
             "policy": {
                 "type": "graph",
@@ -683,6 +691,7 @@ def every_construct_plan():
                 "inputs": {
                     "priority": {"type": "node", "node": "priority", "optional": True},
                     "amount": {"type": "node", "node": "amount", "optional": True},
+                    "costly": {"type": "node", "node": "costly", "optional": True},
                     "policy_applied": ref("policy"),
                     "route": ref("route"),
                     "team": {"type": "node", "node": "team", "view": "answer"},
@@ -741,7 +750,8 @@ def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider
         client,
         "fixture-model",
         GraphProposer(lm),
-        SearchConfig(max_metric_calls=4, reflection_batch=1),
+        # Every construct takes more nodes than search allows a graph by default.
+        SearchConfig(max_metric_calls=4, reflection_batch=1, max_nodes=24),
         # The extractor shares the proposer's endpoint, so it reads a proposal, fills no field,
         # and the optional amount stays out of the summary.
         models=Models(extractor=Extractor(lm)),
