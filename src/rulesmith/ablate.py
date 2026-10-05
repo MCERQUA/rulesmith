@@ -14,6 +14,7 @@ from rulesmith.runtime import (
     DecisionProgram,
     ExecutionConfig,
     GraphExecutionError,
+    Models,
     Remembered,
     read_path,
 )
@@ -52,6 +53,7 @@ def effects(
     client=None,
     model: str = "none",
     execution: ExecutionConfig | None = None,
+    models: Models | None = None,
 ) -> list[Effect]:
     """Every read, judgment and name, ranked by how much the graph would change without it.
 
@@ -65,12 +67,13 @@ def effects(
         elif isinstance(node, Sum) or named_condition(node):
             inputs[name] = "let"
     judge = Remembered(client) if client is not None else None
+    models = (models or Models()).remembered()
     execution = execution or ExecutionConfig()
-    baseline = decisions(DecisionProgram(plan, judge, model, execution), states)
+    baseline = decisions(DecisionProgram(plan, judge, model, execution, models=models), states)
     found = []
     for name, kind in inputs.items():
         without = execution.model_copy(update={"suppress": (name,)})
-        suppressed = DecisionProgram(plan, judge, model, without)
+        suppressed = DecisionProgram(plan, judge, model, without, models=models)
         changed = sum(
             mine != theirs
             for mine, theirs in zip(baseline, decisions(suppressed, states), strict=True)

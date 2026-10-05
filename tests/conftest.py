@@ -89,6 +89,16 @@ def mixed_plan():
 
 @pytest.fixture
 def provider():
+    yield from serve_provider()
+
+
+@pytest.fixture
+def larger():
+    """A second judge server, for graphs that ask a named judge beside their own."""
+    yield from serve_provider()
+
+
+def serve_provider():
     fixture = SimpleNamespace(
         requests=[],
         answers=None,

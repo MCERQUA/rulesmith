@@ -31,7 +31,7 @@ from rulesmith.graph import (
     Threshold,
     Value,
 )
-from rulesmith.runtime import DecisionProgram, GraphExecutionError, calibrated, sureness
+from rulesmith.runtime import DecisionProgram, GraphExecutionError, Models, calibrated, sureness
 
 # Temperatures tried, evenly spaced in log from a fifth to five: calibration corrects a judge's
 # confidence, it does not invert it.
@@ -54,7 +54,9 @@ def fit_temperature(pairs: list[tuple[dict[str, float], str]]) -> float:
     return round(min(TEMPERATURES, key=loss), 3)
 
 
-def calibrate(plan: Plan, task: Task, client, model: str) -> tuple[Plan, dict[str, float]]:
+def calibrate(
+    plan: Plan, task: Task, client, model: str, models: Models | None = None
+) -> tuple[Plan, dict[str, float]]:
     """The plan with a temperature fitted for every choice question over the task's labels, from
     how its answers on the training examples compare with their labels. Other questions have no
     labels to be right about and keep theirs."""
@@ -74,7 +76,7 @@ def calibrate(plan: Plan, task: Task, client, model: str) -> tuple[Plan, dict[st
             }
         }
     )
-    program = DecisionProgram(raw, client, model)
+    program = DecisionProgram(raw, client, model, models=models)
     pairs: dict[str, list] = {name: [] for name in fitted_nodes}
     for example in task.train:
         try:
@@ -168,7 +170,9 @@ def cuts(plan: Plan) -> list[Cut]:
 FOLDS = 5
 
 
-def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[dict]]:
+def fit_cutoffs(
+    plan: Plan, task: Task, client, model: str, models: Models | None = None
+) -> tuple[Plan, list[dict]]:
     """The plan with every cut moved to where it gets the most training examples right, one cut
     at a time, holding the questions and the rules' words still. A move is kept only when it
     also wins held out: the training examples are dealt into folds, the best line is chosen
@@ -189,10 +193,12 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
     def right(candidate: Plan) -> list[float]:
         return [
             w if r else 0.0
-            for w, r in zip(weight, correct(candidate, examples, client, model), strict=True)
+            for w, r in zip(
+                weight, correct(candidate, examples, client, model, models), strict=True
+            )
         ]
 
-    seen = observed(plan, examples, client, model)
+    seen = observed(plan, examples, client, model, models)
     started = {cut: cut.value(plan) for cut in lines}
     tried = dict.fromkeys(lines, 0)
     after = right(plan)
@@ -230,10 +236,12 @@ def fit_cutoffs(plan: Plan, task: Task, client, model: str) -> tuple[Plan, list[
     return plan, report
 
 
-def observed(plan: Plan, examples: list, client, model: str) -> dict[str, list[float]]:
+def observed(
+    plan: Plan, examples: list, client, model: str, models: Models | None = None
+) -> dict[str, list[float]]:
     """The numbers each judgment and confidence took on the examples, the values a line can be
     drawn between."""
-    program = DecisionProgram(plan, client, model)
+    program = DecisionProgram(plan, client, model, models=models)
     seen: dict[str, list[float]] = {}
     for example in examples:
         try:
@@ -265,8 +273,10 @@ def midpoints(values: list[float]) -> list[float]:
     return found
 
 
-def correct(plan: Plan, examples: list, client, model: str) -> list[bool]:
-    return [record["correct"] for record in outcomes(plan, examples, client, model)]
+def correct(
+    plan: Plan, examples: list, client, model: str, models: Models | None = None
+) -> list[bool]:
+    return [record["correct"] for record in outcomes(plan, examples, client, model, models)]
 
 
 def choose(scores: dict[float, list[float]], current: float, fold: int | None = None) -> float:
@@ -292,10 +302,12 @@ def held_out_wins(scores: dict[float, list[float]], current: float, count: int) 
     return held_out > sum(scores[current])
 
 
-def outcomes(plan: Plan, examples: list, client, model: str) -> list[dict]:
+def outcomes(
+    plan: Plan, examples: list, client, model: str, models: Models | None = None
+) -> list[dict]:
     """Each labeled example as the plan decided it: the node that decided, the judgments asked,
     and whether the answer was one the example accepts."""
-    program = DecisionProgram(plan, client, model)
+    program = DecisionProgram(plan, client, model, models=models)
     found = []
     for example in examples:
         try:
@@ -339,7 +351,7 @@ def rules(plan: Plan) -> list[str]:
     return found
 
 
-def measure(plan: Plan, task: Task, client, model: str) -> Plan:
+def measure(plan: Plan, task: Task, client, model: str, models: Models | None = None) -> Plan:
     """The plan with every rule that decides its label counted on the task's labeled training
     and validation examples. A rule decides only some of them, so it is counted on all it can be;
     they are examples search has seen, so the counts flatter a searched graph, and a task of
@@ -347,7 +359,7 @@ def measure(plan: Plan, task: Task, client, model: str) -> Plan:
     examples = [e for e in [*task.train, *task.validation] if e.label is not None]
     if not examples or not rules(plan):
         return plan
-    counts = tally(outcomes(plan, examples, client, model))
+    counts = tally(outcomes(plan, examples, client, model, models))
     nodes = plan.nodes | {
         name: plan.nodes[name].model_copy(
             update={

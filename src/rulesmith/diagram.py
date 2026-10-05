@@ -57,6 +57,7 @@ def label(name: str, node) -> str:
     if isinstance(node, Call):
         # Named as the rules test it, and marked as the model call it is.
         named = "judge" if GENERATED.fullmatch(name) else f"judge: {name}"
+        named += f", asked of {node.judge}" if node.judge else ""
         question = shorten(node.question.instructions, 48, placeholder="...")
         return f"{named}<br/>{node.question.type}: {question}"
     if isinstance(node, Threshold):

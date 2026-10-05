@@ -314,7 +314,8 @@ def render_action(node, reads: dict[str, Read], plan: Plan, labels: dict[str, st
         asked += f" briefed {quoted(node.briefing)}"
     if node.temperature != 1:
         asked += f" calibrated {number(node.temperature)}"
-    return asked + render_given(node, reads, plan)
+    asked += render_given(node, reads, plan)
+    return asked + (f" using {node.judge}" if node.judge else "")
 
 
 def render_decision(node: Value | Threshold, reads: dict[str, Read], plan: Plan) -> str:
@@ -350,7 +351,7 @@ def render_given(node: Call, reads: dict[str, Read], plan: Plan) -> str:
     return f" given [{', '.join(node.inputs)}]"
 
 
-CLAUSES = ("briefed ", "given [", "calibrated ")
+CLAUSES = ("briefed ", "given [", "calibrated ", "using ")
 
 
 def joined_clauses(text: str) -> list[str]:
@@ -695,6 +696,12 @@ def named(path: str, names: dict, nodes: dict | None = None) -> str:
 def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | None) -> dict:
     if text.startswith("ask "):
         body = text[4:].strip()
+        # Clauses come off the end in the reverse of the order they are written in.
+        using = re.search(r"\s+using\s+([A-Za-z_]\w*)\s*$", body)
+        judge = {}
+        if using:
+            body = body[: using.start()]
+            judge = {"judge": using.group(1)}
         given = re.search(r"\s+given\s+\[([^\]]*)\]\s*$", body)
         inputs = {WHOLE: {"type": "state"}}
         if given:
@@ -733,6 +740,7 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
                 "inputs": inputs,
                 **briefing,
                 **temperature,
+                **judge,
             }
         pairs = PAIR.findall(criteria)
         levels = [] if pairs else LEVEL.findall(criteria)
@@ -746,7 +754,14 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
             question |= {"type": "score", "criteria": [level.strip() for level in levels]}
         else:
             question |= {"type": "noul"}
-        return {"type": "call", "question": question, "inputs": inputs, **briefing, **temperature}
+        return {
+            "type": "call",
+            "question": question,
+            "inputs": inputs,
+            **briefing,
+            **temperature,
+            **judge,
+        }
     counted = MEASURED.search(text)
     measured = {}
     if counted:

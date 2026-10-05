@@ -3,13 +3,14 @@
 import hashlib
 import json
 import math
+from collections import Counter
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
 from statistics import mean
-from typing import Protocol
+from typing import Annotated, Protocol
 
 import dspy
 import gepa
@@ -19,10 +20,16 @@ from pydantic import Field, ValidationError
 from typesafe_sdk import TypeSafeClient
 
 from rulesmith.calibrate import tally, unmeasured
-from rulesmith.graph import Example, Measured, Plan, StrictModel, Task
+from rulesmith.graph import Example, Measured, Name, Plan, StrictModel, Task
 from rulesmith.mine import evidence, fields, mine
 from rulesmith.rules import RuleError, parts, whole
-from rulesmith.runtime import DecisionProgram, ExecutionConfig, GraphExecutionError, Remembered
+from rulesmith.runtime import (
+    DecisionProgram,
+    ExecutionConfig,
+    GraphExecutionError,
+    Models,
+    Remembered,
+)
 
 
 def text_adapter() -> dspy.ChatAdapter:
@@ -213,6 +220,11 @@ class SearchConfig(StrictModel):
         description="Score taken off an example per judge question asked, so that of two "
         "graphs that answer alike, search keeps the one that asks less",
     )
+    call_costs: dict[Name, Annotated[float, Field(ge=0, le=1)]] = Field(
+        default_factory=dict,
+        description="Score taken off per question asked of a named judge, by its name; a named "
+        "judge not listed costs what a question to the graph's own judge does",
+    )
     keep_judge: float | None = Field(
         default=None,
         gt=0,
@@ -264,6 +276,8 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         config: SearchConfig,
         execution: ExecutionConfig | None = None,
         score: Scorer | None = None,
+        *,
+        models: Models | None = None,
     ):
         self.task = task
         self.labels = described_labels(task)
@@ -271,6 +285,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         self.score = score or Labels(task)
         self.client = Remembered(client) if client is not None else None
         self.model = model
+        self.models = (models or Models()).remembered()
         self.config = config
         self.execution = execution or ExecutionConfig()
         self.failure: Exception | None = None
@@ -312,7 +327,7 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
                 [0.0] * len(batch),
                 [feedback] * len(batch) if capture_traces else None,
             )
-        program = DecisionProgram(plan, self.client, self.model, self.execution)
+        program = DecisionProgram(plan, self.client, self.model, self.execution, models=self.models)
         try:
             outcomes = self.remember(plan, program, batch)
         except Exception as error:
@@ -328,18 +343,30 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         return self.batch(candidate, outputs, scores, records if capture_traces else None)
 
     def charged(self, outcome: Outcome) -> tuple[float, dict]:
-        """An example's score less the price of the judge questions it asked, and feedback that
-        says so, since a proposer cannot lower a cost it is not told about."""
-        asked = len(outcome.record.get("calls", {}))
-        price = self.config.call_cost * asked
+        """An example's score less the price of the judge questions it asked, each at its own
+        judge's price, and feedback that says so, since a proposer cannot lower a cost it is not
+        told about."""
+        asked = Counter(call.get("judge") for call in outcome.record.get("calls", {}).values())
+        price = sum(count * self.price(judge) for judge, count in asked.items())
         if not price:
             return outcome.score, outcome.trace
+        each = ", ".join(
+            f"{count} of {f'judge {judge}' if judge else 'the judge'} at {self.price(judge):g}"
+            for judge, count in sorted(asked.items(), key=lambda item: item[0] or "")
+        )
         told = (
-            f" It asked the judge {asked} question(s) at {self.config.call_cost:g} each, so it "
-            f"scores {max(0.0, outcome.score - price):g}; answer from readings where they suffice."
+            f" It asked {each} each, so it scores {max(0.0, outcome.score - price):g}; answer "
+            "from readings where they suffice, and ask a dearer judge only where it pays."
         )
         trace = outcome.trace | {"Feedback": outcome.trace.get("Feedback", "") + told}
         return max(0.0, outcome.score - price), trace
+
+    def price(self, judge: str | None) -> float:
+        return (
+            self.config.call_costs.get(judge, self.config.call_cost)
+            if judge
+            else self.config.call_cost
+        )
 
     def batch(self, candidate, outputs, scores, trajectories) -> EvaluationBatch:
         if trajectories is not None and self.proposed in candidate.values():
@@ -412,8 +439,26 @@ def text_only(task: SearchTask) -> str:
     )
 
 
-def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
-    """Everything the proposer is told: the language, the task, and the part to return."""
+def escalating(config: SearchConfig, judges: Sequence[str]) -> str:
+    """The judges besides the graph's own, and what a question to each costs."""
+    if not judges:
+        return ""
+    priced = ", ".join(
+        f"{name} ({config.call_costs.get(name, config.call_cost):g} a question)" for name in judges
+    )
+    return (
+        "Besides the graph's own judge, a judgment may be asked of another by ending it "
+        f"'using NAME', after any 'given': {priced}; a question to the graph's own judge costs "
+        f"{config.call_cost:g}. A larger judge is for the cases the graph's own is unsure of: "
+        "ask the own judge first, let rules settle its sure answers, such as "
+        "'when team.confidence >= 0.8 and team == \"billing\": billing', and end with the same "
+        "question 'using' the larger judge. "
+    )
+
+
+def proposer_prompt(task: SearchTask, config: SearchConfig, judges: Sequence[str] = ()) -> str:
+    """Everything the proposer is told: the language, the task, and the part to return. Named
+    `judges` are the ones besides the graph's own that a judgment may be asked of."""
     syntax_example = Plan.model_validate(
         {
             "nodes": {
@@ -517,6 +562,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig) -> str:
         "'ask winning = \"a statement that is either true or false\"' answers the probability "
         "that it is true, tested 'winning >= 0.8'. "
         f"{every_label}"
+        f"{escalating(config, judges)}"
         "Ask for a probability when a threshold "
         "suits the decision, and for labels when the answers have no order. Any judgment may "
         "end 'when <condition>' to be asked only then, which is how a costly question is kept "
@@ -572,6 +618,7 @@ def optimize_plan(
     execution: ExecutionConfig | None = None,
     score: Scorer | None = None,
     run_dir: Path | None = None,
+    models: Models | None = None,
 ) -> tuple[Plan, dict]:
     """Search from `initial`. With `run_dir`, GEPA checkpoints its state there after every
     round and resumes from it when it exists, so an interrupted search continues where it
@@ -599,7 +646,7 @@ def optimize_plan(
             )
         run_dir.mkdir(parents=True, exist_ok=True)
         record.write_text(json.dumps(identity, indent=2) + "\n")
-    adapter = GraphAdapter(task, client, model, config, execution, score)
+    adapter = GraphAdapter(task, client, model, config, execution, score, models=models)
     if config.keep_judge is not None and not isinstance(adapter.score, Labels):
         raise ValueError("keep_judge counts how often rules are right, which needs labels")
     start, mined_report = initial, None
@@ -673,7 +720,7 @@ def optimize_plan(
         adapter.proposed = proposal
         return proposal
 
-    prompt = proposer_prompt(task, config)
+    prompt = proposer_prompt(task, config, sorted((models or Models()).judges))
 
     def propose(candidate, reflective_dataset, components_to_update):
         return {
@@ -783,7 +830,9 @@ def judged(adapter: GraphAdapter, plan: Plan, task: SearchTask) -> bool:
     as often as search was told to keep: counted on training and validation examples alike,
     since a rule settles few of either."""
     examples = [*task.train, *task.validation]
-    program = DecisionProgram(plan, adapter.client, adapter.model, adapter.execution)
+    program = DecisionProgram(
+        plan, adapter.client, adapter.model, adapter.execution, models=adapter.models
+    )
     records = [outcome.record for outcome in adapter.remember(plan, program, examples)]
     alone = [record for record in records if not record.get("calls")]
     return all(
@@ -808,8 +857,9 @@ def evaluate_plan(
     score: Scorer,
     execution: ExecutionConfig | None = None,
     parallel_examples: int = 1,
+    models: Models | None = None,
 ) -> dict:
-    program = DecisionProgram(plan, client, model, execution)
+    program = DecisionProgram(plan, client, model, execution, models=models)
     outcomes = score_all(score, program, examples, parallel_examples)
     return {
         "score": sum(outcome.score for outcome in outcomes) / len(outcomes),

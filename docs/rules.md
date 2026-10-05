@@ -231,6 +231,37 @@ which is better, or serving as the metric a search optimizes against rather than
 the policy it searches. What a judge will not do is extract or compute: if the
 answer is already a value in the input, read it.
 
+## Asking a larger judge when the small one is unsure
+
+A judgment may end `using <name>` to be asked of a named judge instead of the
+graph's own. The graph names the judge; where it runs, `--judge` says which
+model that name is. This is how a graph escalates: the small judge answers
+first, rules settle its sure answers, and only the rest go to the larger one.
+
+```
+ask team = "Which team handles this?" [billing: "Charges."] [technical: "Bugs."]
+when team.confidence >= 0.8 and team == "billing": billing
+when team.confidence >= 0.8 and team == "technical": technical
+always: ask "Which team handles this?" [billing: "Charges."] [technical: "Bugs."] using large
+```
+
+```sh
+uv run rulesmith run graph.rules input.json --backend ruling --max-workers 1 \
+  --judge large=ruling:mlx-community/Qwen3.6-35B-A3B-4bit@http://127.0.0.1:8012
+```
+
+A judgment kept as a fallback is asked only when every rule ahead of it has
+declined, so the larger judge costs nothing on the inputs the small one settles.
+Each call in a result and a scorecard names the judge it went to, so how often
+a graph escalated is counted, not guessed. In search, `--judge-cost large=0.2`
+prices a question to that judge, and the proposer is told which judges it may
+use and what each costs.
+
+[Ruling](https://github.com/bradAGI/ruling) can also escalate on its own, with
+`RULING_CASCADE_TO`: every question below one confidence goes to a second
+model, inside the server. Rules do the same per judgment, with a cutoff each
+rule can draw, and the scorecard shows which judge answered.
+
 ## Worked examples
 
 One worked example of each, runnable from [examples](../examples), where each
@@ -512,7 +543,9 @@ always: MOVE_FORWARD
   for a judgment, which may end `when <condition>` to be asked only then. A judgment
   may carry `briefed "..."`, guidance the judge reads before the input; it
   reads the whole input unless it names what it is shown with `given [a, b]`;
-  `observation` in that list is the whole input. `[task labels]` in place of the
+  `observation` in that list is the whole input. A judgment ending `using <name>`
+  is asked of that named judge, which `--judge` gives a model where the graph
+  runs. `[task labels]` in place of the
   labels, as in `ask intent = "Which intent is this?" [task labels]`, asks over
   every task label as the task's `descriptions` describe it. A choice over exactly
   those, in the task's order, is shown to the proposer in this short form.

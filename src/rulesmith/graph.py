@@ -10,6 +10,8 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints, model_validator
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+# A name a graph and the command line both write, so it is a plain word in both.
+Name = Annotated[str, StringConstraints(pattern=r"^[A-Za-z_]\w*$")]
 State = str | dict[str, JsonValue] | list[JsonValue]
 
 
@@ -236,6 +238,11 @@ class Call(Guarded):
         description="Divides the judge's log-odds before they are read: above 1 tempers an "
         "overconfident judge, below 1 sharpens a timid one. Fitted by rulesmith calibrate",
     )
+    judge: Name | None = Field(
+        default=None,
+        description="A named judge to ask instead of the graph's own, such as a larger model for "
+        "the cases the small one is unsure of; where the graph runs, each name is given a model",
+    )
 
 
 class Switch(Guarded):
@@ -396,6 +403,12 @@ class Plan(StrictModel):
     def contributing(self) -> set[str]:
         """Every node an output depends on, directly or through another node."""
         return reachable(self.dependencies(), self.outputs.values())
+
+    def judges(self) -> set[str]:
+        """The named judges this graph asks, in it or in a unit of it."""
+        return {
+            node.judge for node in self.nodes.values() if isinstance(node, Call) and node.judge
+        }.union(*(node.plan.judges() for node in self.nodes.values() if isinstance(node, Graph)))
 
     def asks(self) -> bool:
         """Whether running this graph asks a judge anything, in it or in a unit of it."""

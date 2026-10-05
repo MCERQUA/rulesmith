@@ -3,11 +3,14 @@
 import hashlib
 import json
 import math
+from collections.abc import Mapping
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from graphlib import TopologicalSorter
 from pathlib import Path
+from typing import NamedTuple
 
 import dspy
 from pydantic import ConfigDict, Field, TypeAdapter
@@ -374,6 +377,26 @@ def digest(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+class Judge(NamedTuple):
+    """A judge a graph names: the client that reaches it and the model it asks for."""
+
+    client: TypeSafeClient
+    model: str
+
+
+@dataclass(frozen=True)
+class Models:
+    """The models a graph may ask beside its own judge, each under the name the graph uses."""
+
+    judges: Mapping[str, Judge] = field(default_factory=dict)
+
+    def remembered(self) -> "Models":
+        """The same models, each answering a question about an input once."""
+        return Models(
+            {name: Judge(Remembered(j.client), j.model) for name, j in self.judges.items()}
+        )
+
+
 class DecisionProgram(dspy.Module):
     def __init__(
         self,
@@ -382,6 +405,8 @@ class DecisionProgram(dspy.Module):
         model: str,
         execution: ExecutionConfig | None = None,
         trace: Path | None = None,
+        *,
+        models: Models | None = None,
     ):
         super().__init__()
         self.plan = plan
@@ -389,14 +414,21 @@ class DecisionProgram(dspy.Module):
         self.model = model
         self.execution = execution or ExecutionConfig()
         self.trace = trace
-        if client is None and any(isinstance(node, Call) for node in plan.nodes.values()):
+        self.models = models or Models()
+        if client is None and any(
+            isinstance(node, Call) and node.judge is None for node in plan.nodes.values()
+        ):
             raise ValueError("graphs containing calls require a TypeSafe client")
+        if missing := sorted(plan.judges() - self.models.judges.keys()):
+            raise ValueError(f"the graph asks judges no model was given for: {missing}")
         self.fallbacks = fallbacks(plan)
 
     def _ask(self, calls: list[tuple[str, Call]], state: dict) -> dict[str, tuple[dict, dict]]:
-        """Ask every call sharing one input object in a single request."""
+        """Ask every call sharing one input object and one judge in a single request."""
         questions = {key: node.question.model_dump() for key, node in calls}
-        response = self.client.system_one(state=state, questions=questions, model=self.model)
+        named = calls[0][1].judge
+        client, model = self.models.judges[named] if named else (self.client, self.model)
+        response = client.system_one(state=state, questions=questions, model=model)
         if set(response.answers) != set(questions):
             raise ResponseError("answer IDs do not match the requested question IDs")
         results = {}
@@ -408,7 +440,7 @@ class DecisionProgram(dspy.Module):
                 "input_tokens": response.usage.input_tokens if first else 0,
                 "output_tokens": response.usage.output_tokens if first else 0,
                 "request": sorted(questions),
-            }
+            } | ({"judge": named} if named else {})
             answer = calibrated(read_answer(node.question, response.answers[key]), node.temperature)
             results[key] = answer, usage
         return results
@@ -417,9 +449,9 @@ class DecisionProgram(dspy.Module):
         """Run a unit's graph on what it was handed, through the same engine, on the same
         judge. A unit whose graph could not answer is a unit that answered nothing."""
         try:
-            prediction = DecisionProgram(node.plan, self.client, self.model, self.execution)(
-                state=handed
-            )
+            prediction = DecisionProgram(
+                node.plan, self.client, self.model, self.execution, models=self.models
+            )(state=handed)
         except GraphExecutionError as failure:
             prediction = failure.prediction
         return {key: prediction}
@@ -500,7 +532,8 @@ class DecisionProgram(dspy.Module):
                         elif asks and needed == "wait":
                             deferred.append(key)
                         elif isinstance(node, Call):
-                            group = json.dumps(value, sort_keys=True)
+                            # One request per input and judge: a judge answers only its own.
+                            group = json.dumps([node.judge, value], sort_keys=True)
                             requests.setdefault(group, (value, []))[1].append((key, node))
                         elif isinstance(node, Graph):
                             delegations.append((key, node, value))

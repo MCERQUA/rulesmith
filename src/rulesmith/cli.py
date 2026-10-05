@@ -32,8 +32,8 @@ from rulesmith.optimize import (
     evaluate_plan,
     optimize_plan,
 )
-from rulesmith.rules import RuleError, render_rules
-from rulesmith.runtime import DecisionProgram, ExecutionConfig, Remembered
+from rulesmith.rules import NAME, RuleError, render_rules
+from rulesmith.runtime import DecisionProgram, ExecutionConfig, Judge, Models, Remembered
 from rulesmith.tuning import BASE, tune
 
 # The games load only for a task that plays one (see game), so a core install without their
@@ -198,6 +198,15 @@ def parser() -> argparse.ArgumentParser:
                 help="Score off an example per judge question, to prefer graphs that ask less",
             )
             command.add_argument(
+                "--judge-cost",
+                type=named_cost,
+                action="append",
+                default=[],
+                metavar="NAME=COST",
+                help="Score off an example per question to a named judge; a named judge without "
+                "one costs --call-cost",
+            )
+            command.add_argument(
                 "--keep-judge",
                 type=float,
                 help="Let rules answer without the judge only where they are right at least this "
@@ -281,6 +290,61 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
         "--retries", type=int, default=0, help="Retries for failed or timed-out judge requests"
     )
     command.add_argument("--max-workers", type=positive, default=ExecutionConfig().max_workers)
+    command.add_argument(
+        "--judge",
+        type=named_judge,
+        action="append",
+        default=[],
+        metavar="NAME=BACKEND[:MODEL][@URL]",
+        help="A judge the graph asks with 'using NAME', such as "
+        "large=ruling:qwen-35b@http://127.0.0.1:8012; repeat for each",
+    )
+
+
+def named_judge(text: str) -> tuple[str, str, str | None, str | None]:
+    """'large=ruling:qwen-35b@http://127.0.0.1:8012' as its name, backend, model and endpoint;
+    the model and endpoint default to the backend's own, as they do for the graph's judge."""
+    name, equals, rest = text.partition("=")
+    rest, at, url = rest.partition("@")
+    backend, _, model = rest.partition(":")
+    if not equals or not NAME.fullmatch(name) or backend not in BACKENDS or (at and not url):
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not NAME=BACKEND[:MODEL][@URL], with BACKEND one of {sorted(BACKENDS)}"
+        )
+    return name, backend, model or None, url or None
+
+
+def named_cost(text: str) -> tuple[str, float]:
+    name, equals, cost = text.partition("=")
+    if not equals or not NAME.fullmatch(name):
+        raise argparse.ArgumentTypeError(f"{text!r} is not NAME=COST, such as large=0.1")
+    try:
+        return name, float(cost)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(f"the cost in {text!r} is not a number") from error
+
+
+def named_judges(cli: argparse.ArgumentParser, args, stack: ExitStack, *plans) -> Models:
+    """A client for every judge named on the command line, once each graph's names are all there."""
+    given = {}
+    for name, backend, model, url in args.judge:
+        if name in given:
+            cli.error(f"--judge {name} is given twice")
+        given[name] = backend, model, url
+    for name in sorted(set().union(*(plan.judges() for plan in plans if plan)) - given.keys()):
+        cli.error(
+            f"the graph asks judge {name}; "
+            f"say which model with --judge {name}=BACKEND[:MODEL][@URL]"
+        )
+    judges = {}
+    for name, (backend, model, url) in given.items():
+        resolved, connection = resolve_backend(backend, model, url)
+        retry = RetryPolicy(max_retries=args.retries)
+        client = stack.enter_context(
+            TypeSafeClient(**connection, timeout=args.timeout, retry=retry)
+        )
+        judges[name] = Judge(client, resolved)
+    return Models(judges)
 
 
 def positive(text: str) -> int:
@@ -316,9 +380,11 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     states = [example.state for example in examples]
     calls = plan.asks()
     model, judge_client = judge(args, calls)
-    with judge_client as client:
+    with ExitStack() as stack:
+        client = stack.enter_context(judge_client)
+        models = named_judges(cli, args, stack, plan)
         execution = ExecutionConfig(max_workers=args.max_workers)
-        found = effects(plan, states, client if calls else None, model, execution)
+        found = effects(plan, states, client if calls else None, model, execution, models)
     report = {
         "states": len(states),
         "effects": [
@@ -356,9 +422,11 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         cli.error("the arena needs at least two entrants")
     model, judge_client = judge(args, any(plan.asks() for plan in plans.values()))
     execution = ExecutionConfig(max_workers=args.max_workers)
-    with judge_client as client:
+    with ExitStack() as stack:
+        client = stack.enter_context(judge_client)
+        models = named_judges(cli, args, stack, *plans.values())
         entrants = [
-            Entrant(name, DecisionProgram(plan, client, model, execution))
+            Entrant(name, DecisionProgram(plan, client, model, execution, models=models))
             for name, plan in plans.items()
         ]
         report = tournament(task, entrants, getattr(task, args.split))
@@ -454,14 +522,16 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     plan = read_plan(cli, args.plan, task)
     model, judge_client = judge(args, plan.asks())
     held_out = [e for e in task.validation if e.label is not None]
-    with judge_client as client:
+    with ExitStack() as stack:
+        client = stack.enter_context(judge_client)
         # Every pass asks the same questions; the later ones reread the first's answers.
         remembered = Remembered(client)
-        fitted, temperatures = calibrate(plan, task, remembered, model)
-        before = correct(fitted, held_out, remembered, model)
-        fitted, cutoffs = fit_cutoffs(fitted, task, remembered, model)
-        after = correct(fitted, held_out, remembered, model)
-        fitted = measure(fitted, task, remembered, model)
+        models = named_judges(cli, args, stack, plan).remembered()
+        fitted, temperatures = calibrate(plan, task, remembered, model, models)
+        before = correct(fitted, held_out, remembered, model, models)
+        fitted, cutoffs = fit_cutoffs(fitted, task, remembered, model, models)
+        after = correct(fitted, held_out, remembered, model, models)
+        fitted = measure(fitted, task, remembered, model, models)
     written = (
         render_rules(fitted, task.criteria())
         if args.output.suffix == ".rules"
@@ -640,6 +710,10 @@ def main() -> None:
             cli.error(f"output already exists: {args.output}{hint}")
         args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.command == "optimize":
+        named = {name for name, *_ in args.judge}
+        for name, _ in args.judge_cost:
+            if name not in named:
+                cli.error(f"--judge-cost {name} prices a judge no --judge names")
         config = SearchConfig(
             max_nodes=args.max_nodes,
             max_depth=args.max_depth,
@@ -650,6 +724,7 @@ def main() -> None:
             parallel_examples=args.parallel_examples,
             merges=args.merges,
             call_cost=args.call_cost,
+            call_costs=dict(args.judge_cost),
             significance=args.significance,
             mine=args.mine,
             keep_judge=args.keep_judge,
@@ -677,11 +752,12 @@ def main() -> None:
     )
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
+        models = named_judges(cli, args, stack, plan, opponent)
         score = scorer(args, task) if args.command in ("evaluate", "optimize") else None
         if deathmatch:
             from rulesmith.arena import Duels
 
-            score = Duels(task, DecisionProgram(opponent, client, model, execution))
+            score = Duels(task, DecisionProgram(opponent, client, model, execution, models=models))
         elif args.command != "run" and plays(task, "chess"):
             from rulesmith.chess import Engine, Games
 
@@ -689,7 +765,9 @@ def main() -> None:
                 rival = Engine(engine, args.engine_skill or 0, args.engine_seconds or 0.05)
                 score = Games(task, stack.enter_context(rival))
             else:
-                score = Games(task, DecisionProgram(opponent, client, model, execution))
+                score = Games(
+                    task, DecisionProgram(opponent, client, model, execution, models=models)
+                )
         elif args.command != "run" and plays(task, "doom"):
             from rulesmith.doom import DoomEnvironment, Episodes
 
@@ -698,7 +776,7 @@ def main() -> None:
             )
             score = Episodes(task, stack.enter_context(env))
         if args.command == "run":
-            prediction = DecisionProgram(plan, client, model, execution, args.trace)(
+            prediction = DecisionProgram(plan, client, model, execution, args.trace, models=models)(
                 state=json.loads(args.state.read_text())
             )
             print(dump(dict(prediction)), end="")
@@ -707,7 +785,7 @@ def main() -> None:
 
             from rulesmith.arena import duel
 
-            program = DecisionProgram(plan, client, model, execution)
+            program = DecisionProgram(plan, client, model, execution, models=models)
             frames, episodes = [], []
             for seed in args.seed:
                 if deathmatch:
@@ -727,6 +805,7 @@ def main() -> None:
                 score,
                 execution,
                 args.parallel_examples,
+                models,
             )
             report["split"] = args.split
             report["backend"] = args.backend
@@ -761,6 +840,7 @@ def main() -> None:
                     execution,
                     score,
                     run_dir=args.output / "search",
+                    models=models,
                 )
             report["backend"] = args.backend
             report["reflection_model"] = args.reflection_model
@@ -791,6 +871,7 @@ def main() -> None:
                             Labels(map_task),
                             execution,
                             args.parallel_examples,
+                            models,
                         )
                         scores[when] = scored["score"]
                     if scores["after"] < scores["before"]:

@@ -19,7 +19,11 @@ every flag.
 
 Every command that asks a judge (`run`, `evaluate`, `optimize`, `calibrate`,
 `arena`, `record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,
-`--retries` and `--max-workers`; see [backends](#backends). `draft-labels` calls
+`--retries` and `--max-workers`; see [backends](#backends). A graph whose
+judgments name another judge with `using <name>` also needs
+`--judge <name>=BACKEND[:MODEL][@URL]` for each, such as
+`--judge large=ruling:mlx-community/Qwen3.6-35B-A3B-4bit@http://127.0.0.1:8012`;
+the model and endpoint default to the backend's own. `draft-labels` calls
 a generative model instead, set with `--labeler-model` and `--labeler-base-url`.
 
 `optimize` has flags of its own for the search budget, the proposer, checkpoints
