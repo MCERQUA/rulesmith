@@ -227,3 +227,16 @@ def test_a_confidence_needs_a_judgment_that_reports_one(source):
     }
     with pytest.raises(ValueError, match="confidence"):
         Plan.model_validate(graph)
+
+
+@pytest.mark.parametrize(
+    "test", ["x > 5", "x >= 5", "x < 5", "x <= 5", "x == 5", "x > y", "x <= y"]
+)
+def test_a_comparison_with_a_reading_the_input_lacks_is_false(test):
+    from rulesmith.rules import compile_rules
+    from rulesmith.runtime import DecisionProgram
+
+    plan = compile_rules(f"read x in [0, 9]\nread y in [0, 9]\nwhen {test}: holds\nalways: not")
+    lacking = [{}, {"y": 3}] + ([{"x": 3}] if "y" in test else [])
+    for state in lacking:
+        assert DecisionProgram(plan, None, "none")(state=state).label == "not", (test, state)

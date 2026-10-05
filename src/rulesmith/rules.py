@@ -143,13 +143,11 @@ def path_of(read: Read) -> str:
 
 def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
     """One condition as rule text; reads appear as the paths they take."""
+    if (ordered := shorthand(condition)) is not None:
+        test, symbol = ordered
+        return render_comparison(test, symbol, reads, plan)
     if isinstance(condition, (Compare, Relation)):
-        against = (
-            name_of(condition.other, reads, plan)
-            if isinstance(condition, Relation)
-            else number(condition.value)
-        )
-        return f"{name_of(condition.node, reads, plan)} {SYMBOLS[condition.op]} {against}"
+        return render_comparison(condition, SYMBOLS[condition.op], reads, plan)
     if isinstance(condition, Present):
         return name_of(condition.node, reads, plan)
     if isinstance(condition, Not):
@@ -158,11 +156,44 @@ def render_condition(condition: Condition, reads: dict[str, Read], plan: Plan | 
     return joiner.join(group(part, reads, plan) for part in condition.conditions)
 
 
+def render_comparison(
+    test: Compare | Relation, symbol: str, reads: dict[str, Read], plan: Plan | None
+) -> str:
+    against = name_of(test.other, reads, plan) if isinstance(test, Relation) else number(test.value)
+    return f"{name_of(test.node, reads, plan)} {symbol} {against}"
+
+
+def shorthand(condition: Condition) -> tuple[Compare | Relation, str] | None:
+    """The '<=' or '>' a pair of tests spells out: '< and ==' joined by or, '>= and not =='
+    joined by and, on the same two sides; None for any other condition."""
+    if not isinstance(condition, (All, Any)) or len(condition.conditions) != 2:
+        return None
+    first, second = condition.conditions
+    if isinstance(condition, All) and isinstance(second, Not):
+        second, op, symbol = second.condition, "ge", ">"
+    elif isinstance(condition, Any):
+        op, symbol = "lt", "<="
+    else:
+        return None
+    pair = (first, second)
+    if not all(isinstance(test, (Compare, Relation)) for test in pair):
+        return None
+    same = type(first) is type(second) and first.node == second.node
+    other = (
+        (first.other == second.other)
+        if isinstance(first, Relation)
+        else (first.value == second.value)
+    )
+    if same and other and first.op == op and second.op == "eq":
+        return first, symbol
+    return None
+
+
 def group(condition: Condition, reads: dict[str, Read], plan: Plan | None = None) -> str:
     """One part of a longer condition. A group of its own needs parentheses, or reading it back
     would join it to its neighbors: 'a and (b or c)' is not 'a and b, or c'."""
     text = render_condition(condition, reads, plan)
-    return f"({text})" if isinstance(condition, (All, Any)) else text
+    return f"({text})" if isinstance(condition, (All, Any)) and not shorthand(condition) else text
 
 
 def name_of(node: str, reads: dict[str, Read], plan: Plan | None = None) -> str:
@@ -721,15 +752,16 @@ def parse_test(text: str, reads: dict, nodes: dict | None = None) -> dict:
     for symbol in ("<=", ">"):
         if (at := find_outside(text, f" {symbol} ")) >= 0:
             path, value = text[:at], text[at + len(symbol) + 2 :]
-            # A graph compares with '<', '>=' and '=='; the other two orderings are made of those.
-            below = {
-                "type": "any",
-                "conditions": [
-                    parse_test(f"{path.strip()} < {value.strip()}", reads, nodes),
-                    parse_test(f"{path.strip()} == {value.strip()}", reads, nodes),
-                ],
-            }
-            return below if symbol == "<=" else {"type": "not", "condition": below}
+
+            # A graph compares with '<', '>=' and '=='; the other two orderings are made of those,
+            # each false when a side is missing, as every comparison is.
+            below, equal, above = (
+                parse_test(f"{path.strip()} {part} {value.strip()}", reads, nodes)
+                for part in ("<", "==", ">=")
+            )
+            if symbol == "<=":
+                return {"type": "any", "conditions": [below, equal]}
+            return {"type": "all", "conditions": [above, {"type": "not", "condition": equal}]}
     for symbol, op in OPERATORS.items():
         if (at := find_outside(text, f" {symbol} ")) >= 0:
             path, value = text[:at], text[at + len(symbol) + 2 :]
