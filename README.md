@@ -229,9 +229,9 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-609 passed, 6 skipped in 363.04s (0:06:03)
+635 passed, 6 skipped in 341.43s (0:05:41)
 All checks passed!
-63 files already formatted
+67 files already formatted
 ```
 
 ## License
