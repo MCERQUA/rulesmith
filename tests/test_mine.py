@@ -211,8 +211,13 @@ def test_evidence_ranks_rules_by_how_far_they_beat_chance_and_reads_as_rules():
     assert evidence(task(noisy_reviews()).train) == found
 
 
-def test_the_proposer_is_shown_the_evidence_when_the_inputs_have_fields():
+def test_the_proposer_is_shown_the_evidence_only_when_asked():
+    # Counted on a sampled training set, the evidence over-fits its rate: on the jobs run it
+    # had search drop the judge and lose on the seeds that had been best. So it is opt-in.
     from rulesmith.optimize import SearchConfig, proposer_prompt
 
-    prompt = proposer_prompt(task(noisy_reviews()), SearchConfig())
-    assert "counted on the training examples" in prompt and "when rating" in prompt
+    quiet = proposer_prompt(task(noisy_reviews()), SearchConfig())
+    assert "Fields of the inputs" in quiet
+    assert "counted on the training examples" not in quiet and "when rating" not in quiet
+    told = proposer_prompt(task(noisy_reviews()), SearchConfig(evidence=True))
+    assert "counted on the training examples" in told and "when rating" in told

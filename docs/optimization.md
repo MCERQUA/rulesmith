@@ -15,11 +15,14 @@ evaluate and keep.
 2. **Reflect.** When the current graph misses a training example, `GraphProposer`
    (a `dspy.Predict` with plain-text `ChatAdapter` fields, which any chat
    endpoint accepts) gets the graph, the inputs, its outputs, and the expected
-   labels or episode rewards. Where the inputs have fields, it is also shown the
-   few rules the training examples support best, each with how often it held,
-   ranked by how many more examples it gets right than guessing its label would:
-   the same for every search on the same examples, so finding the rule the data
-   holds depends less on a lucky proposal. Search revises one part at a time:
+   labels or episode rewards. Where the inputs have fields, it is told what each
+   holds; with `--evidence`, it is also shown the few rules the training examples
+   support best, each with how often it held, ranked by how many more examples
+   it gets right than guessing its label would. That is the same for every search
+   on the same examples, so finding the rule the data holds depends less on a
+   lucky proposal, but the counts come from a sampled training set: on the
+   jobs postings it had search drop the judge and lose on the seeds that had
+   been best, so it is off unless asked for. Search revises one part at a time:
    **readings** holds reads and judgments; **rules** holds names, votes and the
    rules that decide. The proposer returns the replacement part, preserving
    references to nodes owned by the unchanged one.
@@ -54,6 +57,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--retries` | 0 | Retries for judge requests that fail or time out |
 | `--parallel-examples` | 1 | Examples scored at once; Doom allows more than 1 only for deathmatch tasks, whose duels each run their own games |
 | `--mine` | off | Before any proposal, mine rules that one field, or two together, settle (a star rating, a flag, an empty text by its length) from the training data, put them ahead of the starting graph so its judgments are asked only about what they leave, and start search there if that scores better on validation |
+| `--evidence` | off | Show the proposer the single-field rules the training examples support best, with how often each held. Counted on the training examples, so with a label sampled up it can over-fit the sample's rate; measure before leaving it on |
 | `--significance` | off | Keep the starting graph unless the winner's gain on validation passes a one-sided sign test at this level, so a candidate that was only lucky on a small validation set does not replace it |
 | `--call-cost` | 0 | Score taken off an example for each judge question it asks, so search prefers the graph that asks less when two answer alike |
 | `--judge-cost NAME=COST` | `--call-cost` | Score taken off for each question to a judge named with `--judge`, so search escalates to a dearer judge only where it pays |
