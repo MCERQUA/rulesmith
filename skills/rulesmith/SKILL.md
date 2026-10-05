@@ -80,6 +80,22 @@ the judge (`run`, `evaluate`, `optimize`, `calibrate`, `ablate`).
    After changing the judge, run `calibrate` and `evaluate` again and commit
    both.
 
+7. **Serve and watch it.** `serve` answers decisions over HTTP for a workflow to
+   call, appending each to a trace; `drift` checks those traces against what
+   the rules were calibrated on and exits 1 when a rule drifted.
+
+   ```sh
+   uv run rulesmith serve decisions/my-task --trace decisions.jsonl
+   uv run rulesmith drift decisions/my-task decisions.jsonl
+   ```
+
+   For a small judge that escalates to a large one, `distill` trains the small
+   judge on the large one's answers first:
+
+   ```sh
+   uv run rulesmith distill task.json --output runs/student --teacher clef
+   ```
+
 ## Editing rules
 
 Edit `.rules` files directly; they compile to the graph that runs.
