@@ -149,6 +149,8 @@ Rules compile to a validated graph that the runtime executes, and read back as
 the rules they came from: `optimize` saves both, and a `.rules` file runs
 anywhere a `plan.json` does, so you can edit what search wrote. The language,
 with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md).
+A judgment can be asked of a larger judge only when the small one is unsure,
+and a generative model can read fields out of free text for rules to test.
 Graphs compose: a decision can hand a case to another graph's unit, and many
 decisions become one map, validated across its hand-offs and searched a unit
 at a time; the first one is in [Maps](docs/maps.md).
@@ -223,9 +225,9 @@ uv run ruff check src tests && uv run ruff format --check src tests
 Output (the last line of pytest):
 
 ```text
-560 passed, 6 skipped in 416.46s (0:06:56)
+607 passed, 6 skipped in 406.91s (0:06:46)
 All checks passed!
-56 files already formatted
+63 files already formatted
 ```
 
 ## License

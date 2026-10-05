@@ -8,6 +8,7 @@ import pytest
 from conftest import chat_reply
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
+from rulesmith.extract import Extractor
 from rulesmith.graph import Condition, Node, Plan, Question, Source, Task
 from rulesmith.optimize import (
     GraphAdapter,
@@ -21,7 +22,7 @@ from rulesmith.optimize import (
     optimize_plan,
 )
 from rulesmith.rules import parts
-from rulesmith.runtime import DecisionProgram, ResponseError
+from rulesmith.runtime import DecisionProgram, Models, ResponseError
 
 
 def scripted(plan):
@@ -660,6 +661,13 @@ def every_construct_plan():
                 },
             },
             "priority": {"type": "read", "path": ["priority"], "categories": ["low", "high"]},
+            # A model reading a field out of the text, and a read of that field.
+            "details": {
+                "type": "extract",
+                "instructions": "What amount does the ticket name?",
+                "inputs": {"ticket": {"type": "state"}},
+            },
+            "amount": {"type": "read", "source": "details", "path": ["amount"], "bounds": [0, 1e4]},
             # A unit: another graph, handed the input, answering with its label.
             "policy": {
                 "type": "graph",
@@ -674,6 +682,7 @@ def every_construct_plan():
                 "type": "merge",
                 "inputs": {
                     "priority": {"type": "node", "node": "priority", "optional": True},
+                    "amount": {"type": "node", "node": "amount", "optional": True},
                     "policy_applied": ref("policy"),
                     "route": ref("route"),
                     "team": {"type": "node", "node": "team", "view": "answer"},
@@ -719,22 +728,23 @@ def test_dspy_proposals_can_use_the_whole_graph_language_in_real_search(provider
             "probabilities": {"billing": 0.8, "technical": 0.2},
         },
     }
-    proposer = GraphProposer(
-        dspy.LM(
-            "openai/fixture-model",
-            api_base=provider.url + "/v1",
-            api_key="test-placeholder",
-            cache=False,
-            num_retries=0,
-        )
+    lm = dspy.LM(
+        "openai/fixture-model",
+        api_base=provider.url + "/v1",
+        api_key="test-placeholder",
+        cache=False,
+        num_retries=0,
     )
     best, report = optimize_plan(
         Task.model_validate(data),
         Plan.model_validate(constant_plan()),
         client,
         "fixture-model",
-        proposer,
+        GraphProposer(lm),
         SearchConfig(max_metric_calls=4, reflection_batch=1),
+        # The extractor shares the proposer's endpoint, so it reads a proposal, fills no field,
+        # and the optional amount stays out of the summary.
+        models=Models(extractor=Extractor(lm)),
     )
     assert best == Plan.model_validate(graph)
     assert report["validation_score"] == 1.0

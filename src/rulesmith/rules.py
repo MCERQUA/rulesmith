@@ -19,6 +19,7 @@ from rulesmith.graph import (
     Compare,
     Condition,
     Confidence,
+    Extract,
     LiteralInput,
     NodeInput,
     Not,
@@ -135,6 +136,8 @@ def path_of(read: Read) -> str:
     if any(isinstance(part, str) and part.isdigit() for part in read.path):
         raise RuleError(f"the path {read.path!r} has a key made of digits, which reads as an index")
     path = ".".join(str(part) for part in read.path)
+    if read.source is not None:
+        return f"{read.source}.{path}"
     return f"{LENGTH}{path}" if read.measure == "length" else path
 
 
@@ -187,11 +190,10 @@ def render_rules(plan: Plan, labels: dict[str, str] | None = None) -> str:
             raise RuleError(f"output {output!r} is the whole input, which has no rule form")
     lines = []
     for name, read in reads.items():
-        domain = (
-            f"in [{number(read.bounds[0])}, {number(read.bounds[1])}]"
-            if read.bounds
-            else f"one of [{listed(read.categories, 'the category')}]"
-        )
+        # A field is declared with the extraction it belongs to.
+        if read.source is not None:
+            continue
+        domain = render_domain(read)
         named = "" if GENERATED.fullmatch(name) else f"{name} = "
         lines.append(f"read {named}{path_of(read)} {domain}")
     lines += declarations(plan, acting, reads, labels)
@@ -207,6 +209,12 @@ def render_rules(plan: Plan, labels: dict[str, str] | None = None) -> str:
             condition = render_condition(guard, reads, plan) if guard else None
             lines.append(f"{'when ' + condition if condition else 'always'}: {action}")
     return "\n".join(lines)
+
+
+def render_domain(read: Read) -> str:
+    if read.bounds:
+        return f"in [{number(read.bounds[0])}, {number(read.bounds[1])}]"
+    return f"one of [{listed(read.categories, 'the category')}]"
 
 
 def spine(plan: Plan, top: str) -> set[str]:
@@ -225,6 +233,9 @@ def declarations(
     dependencies, written, lines = plan.dependencies(), set(), []
 
     def declare(name: str) -> None:
+        # A field is named only once its extraction is declared, so that comes first.
+        if name in reads and reads[name].source is not None:
+            declare(reads[name].source)
         if name in written or name in reads or name in acting:
             return
         written.add(name)
@@ -252,6 +263,13 @@ def declaration(
     if isinstance(node, Call):
         gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
         return f"ask {name} = {render_action(node, reads, plan, labels).removeprefix('ask ')}{gate}"
+    if isinstance(node, Extract):
+        fields = ", ".join(
+            f"{field} {render_domain(read)}" for field, read in plan.fields(name).items()
+        )
+        gate = f" when {render_condition(node.when, reads, plan)}" if node.when is not None else ""
+        given = render_given(node, reads, plan)
+        return f"extract {name} = {quoted(node.instructions)} {{{fields}}}{given}{gate}"
     if isinstance(node, Vote):
         voters = ", ".join(name_of(source, reads, plan) for source in node.sources)
         return f"vote {name} = {node.rule} of [{voters}]"
@@ -333,7 +351,7 @@ def render_measured(node: Value | Threshold) -> str:
     return f" calibrated {measured.right}/{measured.decided} of {measured.examples}"
 
 
-def render_given(node: Call, reads: dict[str, Read], plan: Plan) -> str:
+def render_given(node: Call | Extract, reads: dict[str, Read], plan: Plan) -> str:
     """What a judgment is shown: nothing to say for the whole input, which rules call
     'observation', and otherwise each value by the name that is also its key."""
     if node.inputs == {WHOLE: StateInput()}:
@@ -446,6 +464,9 @@ def read_rule(
     if line.startswith("read "):
         declare_read(line[5:].strip(), nodes, names)
         return
+    if line.startswith("extract "):
+        declare_extraction(line[8:], nodes, names)
+        return
     if line.startswith("ask ") and "=" in line.split("[", 1)[0]:
         name, _, question = line[4:].partition("=")
         question, gate = split_gate(question.strip())
@@ -557,13 +578,7 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     node: dict = {"type": "read", "path": [int(p) if p.isdigit() else p for p in path.split(".")]}
     if measure == "length":
         node["measure"] = measure
-    if domain.startswith("in "):
-        low, high = json.loads(domain[3:].strip())
-        node["bounds"] = [low, high]
-    elif domain.startswith("one of "):
-        node["categories"] = [c.strip() for c in domain[7:].strip(" []").split(",")]
-    else:
-        raise RuleError(f"read {path} needs 'in [low, high]' or 'one of [a, b]'")
+    node |= parse_domain(path, domain)
     if alias:
         claim(alias.group(1), node, nodes, names)
         return
@@ -573,6 +588,67 @@ def declare_read(text: str, nodes: dict, names: dict) -> None:
     name = names.get(written) or fresh(base, nodes)
     nodes[name] = node
     names[written] = name
+
+
+def parse_domain(path: str, domain: str) -> dict:
+    """'in [low, high]' as bounds, or 'one of [a, b]' as categories."""
+    if domain.startswith("in "):
+        low, high = json.loads(domain[3:].strip())
+        return {"bounds": [low, high]}
+    if domain.startswith("one of "):
+        return {"categories": [c.strip() for c in domain[7:].strip(" []").split(",")]}
+    raise RuleError(f"{path} needs 'in [low, high]' or 'one of [a, b]'")
+
+
+EXTRACTION = re.compile(
+    r'(?P<name>\w+)\s*=\s*(?P<instructions>"(?:[^"\\]|\\.)*")\s*\{(?P<fields>[^}]*)\}'
+    r"(?:\s+given\s+\[(?P<given>[^\]]*)\])?(?:\s+when\s+(?P<gate>.+))?"
+)
+
+
+def declare_extraction(text: str, nodes: dict, names: dict) -> None:
+    """'claim = "instructions" {amount in [0, 100], kind one of [a, b]}', with a 'given' and a
+    'when' as a judgment may have: one extraction, and a reading of each field, which the rules
+    name as 'claim.amount'."""
+    found = EXTRACTION.fullmatch(text.strip())
+    if not found:
+        raise RuleError(
+            'an extraction reads \'extract name = "instructions" {field in [low, high], '
+            "field one of [a, b]}', optionally then 'given [...]' and 'when ...'"
+        )
+    name = found["name"]
+    node: dict = {
+        "type": "extract",
+        "instructions": json.loads(found["instructions"]),
+        "inputs": given_inputs(found["given"], names, nodes),
+    }
+    if found["gate"]:
+        node["when"] = parse_condition(found["gate"], names, nodes)
+    claim(name, node, nodes, names)
+    # Commas inside a field's brackets belong to its domain, not between fields.
+    for spec in re.findall(r"[^,\[]+\[[^\]]*\]", found["fields"]):
+        field, _, domain = spec.strip(" ,").partition(" ")
+        if not NAME.fullmatch(field):
+            raise RuleError(f"{field!r} is not a field name; use letters, digits and underscores")
+        read = {"type": "read", "source": name, "path": [field]} | parse_domain(
+            field, domain.strip()
+        )
+        written = f"{name}.{field}"
+        reading = names.get(written) or fresh(f"read_{name}_{field}", nodes)
+        nodes[reading] = read
+        names[written] = reading
+
+
+def given_inputs(listed: str | None, names: dict, nodes: dict) -> dict:
+    """What a judgment or an extraction is shown: the whole input, or each value named."""
+    if listed is None:
+        return {WHOLE: {"type": "state"}}
+    return {
+        name: {"type": "state"}
+        if name == WHOLE
+        else {"type": "node", "node": named(name, names, nodes)}
+        for name in (part.strip() for part in listed.split(","))
+    }
 
 
 def fresh(base: str, nodes: dict) -> str:
@@ -703,16 +779,9 @@ def parse_action(text: str, names: dict, nodes: dict, labels: dict[str, str] | N
             body = body[: using.start()]
             judge = {"judge": using.group(1)}
         given = re.search(r"\s+given\s+\[([^\]]*)\]\s*$", body)
-        inputs = {WHOLE: {"type": "state"}}
+        inputs = given_inputs(given.group(1) if given else None, names, nodes)
         if given:
             body = body[: given.start()]
-            listed = [name.strip() for name in given.group(1).split(",")]
-            inputs = {
-                name: {"type": "state"}
-                if name == WHOLE
-                else {"type": "node", "node": named(name, names, nodes)}
-                for name in listed
-            }
         tempered = re.search(r"\s+calibrated\s+(\S+)\s*$", body)
         temperature = {}
         if tempered:

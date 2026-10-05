@@ -20,6 +20,7 @@ from typesafe_sdk import RetryPolicy, TypeSafeClient
 from rulesmith.ablate import effects
 from rulesmith.calibrate import at_prevalence, calibrate, correct, drift, fit_cutoffs, measure
 from rulesmith.diagram import mermaid
+from rulesmith.extract import Extractor
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Graph, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
@@ -207,6 +208,12 @@ def parser() -> argparse.ArgumentParser:
                 "one costs --call-cost",
             )
             command.add_argument(
+                "--extract-cost",
+                type=float,
+                default=SearchConfig().extract_cost,
+                help="Score off an example per extraction it runs, to keep only those that pay",
+            )
+            command.add_argument(
                 "--keep-judge",
                 type=float,
                 help="Let rules answer without the judge only where they are right at least this "
@@ -299,6 +306,14 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
         help="A judge the graph asks with 'using NAME', such as "
         "large=ruling:qwen-35b@http://127.0.0.1:8012; repeat for each",
     )
+    command.add_argument(
+        "--extractor-model",
+        help="The generative model that fills a graph's 'extract' fields, as DSPy names it, "
+        "such as openai/qwen3.8-27b",
+    )
+    command.add_argument(
+        "--extractor-base-url", help="An OpenAI-compatible endpoint serving --extractor-model"
+    )
 
 
 def named_judge(text: str) -> tuple[str, str, str | None, str | None]:
@@ -324,8 +339,9 @@ def named_cost(text: str) -> tuple[str, float]:
         raise argparse.ArgumentTypeError(f"the cost in {text!r} is not a number") from error
 
 
-def named_judges(cli: argparse.ArgumentParser, args, stack: ExitStack, *plans) -> Models:
-    """A client for every judge named on the command line, once each graph's names are all there."""
+def graph_models(cli: argparse.ArgumentParser, args, stack: ExitStack, *plans) -> Models:
+    """The models the graphs ask beside their own judge: a client for every judge named on the
+    command line, once each name the graphs use is there, and the extractor, if one is given."""
     given = {}
     for name, backend, model, url in args.judge:
         if name in given:
@@ -344,7 +360,17 @@ def named_judges(cli: argparse.ArgumentParser, args, stack: ExitStack, *plans) -
             TypeSafeClient(**connection, timeout=args.timeout, retry=retry)
         )
         judges[name] = Judge(client, resolved)
-    return Models(judges)
+    if args.extractor_base_url and not args.extractor_model:
+        cli.error("--extractor-base-url needs an --extractor-model to send extractions to")
+    if not args.extractor_model:
+        if any(plan.extracts() for plan in plans if plan):
+            cli.error(
+                "the graph extracts fields; name the model that reads them with --extractor-model"
+            )
+        return Models(judges)
+    options = {"api_base": args.extractor_base_url} if args.extractor_base_url else {}
+    lm = dspy.LM(args.extractor_model, temperature=0, cache=False, num_retries=0, **options)
+    return Models(judges, Extractor(lm))
 
 
 def positive(text: str) -> int:
@@ -382,7 +408,7 @@ def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     model, judge_client = judge(args, calls)
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
-        models = named_judges(cli, args, stack, plan)
+        models = graph_models(cli, args, stack, plan)
         execution = ExecutionConfig(max_workers=args.max_workers)
         found = effects(plan, states, client if calls else None, model, execution, models)
     report = {
@@ -424,7 +450,7 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     execution = ExecutionConfig(max_workers=args.max_workers)
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
-        models = named_judges(cli, args, stack, *plans.values())
+        models = graph_models(cli, args, stack, *plans.values())
         entrants = [
             Entrant(name, DecisionProgram(plan, client, model, execution, models=models))
             for name, plan in plans.items()
@@ -526,7 +552,7 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         client = stack.enter_context(judge_client)
         # Every pass asks the same questions; the later ones reread the first's answers.
         remembered = Remembered(client)
-        models = named_judges(cli, args, stack, plan).remembered()
+        models = graph_models(cli, args, stack, plan).remembered()
         fitted, temperatures = calibrate(plan, task, remembered, model, models)
         before = correct(fitted, held_out, remembered, model, models)
         fitted, cutoffs = fit_cutoffs(fitted, task, remembered, model, models)
@@ -725,6 +751,7 @@ def main() -> None:
             merges=args.merges,
             call_cost=args.call_cost,
             call_costs=dict(args.judge_cost),
+            extract_cost=args.extract_cost,
             significance=args.significance,
             mine=args.mine,
             keep_judge=args.keep_judge,
@@ -752,7 +779,7 @@ def main() -> None:
     )
     with ExitStack() as stack:
         client = stack.enter_context(judge_client)
-        models = named_judges(cli, args, stack, plan, opponent)
+        models = graph_models(cli, args, stack, plan, opponent)
         score = scorer(args, task) if args.command in ("evaluate", "optimize") else None
         if deathmatch:
             from rulesmith.arena import Duels

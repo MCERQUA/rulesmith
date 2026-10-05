@@ -57,6 +57,7 @@ uv run rulesmith evaluate task.json runs/my-task/plan.json --split test \
 | `--significance` | off | Keep the starting graph unless the winner's gain on validation passes a one-sided sign test at this level, so a candidate that was only lucky on a small validation set does not replace it |
 | `--call-cost` | 0 | Score taken off an example for each judge question it asks, so search prefers the graph that asks less when two answer alike |
 | `--judge-cost NAME=COST` | `--call-cost` | Score taken off for each question to a judge named with `--judge`, so search escalates to a dearer judge only where it pays |
+| `--extract-cost` | 0 | Score taken off for each extraction a graph runs |
 | `--unit` | — | Search one unit of a map: the plan is the map, the task is the unit's own, search starts from the unit's graph, and the winner is placed back where the unit was and refused if the map's hand-offs no longer hold. The report's `unit` names it |
 | `--resume` | off | Continue the search checkpointed under `<output>/search`, to `--max-metric-calls`; a larger budget than before runs the same search on. The task and starting graph must be the ones it began with |
 | `--map-task` | — | With `--unit`: a labeled task for the whole map, scored on its validation examples with the old unit and the new; a winner that makes the map worse is refused, and the report's `unit.map_validation` records both scores |

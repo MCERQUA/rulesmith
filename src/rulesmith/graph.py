@@ -142,7 +142,9 @@ def references(value: JsonValue) -> set[str]:
         )
     for key in ("when", "condition", "conditions"):
         named.update(references(value.get(key)))
-    if kind in ("call", "merge") and isinstance(value.get("inputs"), dict):
+    if kind == "read" and isinstance(value.get("source"), str):
+        named.add(value["source"])
+    if kind in ("call", "merge", "extract") and isinstance(value.get("inputs"), dict):
         for source in value["inputs"].values():
             named.update(references(source))
     if kind == "graph":
@@ -309,10 +311,22 @@ class Sum(Guarded):
     constant: float = 0
 
 
+class Extract(Guarded):
+    """A generative model reading its inputs into fields: each field is a read of this node, with
+    the domain the model must answer in. A field it cannot fill, or fills outside that domain, is
+    absent, like an input's missing path."""
+
+    type: Literal["extract"] = "extract"
+    instructions: Text
+    inputs: dict[Text, Source] = Field(min_length=1)
+
+
 class Read(Guarded):
-    """A value taken from the original input by path, with its declared domain."""
+    """A value taken from the original input by path, with its declared domain; with `source`,
+    a field of that extraction instead."""
 
     type: Literal["read"] = "read"
+    source: Name | None = None
     path: list[str | int] = Field(min_length=1)
     bounds: tuple[float, float] | None = None
     categories: list[Text] | None = Field(default=None, min_length=1)
@@ -330,6 +344,8 @@ class Read(Guarded):
             raise ValueError("a length is a number, so its read declares bounds")
         if self.bounds is not None and self.bounds[0] > self.bounds[1]:
             raise ValueError("read bounds must be increasing")
+        if self.source is not None and (len(self.path) != 1 or self.measure != "value"):
+            raise ValueError("a field of an extraction is read by its name alone")
         return self
 
 
@@ -365,7 +381,18 @@ class Graph(Guarded):
 
 
 Node = Annotated[
-    Call | Switch | Threshold | Merge | Coalesce | Value | Read | Confidence | Vote | Sum | Graph,
+    Call
+    | Switch
+    | Threshold
+    | Merge
+    | Coalesce
+    | Value
+    | Read
+    | Extract
+    | Confidence
+    | Vote
+    | Sum
+    | Graph,
     Field(discriminator="type"),
 ]
 Domain = frozenset[str] | tuple[float, float] | None
@@ -387,8 +414,10 @@ class Plan(StrictModel):
         result = {}
         for key, node in self.nodes.items():
             refs = tested(node.when)
-            if isinstance(node, (Call, Merge)):
+            if isinstance(node, (Call, Merge, Extract)):
                 refs.update(s.node for s in node.inputs.values() if isinstance(s, NodeInput))
+            elif isinstance(node, Read) and node.source is not None:
+                refs.add(node.source)
             elif isinstance(node, (Switch, Threshold, Confidence)):
                 refs.add(node.source)
             elif isinstance(node, (Coalesce, Vote)):
@@ -409,6 +438,21 @@ class Plan(StrictModel):
         return {
             node.judge for node in self.nodes.values() if isinstance(node, Call) and node.judge
         }.union(*(node.plan.judges() for node in self.nodes.values() if isinstance(node, Graph)))
+
+    def extracts(self) -> bool:
+        """Whether running this graph asks an extractor, in it or in a unit of it."""
+        return any(
+            isinstance(node, Extract) or (isinstance(node, Graph) and node.plan.extracts())
+            for node in self.nodes.values()
+        )
+
+    def fields(self, extraction: str) -> dict[str, Read]:
+        """The fields read of an extraction, by name, in the order the graph declares them."""
+        return {
+            str(node.path[0]): node
+            for node in self.nodes.values()
+            if isinstance(node, Read) and node.source == extraction
+        }
 
     def asks(self) -> bool:
         """Whether running this graph asks a judge anything, in it or in a unit of it."""
@@ -480,7 +524,7 @@ class Plan(StrictModel):
                 return False
             if isinstance(node, Value):
                 return True
-            if isinstance(node, (Call, Merge)):
+            if isinstance(node, (Call, Merge, Extract)):
                 return all(given(source) for source in node.inputs.values())
             if isinstance(node, Coalesce) or (isinstance(node, Vote) and node.rule == "majority"):
                 runs = [self.nodes[source] for source in node.sources]
@@ -577,7 +621,7 @@ class Plan(StrictModel):
         dependencies = self.dependencies()
         sources = list(self.outputs.values())
         for node in self.nodes.values():
-            if isinstance(node, (Call, Merge)):
+            if isinstance(node, (Call, Merge, Extract)):
                 sources.extend(node.inputs.values())
             elif isinstance(node, Graph):
                 sources.append(node.input)
@@ -593,6 +637,12 @@ class Plan(StrictModel):
                 and not isinstance(self.nodes[source.node], Call)
             ):
                 raise ValueError("answer view requires a call node")
+        for key, node in self.nodes.items():
+            if isinstance(node, Read) and node.source is not None:
+                if not isinstance(self.nodes.get(node.source), Extract):
+                    raise ValueError(
+                        f"read {key!r} takes a field of {node.source!r}, not an extraction"
+                    )
         try:
             self.order()
         except CycleError as error:

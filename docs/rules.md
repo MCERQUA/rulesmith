@@ -262,6 +262,35 @@ use and what each costs.
 model, inside the server. Rules do the same per judgment, with a cutoff each
 rule can draw, and the scorecard shows which judge answered.
 
+## Reading fields out of free text
+
+A judge answers a question; it does not pull a value out of text. When the
+input is a message rather than a record, an extraction has a generative model
+read it into a few typed fields, and the rules test those fields as they would
+an input's own:
+
+```
+extract claim = "Read the refund request." {amount in [0, 10000], refund_asked one of [yes, no]}
+when claim.refund_asked == "yes" and claim.amount < 50: auto_refund
+always: review
+```
+
+Each field declares its domain the way a reading does. A field the model cannot
+fill, fills with something that is not a number, or fills outside its domain is
+absent, like a missing path, so the rules fall through to the next one. An
+extraction may end `given [...]` and `when <condition>` as a judgment may.
+
+```sh
+uv run rulesmith run graph.rules input.json \
+  --extractor-model openai/qwen3.8-27b --extractor-base-url http://127.0.0.1:8080/v1
+```
+
+The extractor is any model DSPy reaches, asked through a small typed DSPy
+program; each record is read once per run, and each call in a result names the
+fields it filled and what it cost. In search, `--extract-cost` prices an
+extraction, and the proposer is told the syntax only when an extractor is given.
+Whether extraction lifts accuracy on free text is not yet measured here.
+
 ## Worked examples
 
 One worked example of each, runnable from [examples](../examples), where each
@@ -549,6 +578,10 @@ always: MOVE_FORWARD
   labels, as in `ask intent = "Which intent is this?" [task labels]`, asks over
   every task label as the task's `descriptions` describe it. A choice over exactly
   those, in the task's order, is shown to the proposer in this short form.
+- **Extractions** read free text into fields:
+  `extract <name> = "what to read" {field in [low, high], field one of [a, b]}`,
+  optionally then `given [...]` and `when <condition>`. Rules test a field as
+  `<name>.<field>`, and a field the model could not fill within its domain is absent.
 - **Rules** are `when <condition>: <action>` or `always: <action>`, tried in order.
   An action is a label, a conditional such as
   `route.bearing >= 0 ? TURN_LEFT : TURN_RIGHT`, or an ask without a name, whose

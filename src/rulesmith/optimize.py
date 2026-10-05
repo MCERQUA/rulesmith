@@ -225,6 +225,12 @@ class SearchConfig(StrictModel):
         description="Score taken off per question asked of a named judge, by its name; a named "
         "judge not listed costs what a question to the graph's own judge does",
     )
+    extract_cost: float = Field(
+        default=0,
+        ge=0,
+        le=1,
+        description="Score taken off an example per extraction it ran",
+    )
     keep_judge: float | None = Field(
         default=None,
         gt=0,
@@ -265,6 +271,17 @@ def assemble(candidate: dict[str, str], labels: dict[str, str] | None = None) ->
         return whole(candidate, labels)
     except RuleError as error:
         raise ValueError(str(error)) from error
+
+
+OWN_JUDGE = "the judge"
+EXTRACTOR = "the extractor"
+
+
+def payer(call: dict) -> str:
+    """Who a recorded call was made to, as search's feedback names it."""
+    if "extracted" in call:
+        return EXTRACTOR
+    return f"judge {call['judge']}" if call.get("judge") else OWN_JUDGE
 
 
 class GraphAdapter(GEPAAdapter[object, dict, dict]):
@@ -346,27 +363,27 @@ class GraphAdapter(GEPAAdapter[object, dict, dict]):
         """An example's score less the price of the judge questions it asked, each at its own
         judge's price, and feedback that says so, since a proposer cannot lower a cost it is not
         told about."""
-        asked = Counter(call.get("judge") for call in outcome.record.get("calls", {}).values())
-        price = sum(count * self.price(judge) for judge, count in asked.items())
+        asked = Counter(payer(call) for call in outcome.record.get("calls", {}).values())
+        price = sum(count * self.price(paid) for paid, count in asked.items())
         if not price:
             return outcome.score, outcome.trace
         each = ", ".join(
-            f"{count} of {f'judge {judge}' if judge else 'the judge'} at {self.price(judge):g}"
-            for judge, count in sorted(asked.items(), key=lambda item: item[0] or "")
+            f"{count} call(s) to {paid} at {self.price(paid):g} each"
+            for paid, count in sorted(asked.items())
         )
         told = (
-            f" It asked {each} each, so it scores {max(0.0, outcome.score - price):g}; answer "
-            "from readings where they suffice, and ask a dearer judge only where it pays."
+            f" It made {each}, so it scores {max(0.0, outcome.score - price):g}; answer from "
+            "readings where they suffice, and pay for a dearer model only where it helps."
         )
         trace = outcome.trace | {"Feedback": outcome.trace.get("Feedback", "") + told}
         return max(0.0, outcome.score - price), trace
 
-    def price(self, judge: str | None) -> float:
-        return (
-            self.config.call_costs.get(judge, self.config.call_cost)
-            if judge
-            else self.config.call_cost
-        )
+    def price(self, paid: str) -> float:
+        if paid == EXTRACTOR:
+            return self.config.extract_cost
+        if paid == OWN_JUDGE:
+            return self.config.call_cost
+        return self.config.call_costs.get(paid.removeprefix("judge "), self.config.call_cost)
 
     def batch(self, candidate, outputs, scores, trajectories) -> EvaluationBatch:
         if trajectories is not None and self.proposed in candidate.values():
@@ -439,6 +456,19 @@ def text_only(task: SearchTask) -> str:
     )
 
 
+def extraction(config: SearchConfig, extracting: bool) -> str:
+    """How to have a model read fields out of free text, and what each extraction costs."""
+    if not extracting:
+        return ""
+    return (
+        "A model can read fields out of free text for the rules to test, which a judge cannot: "
+        "'extract NAME = \"what to read\" {amount in [0, 10000], kind one of [refund, bug]}', "
+        "then 'when NAME.amount >= 500' or 'NAME.kind == \"refund\"'. A field it cannot fill "
+        "within its domain is absent, like a missing reading. It may end 'given [...]' and "
+        f"'when ...' as a judgment may; each extraction costs {config.extract_cost:g}. "
+    )
+
+
 def escalating(config: SearchConfig, judges: Sequence[str]) -> str:
     """The judges besides the graph's own, and what a question to each costs."""
     if not judges:
@@ -456,9 +486,12 @@ def escalating(config: SearchConfig, judges: Sequence[str]) -> str:
     )
 
 
-def proposer_prompt(task: SearchTask, config: SearchConfig, judges: Sequence[str] = ()) -> str:
+def proposer_prompt(
+    task: SearchTask, config: SearchConfig, judges: Sequence[str] = (), extracting: bool = False
+) -> str:
     """Everything the proposer is told: the language, the task, and the part to return. Named
-    `judges` are the ones besides the graph's own that a judgment may be asked of."""
+    `judges` are the ones besides the graph's own that a judgment may be asked of; `extracting`
+    says a model is there to read fields out of free text."""
     syntax_example = Plan.model_validate(
         {
             "nodes": {
@@ -563,6 +596,7 @@ def proposer_prompt(task: SearchTask, config: SearchConfig, judges: Sequence[str
         "that it is true, tested 'winning >= 0.8'. "
         f"{every_label}"
         f"{escalating(config, judges)}"
+        f"{extraction(config, extracting)}"
         "Ask for a probability when a threshold "
         "suits the decision, and for labels when the answers have no order. Any judgment may "
         "end 'when <condition>' to be asked only then, which is how a costly question is kept "
@@ -720,7 +754,8 @@ def optimize_plan(
         adapter.proposed = proposal
         return proposal
 
-    prompt = proposer_prompt(task, config, sorted((models or Models()).judges))
+    given = models or Models()
+    prompt = proposer_prompt(task, config, sorted(given.judges), given.extractor is not None)
 
     def propose(candidate, reflective_dataset, components_to_update):
         return {

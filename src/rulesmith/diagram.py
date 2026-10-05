@@ -6,6 +6,7 @@ from rulesmith.graph import (
     Call,
     Coalesce,
     Confidence,
+    Extract,
     Graph,
     Merge,
     NodeInput,
@@ -24,6 +25,7 @@ from rulesmith.rules import GENERATED, name_of, number, path_of, render_conditio
 SHAPES = {
     Read: ("[/", "/]"),
     Call: ("{{", "}}"),
+    Extract: ("{{", "}}"),
     Threshold: ("[", "]"),
     Switch: ("[", "]"),
     Merge: ("[", "]"),
@@ -36,7 +38,7 @@ SHAPES = {
 # Colors by what a node costs to run, with dark text so each reads on a light or dark page: the
 # judge is the one place a model is asked, whichever backend runs the graph.
 KINDS = {
-    "judge": (Call,),
+    "judge": (Call, Extract),
     "read": (Read,),
     "rule": (Value, Threshold),
     "unit": (Graph,),
@@ -60,6 +62,9 @@ def label(name: str, node) -> str:
         named += f", asked of {node.judge}" if node.judge else ""
         question = shorten(node.question.instructions, 48, placeholder="...")
         return f"{named}<br/>{node.question.type}: {question}"
+    if isinstance(node, Extract):
+        # A model call too, so it wears the judge's color; what it does is read, not judge.
+        return f"extract: {name}<br/>{shorten(node.instructions, 48, placeholder='...')}"
     if isinstance(node, Threshold):
         return f"{name}: >= {number(node.cutoff)} ? {node.above} : {node.below}"
     if isinstance(node, Value):
@@ -194,8 +199,10 @@ def draw(
 
 def feeds(node) -> set[str]:
     """The nodes whose values this one consumes, ignoring the ones its guard mentions."""
-    if isinstance(node, (Call, Merge)):
+    if isinstance(node, (Call, Merge, Extract)):
         return {source.node for source in node.inputs.values() if isinstance(source, NodeInput)}
+    if isinstance(node, Read) and node.source is not None:
+        return {node.source}
     if isinstance(node, (Coalesce, Vote)):
         return set(node.sources)
     if isinstance(node, (Switch, Threshold, Confidence)):

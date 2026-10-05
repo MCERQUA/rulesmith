@@ -3,7 +3,7 @@
 import hashlib
 import json
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -31,6 +31,7 @@ from rulesmith.graph import (
     Compare,
     Condition,
     Confidence,
+    Extract,
     Graph,
     LiteralInput,
     Merge,
@@ -196,6 +197,8 @@ def resolve_inputs(inputs: dict[str, Source], state: State, values: dict, answer
 
 
 def read_path(node: Read, state: State):
+    if state is MISSING:
+        return MISSING
     value = state
     for step in node.path:
         if isinstance(step, int) and isinstance(value, list) and -len(value) <= step < len(value):
@@ -229,6 +232,8 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
         return deepcopy(node.value)
     if isinstance(node, Merge):
         return resolve_inputs(node.inputs, state, values, answers)
+    if isinstance(node, Extract):
+        return resolve_inputs(node.inputs, state, values, answers)
     if isinstance(node, Call):
         inputs = resolve_inputs(node.inputs, state, values, answers)
         if inputs is MISSING or node.briefing is None:
@@ -256,7 +261,8 @@ def resolve_node(node: Node, state: State, values: dict, answers: dict, suppress
             return MISSING
         return node.constant + sum(term.weight * values[term.node] for term in node.terms)
     if isinstance(node, Read):
-        return read_path(node, state)
+        # A field is read from what its extraction filled, absent when the extraction never ran.
+        return read_path(node, state if node.source is None else values.get(node.source, MISSING))
     if isinstance(node, Confidence):
         # A probability answer is its own confidence, so there is nothing separate to report.
         answer = answers.get(node.source)
@@ -377,6 +383,13 @@ def digest(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+class Extracted(NamedTuple):
+    """What an extraction filled, and what the call to fill it cost."""
+
+    fields: dict
+    usage: dict
+
+
 class Judge(NamedTuple):
     """A judge a graph names: the client that reaches it and the model it asks for."""
 
@@ -389,12 +402,14 @@ class Models:
     """The models a graph may ask beside its own judge, each under the name the graph uses."""
 
     judges: Mapping[str, Judge] = field(default_factory=dict)
+    # Called with an extraction's instructions, its fields and its input; answers the fields it
+    # could fill and the call's usage. rulesmith.extract.Extractor is the one the CLI builds.
+    extractor: Callable[[str, dict[str, Read], State], tuple[dict, dict]] | None = None
 
     def remembered(self) -> "Models":
         """The same models, each answering a question about an input once."""
-        return Models(
-            {name: Judge(Remembered(j.client), j.model) for name, j in self.judges.items()}
-        )
+        judges = {name: Judge(Remembered(j.client), j.model) for name, j in self.judges.items()}
+        return Models(judges, self.extractor)
 
 
 class DecisionProgram(dspy.Module):
@@ -421,6 +436,8 @@ class DecisionProgram(dspy.Module):
             raise ValueError("graphs containing calls require a TypeSafe client")
         if missing := sorted(plan.judges() - self.models.judges.keys()):
             raise ValueError(f"the graph asks judges no model was given for: {missing}")
+        if plan.extracts() and self.models.extractor is None:
+            raise ValueError("the graph extracts fields, so it needs an extractor model")
         self.fallbacks = fallbacks(plan)
 
     def _ask(self, calls: list[tuple[str, Call]], state: dict) -> dict[str, tuple[dict, dict]]:
@@ -455,6 +472,10 @@ class DecisionProgram(dspy.Module):
         except GraphExecutionError as failure:
             prediction = failure.prediction
         return {key: prediction}
+
+    def _extract(self, key: str, node: Extract, handed) -> dict[str, "Extracted"]:
+        fields = self.plan.fields(key)
+        return {key: Extracted(*self.models.extractor(node.instructions, fields, handed))}
 
     def _settle_unit(self, key: str, prediction, values: dict, answers: dict, calls, units):
         """A unit's answer is its graph's chosen output, and its judgments and calls are
@@ -525,7 +546,7 @@ class DecisionProgram(dspy.Module):
                         needed = (
                             "ask" if stuck else demand(self.fallbacks.get(key), values, settled)
                         )
-                        asks = isinstance(node, (Call, Graph))
+                        asks = isinstance(node, (Call, Graph, Extract))
                         if value is MISSING or (asks and needed == "skip"):
                             done(key)
                             progressed = True
@@ -535,7 +556,7 @@ class DecisionProgram(dspy.Module):
                             # One request per input and judge: a judge answers only its own.
                             group = json.dumps([node.judge, value], sort_keys=True)
                             requests.setdefault(group, (value, []))[1].append((key, node))
-                        elif isinstance(node, Graph):
+                        elif isinstance(node, (Graph, Extract)):
                             delegations.append((key, node, value))
                         else:
                             values[key] = value
@@ -548,7 +569,8 @@ class DecisionProgram(dspy.Module):
                             deferred.extend(key for key, _ in group)
                     for key, node, handed in delegations:
                         if len(running) < self.execution.max_workers:
-                            running[pool.submit(self._delegate, key, node, handed)] = key
+                            work = self._extract if isinstance(node, Extract) else self._delegate
+                            running[pool.submit(work, key, node, handed)] = key
                         else:
                             deferred.append(key)
                     ready = deferred
@@ -561,6 +583,8 @@ class DecisionProgram(dspy.Module):
                         for key, result in sorted(future.result().items()):
                             if isinstance(result, dspy.Prediction):
                                 self._settle_unit(key, result, values, answers, calls, units)
+                            elif isinstance(result, Extracted):
+                                values[key], calls[key] = result.fields, result.usage
                             else:
                                 answer, usage = result
                                 answers[key], calls[key] = answer, usage
