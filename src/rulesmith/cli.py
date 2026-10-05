@@ -67,6 +67,11 @@ BACKENDS = {
     "ruling": Backend(
         "default", "RULING_BASE_URL", "RULING_API_KEY", "http://127.0.0.1:8010", "local-no-auth"
     ),
+    # Cloudflare's Clef-flash, served on this machine by the MLX port's own clef_mlx.py, which
+    # answers the same /v1/systemone requests, one at a time, with no key.
+    "clef": Backend(
+        "clef-flash", "CLEF_BASE_URL", "CLEF_API_KEY", "http://127.0.0.1:8000", "local-no-auth"
+    ),
 }
 
 

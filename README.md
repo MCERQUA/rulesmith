@@ -76,9 +76,11 @@ uv sync --locked
 ## Quickstart
 
 Pick a judge: TypeSafe's hosted Jev (`export TYPESAFE_API_KEY=<your key>`; it is
-the default backend), or [Ruling](https://github.com/bradAGI/ruling) on your own
+the default backend), [Ruling](https://github.com/bradAGI/ruling) on your own
 Mac (`uv run --directory ../ruling ruling serve`, then add
-`--backend ruling --max-workers 1` to each command below). Point the proposer,
+`--backend ruling --max-workers 1` to each command below), or Cloudflare's
+Clef-flash on your own Mac (`--backend clef --max-workers 1`; see
+[backends](docs/cli.md#backends)). Point the proposer,
 the model that writes graphs, at any OpenAI-compatible server:
 
 ```sh

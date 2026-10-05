@@ -673,3 +673,20 @@ def test_calibrating_a_graph_that_asks_nothing_needs_no_judge(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "calibrated" in output.read_text()
+
+
+def test_clef_flash_is_a_backend_reached_like_ruling(tmp_path, provider):
+    from rulesmith.cli import resolve_backend
+
+    # Its own server, from the MLX port, answers on this machine at port 8000 with no key.
+    assert resolve_backend("clef") == (
+        "clef-flash",
+        {"base_url": "http://127.0.0.1:8000", "api_key": "local-no-auth"},
+    )
+    provider.body["answers"] = {"rule_1": {"type": "noul", "noul": 0.9}}
+    rules = tmp_path / "graph.rules"
+    rules.write_text('always: ask "Is a refund requested?"\n')
+    state = write(tmp_path / "state.json", "Refund me.")
+    result = invoke("run", rules, state, "--backend", "clef", "--base-url", provider.url)
+    assert result.returncode == 0, result.stderr
+    assert provider.requests[0][1]["model"] == "clef-flash"

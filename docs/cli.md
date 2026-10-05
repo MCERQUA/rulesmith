@@ -104,9 +104,20 @@ file the console's production panel reads.
 | --- | --- | --- | --- | --- |
 | Jev (hosted) | `--backend typesafe` (default) | `jev-latest`, or `--model` | `TYPESAFE_BASE_URL`, default `https://api.typesafe.ai` | `TYPESAFE_API_KEY` |
 | Ruling (local) | `--backend ruling` | whatever Ruling serves | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
+| Clef-flash (local) | `--backend clef` | `clef-flash` | `CLEF_BASE_URL`, default `http://127.0.0.1:8000` | none |
 
 Jev answers requests in parallel, so the default `--max-workers 4` applies;
-Ruling serializes them, so use `--max-workers 1`. A Ruling judge fine-tuned on
+Ruling and Clef-flash serialize them, so use `--max-workers 1`. Clef-flash is
+Cloudflare's trained 9B decision model, served on your own Mac by its
+[MLX port](https://huggingface.co/mlx-community/clef-flash-4bit)'s own server,
+which answers the same requests rulesmith sends:
+
+```sh
+cd "$(huggingface-cli download mlx-community/clef-flash-4bit)"
+uv run --no-project --with mlx==0.32.3 --with mlx-lm==0.32.0 --with mlx-vlm==0.7.4 \
+  python clef_mlx.py serve --port 8000
+uv run rulesmith run graph.rules input.json --backend clef --max-workers 1
+``` A Ruling judge fine-tuned on
 your labels is served (`RULING_ADAPTER`) and asked the same way, and
 `rulesmith tune task.json --output tuning` makes one: it writes the records
 Ruling's trainer reads, every training and validation example asked the direct
