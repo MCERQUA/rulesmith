@@ -44,7 +44,7 @@ from rulesmith.runtime import (
     digest,
 )
 from rulesmith.serve import make_server
-from rulesmith.tuning import BASE, tune
+from rulesmith.tuning import BASE, FILES, taught, tune
 
 # The games load only for a task that plays one (see game), so a core install without their
 # packages still validates and runs every other graph.
@@ -248,25 +248,40 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Draw each unit as one box rather than opening it, so a map reads as a map",
     )
-    tuning = commands.add_parser(
-        "tune", help="Fine-tune the judge on a task's examples with Ruling, test split held out"
-    )
-    tuning.add_argument("task", type=Path)
-    tuning.add_argument(
-        "--output", type=Path, required=True, help="Directory for the records and the adapter"
-    )
-    tuning.add_argument(
-        "--ruling-dir",
-        type=Path,
-        default=Path(os.environ.get("RULING_DIR", "../ruling")),
-        help="A Ruling checkout (default: $RULING_DIR, else ../ruling)",
-    )
-    tuning.add_argument("--base", default=BASE, help="The model the adapter is trained on")
-    tuning.add_argument(
-        "train_args",
-        nargs="*",
-        help="Anything after -- goes to `ruling train` and overrides the recipe",
-    )
+    for name, summary in (
+        ("tune", "Fine-tune the judge on a task's examples with Ruling, test split held out"),
+        (
+            "distill",
+            "Fine-tune the judge on a larger model's answers to a task's inputs, labeled or not",
+        ),
+    ):
+        tuning = commands.add_parser(name, help=summary)
+        tuning.add_argument("task", type=Path)
+        tuning.add_argument(
+            "--output", type=Path, required=True, help="Directory for the records and the adapter"
+        )
+        tuning.add_argument(
+            "--ruling-dir",
+            type=Path,
+            default=Path(os.environ.get("RULING_DIR", "../ruling")),
+            help="A Ruling checkout (default: $RULING_DIR, else ../ruling)",
+        )
+        tuning.add_argument("--base", default=BASE, help="The model the adapter is trained on")
+        if name == "distill":
+            tuning.add_argument(
+                "--teacher",
+                type=judge_spec,
+                required=True,
+                metavar="BACKEND[:MODEL][@URL]",
+                help="The judge whose answers the student learns, such as "
+                "clef or ruling:qwen-35b@http://127.0.0.1:8012",
+            )
+            tuning.add_argument("--timeout", type=float, default=60)
+        tuning.add_argument(
+            "train_args",
+            nargs="*",
+            help="Anything after -- goes to `ruling train` and overrides the recipe",
+        )
     ablation = commands.add_parser(
         "ablate", help="Measure what each reading, judgment and name in a graph is worth"
     )
@@ -339,17 +354,24 @@ def provider_arguments(command: argparse.ArgumentParser) -> None:
     )
 
 
-def named_judge(text: str) -> tuple[str, str, str | None, str | None]:
-    """'large=ruling:qwen-35b@http://127.0.0.1:8012' as its name, backend, model and endpoint;
-    the model and endpoint default to the backend's own, as they do for the graph's judge."""
-    name, equals, rest = text.partition("=")
-    rest, at, url = rest.partition("@")
+def judge_spec(text: str) -> tuple[str, str | None, str | None]:
+    """'ruling:qwen-35b@http://127.0.0.1:8012' as its backend, model and endpoint; the model
+    and endpoint default to the backend's own, as they do for the graph's judge."""
+    rest, at, url = text.partition("@")
     backend, _, model = rest.partition(":")
-    if not equals or not NAME.fullmatch(name) or backend not in BACKENDS or (at and not url):
+    if backend not in BACKENDS or (at and not url):
         raise argparse.ArgumentTypeError(
-            f"{text!r} is not NAME=BACKEND[:MODEL][@URL], with BACKEND one of {sorted(BACKENDS)}"
+            f"{text!r} is not BACKEND[:MODEL][@URL], with BACKEND one of {sorted(BACKENDS)}"
         )
-    return name, backend, model or None, url or None
+    return backend, model or None, url or None
+
+
+def named_judge(text: str) -> tuple[str, str, str | None, str | None]:
+    """'large=ruling:qwen-35b@http://127.0.0.1:8012' as its name, and the judge it names."""
+    name, equals, rest = text.partition("=")
+    if not equals or not NAME.fullmatch(name):
+        raise argparse.ArgumentTypeError(f"{text!r} is not NAME=BACKEND[:MODEL][@URL]")
+    return name, *judge_spec(rest)
 
 
 def cost_arguments(command: argparse.ArgumentParser) -> None:
@@ -761,13 +783,26 @@ def main() -> None:
     if args.command == "draw":
         print(mermaid(read_plan(cli, args.plan), closed=args.closed))
         return
-    if args.command == "tune":
+    if args.command in ("tune", "distill"):
         task = load_task(cli, args.task)
         if not isinstance(task, Task):
-            cli.error("tune needs a labeled task; a game has no labels to tune on")
+            cli.error(f"{args.command} needs a task's inputs; a game has none to learn from")
         extra = list(args.train_args)
         try:
-            report = tune(task, args.output, args.ruling_dir, args.base, extra)
+            if args.command == "distill":
+                # Refused before the teacher is paid, and the teacher asked before anything is
+                # written, so a teacher that cannot answer leaves no half-made tuning set.
+                taken = [args.output / f"{name}.jsonl" for name in FILES]
+                if any(path.exists() for path in taken):
+                    cli.error(f"already exists: {args.output}; distill into a new directory")
+                backend, model, url = args.teacher
+                teacher, connection = resolve_backend(backend, model, url)
+                with TypeSafeClient(**connection, timeout=args.timeout) as client:
+                    found = taught(task, client, teacher)
+                report = tune(task, args.output, args.ruling_dir, args.base, extra, found)
+                report["teacher"] = teacher
+            else:
+                report = tune(task, args.output, args.ruling_dir, args.base, extra)
         except (FileExistsError, FileNotFoundError) as error:
             cli.error(str(error))
         except subprocess.CalledProcessError as error:

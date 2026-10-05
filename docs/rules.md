@@ -299,6 +299,20 @@ use and what each costs. `calibrate` takes the same prices to place the
 escalation line where escalating pays; see
 [what a judgment can be](#what-a-judgment-can-be).
 
+The small judge is worth most when it agrees with the large one. `rulesmith
+distill` trains it on the large judge's answers to the task's inputs, labeled
+or not: the teacher is asked the task's direct question, and its probabilities,
+doubt included, become the student's targets through Ruling's trainer, with
+the test split held out as `tune` holds it:
+
+```sh
+uv run rulesmith distill task.json --output runs/student \
+  --teacher ruling:mlx-community/Qwen3.6-35B-A3B-4bit@http://127.0.0.1:8012
+```
+
+Serve the adapter it reports as the graph's own judge, and the large one
+answers only what the student is unsure of.
+
 [Ruling](https://github.com/bradAGI/ruling) can also escalate on its own, with
 `RULING_CASCADE_TO`: every question below one confidence goes to a second
 model, inside the server. Rules do the same per judgment, with a cutoff each

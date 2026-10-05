@@ -99,3 +99,89 @@ def test_tune_refuses_a_game_an_existing_output_and_a_missing_checkout(tmp_path)
     assert (tmp_path / "b" / "train.jsonl").exists()
     again = invoke("tune", task, "--output", tmp_path / "b", "--ruling-dir", checkout)
     assert again.returncode != 0 and "already exists" in again.stderr
+
+
+def teach(provider, sure: float = 0.8):
+    """A teacher that leans `accept` as sure as told, whatever it is asked about."""
+    provider.answers = {
+        "label": {
+            "type": "choice",
+            "choice": "accept",
+            "probabilities": {"accept": sure, "review": 1 - sure},
+            "confidence": sure,
+        }
+    }
+
+
+def test_distilled_records_carry_the_teachers_probabilities_and_teach_from_unlabeled_inputs(
+    provider, client
+):
+    from rulesmith.tuning import taught
+
+    teach(provider)
+    task = labeled_task().model_copy(deep=True)
+    task.train[0].label = None
+    found = taught(task, client, "teacher")
+    assert len(found["train"]) == 7 and len(found["holdout"]) == 3
+    targets = [r["references"]["label"]["target"] for r in found["train"]]
+    assert all(t == {"accept": 0.8, "review": pytest.approx(0.2)} for t in targets)
+    # A gold label stays the label, so validation measures the student against the truth;
+    # an unlabeled input takes the teacher's answer.
+    assert found["train"][0]["labels"]["label"] == "accept"
+    assert found["train"][1]["labels"]["label"] == task.train[1].label
+
+
+RULING = pathlib.Path(__file__).resolve().parents[2] / "ruling"
+
+
+@pytest.mark.skipif(not (RULING / "pyproject.toml").exists(), reason="no Ruling checkout beside")
+def test_ruling_reads_a_distilled_record_as_the_teachers_probabilities(tmp_path, provider, client):
+    import subprocess
+
+    from rulesmith.tuning import taught
+
+    teach(provider, 0.7)
+    path = tmp_path / "train.jsonl"
+    path.write_text(json.dumps(taught(labeled_task(), client, "teacher")["train"][0]) + "\n")
+    script = (
+        "import sys, json\n"
+        "from ruling.evals import load_dataset\n"
+        "from ruling.train import target_vector\n"
+        "(record,) = load_dataset(__import__('pathlib').Path(sys.argv[1]))\n"
+        "print(json.dumps(target_vector(record, 'label')))\n"
+    )
+    read = subprocess.run(
+        ["uv", "run", "--directory", str(RULING), "python", "-c", script, str(path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(read.stdout.strip().splitlines()[-1]) == {
+        "accept": 0.7,
+        "review": pytest.approx(0.3),
+    }
+
+
+def test_distill_asks_the_teacher_and_hands_ruling_the_soft_targets(tmp_path, provider):
+    teach(provider)
+    checkout = fake_ruling(tmp_path)
+    task = write(tmp_path / "task.json", labeled_task().model_dump(mode="json"))
+    out = tmp_path / "distilled"
+    result = invoke(
+        "distill",
+        task,
+        "--output",
+        out,
+        "--ruling-dir",
+        checkout,
+        "--teacher",
+        f"ruling:big-model@{provider.url}",
+    )
+    assert result.returncode == 0, result.stderr
+    asked = [body for path, body in provider.requests if path == "/v1/systemone"]
+    assert len(asked) == 7 and {body["model"] for body in asked} == {"big-model"}
+    argv = (checkout / "argv.txt").read_text().splitlines()
+    assert argv[0] == "train" and argv[argv.index("--data") + 1] == str(out / "train.jsonl")
+    first = json.loads((out / "train.jsonl").read_text().splitlines()[0])
+    assert first["references"]["label"]["target"]["accept"] == 0.8
+    assert json.loads(result.stdout)["teacher"] == "big-model"

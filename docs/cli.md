@@ -18,6 +18,7 @@ every flag.
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 | `tune` | Fine-tune the judge on a task's examples with Ruling, test split held out |
+| `distill` | Fine-tune the judge on a larger model's answers to a task's inputs, labeled or not, as soft targets |
 
 Every command that asks a judge (`run`, `evaluate`, `optimize`, `calibrate`,
 `arena`, `record`, `ablate`) takes `--backend`, `--model`, `--base-url`, `--timeout`,

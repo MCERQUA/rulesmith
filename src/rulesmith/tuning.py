@@ -8,7 +8,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from rulesmith.graph import Task
+from rulesmith.graph import Choice, Task
+from rulesmith.runtime import read_answer
 
 FILES = ("train", "holdout")
 # What the benchmark validated for a hundred examples: a light tune, the best of ten validation
@@ -39,14 +40,39 @@ def records(task: Task) -> dict[str, list[dict]]:
     }
 
 
-def export(task: Task, directory: Path) -> dict:
-    """Write the task's records under `directory` and say what was written and how to train
-    on it. Nothing is overwritten: a tuning set is an input to a run worth keeping."""
+def taught(task: Task, teacher, model: str) -> dict[str, list[dict]]:
+    """The task's training and validation inputs, labeled or not, each asked the direct question
+    of a teacher, whose probabilities become the record's soft target: the student learns the
+    teacher's judgment, its doubt included. A gold label stays the record's label, so the
+    trainer's validation measures the student against the truth; an unlabeled input takes the
+    teacher's choice. The holdout is the test split, as for tuning."""
+    question = direct_question(task)
+    asked = Choice.model_validate(question)
+    found = []
+    for example in [*task.train, *task.validation]:
+        response = teacher.system_one(
+            state=example.state, questions={"label": question}, model=model
+        )
+        answer = read_answer(asked, response.answers["label"])
+        found.append(
+            {
+                "state": example.state,
+                "questions": {"label": question},
+                "labels": {"label": example.label or answer["value"]},
+                "references": {"label": {"target": answer["probabilities"]}},
+            }
+        )
+    return {"train": found, "holdout": records(task)["holdout"]}
+
+
+def export(task: Task, directory: Path, found: dict[str, list[dict]] | None = None) -> dict:
+    """Write the task's records, or the `found` ones, under `directory` and say what was
+    written. Nothing is overwritten: a tuning set is an input to a run worth keeping."""
     paths = {name: directory / f"{name}.jsonl" for name in FILES}
     taken = [str(path) for path in paths.values() if path.exists()]
     if taken:
         raise FileExistsError(f"already exists: {', '.join(taken)}")
-    found = records(task)
+    found = found or records(task)
     directory.mkdir(parents=True, exist_ok=True)
     for name, path in paths.items():
         path.write_text("".join(json.dumps(row) + "\n" for row in found[name]))
@@ -64,11 +90,19 @@ def trainer(ruling_dir: Path) -> list[str] | None:
     return None
 
 
-def tune(task: Task, directory: Path, ruling_dir: Path, base: str, extra: list[str]) -> dict:
-    """Export the task's records and train an adapter on them with Ruling, under `directory`.
-    The recipe comes first and `extra` after it, so anything passed through overrides it. The
-    report says where the adapter is and how to serve it."""
-    report = export(task, directory)
+def tune(
+    task: Task,
+    directory: Path,
+    ruling_dir: Path,
+    base: str,
+    extra: list[str],
+    found: dict[str, list[dict]] | None = None,
+) -> dict:
+    """Export the task's records, or the `found` ones a teacher wrote, and train an adapter on
+    them with Ruling, under `directory`. The recipe comes first and `extra` after it, so
+    anything passed through overrides it. The report says where the adapter is and how to
+    serve it."""
+    report = export(task, directory, found)
     command = trainer(ruling_dir)
     if command is None:
         raise FileNotFoundError(
