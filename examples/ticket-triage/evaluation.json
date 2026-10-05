@@ -1,5 +1,5 @@
 {
-  "score": 0.625,
+  "score": 0.75,
   "resolved_models": [
     "mlx-community/Qwen3.5-4B-4bit"
   ],
@@ -262,17 +262,18 @@
     {
       "id": "t31",
       "expected": "page_oncall",
-      "correct": false,
-      "cost": 1.0,
+      "correct": true,
+      "cost": 0.0,
       "outputs": {
-        "label": "queue_urgent"
+        "label": "page_oncall"
       },
       "node_values": {
         "rule_4": "queue_normal",
         "read_variables_customer_tier": 1,
         "severity": 2.975598469703212,
+        "rule_1": "page_oncall",
         "rule_3": "queue_urgent",
-        "decision": "queue_urgent"
+        "decision": "page_oncall"
       },
       "answers": {
         "severity": {
@@ -288,7 +289,6 @@
         }
       },
       "skipped": [
-        "rule_1",
         "rule_2"
       ],
       "calls": {
@@ -306,9 +306,9 @@
       ],
       "input_tokens": 162,
       "output_tokens": 0,
-      "label": "queue_urgent",
-      "decided_by": "rule_3",
-      "confidence": 0.9755984697032123
+      "label": "page_oncall",
+      "decided_by": "rule_1",
+      "confidence": 0.8333333333333334
     },
     {
       "id": "t07",
@@ -410,7 +410,7 @@
       "output_tokens": 0,
       "label": "queue_normal",
       "decided_by": "rule_4",
-      "confidence": 0.8723176919615098
+      "confidence": 0.7727272727272727
     }
   ],
   "split": "test",
