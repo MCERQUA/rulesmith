@@ -185,6 +185,12 @@ def parser() -> argparse.ArgumentParser:
                 help="Mine rules a field alone settles, and start there if they score better",
             )
             command.add_argument(
+                "--evidence",
+                action="store_true",
+                help="Show the proposer the single-field rules the training examples support "
+                "best; counted on a sampled training set, they can over-fit its rate",
+            )
+            command.add_argument(
                 "--significance",
                 type=float,
                 help="Keep the seed unless the winner's gain passes a sign test at this level",
@@ -920,6 +926,7 @@ def main() -> None:
             extract_cost=priced.extract,
             significance=args.significance,
             mine=args.mine,
+            evidence=args.evidence,
             keep_judge=args.keep_judge,
         )
         lm_options = {"api_base": args.reflection_base_url} if args.reflection_base_url else {}

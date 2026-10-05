@@ -36,11 +36,15 @@ nothing to add there.
 
 The [benchmarks](docs/benchmarks.md) bear this out on five public datasets,
 against DSPy's text classifiers and its typed classifier on the same judge.
-Where fields carry the signal, rulesmith ties or beats them with a fraction of
-the model calls. Where the input is one piece of free text, it adds nothing
-over a direct question, and DSPy can beat it by rewriting that question. A
-judge tuned on the same hundred examples keeps that split, and `rulesmith tune`
-makes one with Ruling.
+Where a field settles most cases, rulesmith ties them at a fraction of the
+calls: on clothing reviews, 0.916 to DSPy's 0.918 while asking the judge about
+14% of the rows. Where the signal is spread across fields and text, it beats
+them: 0.733 to 0.693 on job postings, at 72% of the calls, though one seed in
+three found no rule and a TF-IDF classifier trained on the same examples does
+better still. Where the input is one piece of free text there are no rules to
+find; search can only rewrite the question, and DSPy rewrites it as well or
+better. A judge tuned on the same hundred examples keeps that split, and
+`rulesmith tune` makes one with Ruling.
 
 ## Installation
 
@@ -146,7 +150,8 @@ flowchart TD
 
 Rule 1 reads two fields and, when the posting has no logo and an empty company
 profile, answers `fraudulent` without calling any model. Only when it declines
-does rule 2 ask the judge (Jev or Ruling), which it did on 60% of test postings.
+does rule 2 ask the judge (Jev or Ruling), which it did on 58% of test postings.
+The question search wrote is longer than shown here; the rules are as found.
 
 Rules compile to a validated graph that the runtime executes, and read back as
 the rules they came from: `optimize` saves both, and a `.rules` file runs
@@ -154,7 +159,8 @@ anywhere a `plan.json` does, so you can edit what search wrote. The language,
 with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md).
 A judgment can be asked of a larger judge only when the small one is unsure,
 a generative model can read fields out of free text for rules to test, and a
-rule can test any or all of a list's items, or count them.
+rule can test any or all of a list's items, or count them. These run and are
+tested; none is in the benchmarks yet, so nothing here claims they help.
 Graphs compose: a decision can hand a case to another graph's unit, and many
 decisions become one map, validated across its hand-offs and searched a unit
 at a time; the first one is in [Maps](docs/maps.md).

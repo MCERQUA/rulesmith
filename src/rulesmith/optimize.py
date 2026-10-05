@@ -233,6 +233,11 @@ class SearchConfig(StrictModel):
         le=1,
         description="Score taken off an example per extraction it ran",
     )
+    evidence: bool = Field(
+        default=False,
+        description="Tell the proposer the single-field rules the training examples support "
+        "best; counted on the training examples, so it can over-fit a sampled rate",
+    )
     keep_judge: float | None = Field(
         default=None,
         gt=0,
@@ -411,16 +416,18 @@ def keeping(config: SearchConfig) -> str:
     )
 
 
-def field_summary(task: SearchTask) -> str:
-    """What the fields of the inputs hold, so a proposer can see which a rule could read, and
-    the rules the training examples support best: the same for every search on the same
-    examples, so whether a search finds the rule the data holds depends less on its luck."""
+def field_summary(task: SearchTask, with_evidence: bool = False) -> str:
+    """What the fields of the inputs hold, so a proposer can see which a rule could read, and,
+    when asked, the rules the training examples support best: the same for every search on the
+    same examples, so whether a search finds the rule the data holds depends less on its luck.
+    Counted on a sampled training set, that evidence can over-fit the sample's rate, so it is
+    shown only when the search asks for it."""
     examples = [example for example in task.train if hasattr(example, "state")]
     summary = fields(examples)
     if not summary:
         return ""
     described = "; ".join(f"{name}: {held}" for name, held in summary.items())
-    found = evidence(examples) if isinstance(task, Task) else []
+    found = evidence(examples) if with_evidence and isinstance(task, Task) else []
     supported = (
         "Rules the training examples support best, counted on the training examples; small "
         "counts can be chance, so use, combine, or ignore them as the feedback warrants:\n"
@@ -587,7 +594,7 @@ def proposer_prompt(
         "The label output must have a statically known domain within the allowed labels. "
         "Do not encode example-specific answers. Prefer small generalizable graphs.\n"
         f"Task: {task.description}\nAllowed label values: {json.dumps(task.labels)}\n"
-        f"{field_summary(task) or text_only(task)}"
+        f"{field_summary(task, config.evidence) or text_only(task)}"
         f"{listing(task)}"
         f"{abstaining(task)}"
         f"{keeping(config)}"
