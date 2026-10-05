@@ -42,6 +42,7 @@ from rulesmith.runtime import (
     Prices,
     Remembered,
 )
+from rulesmith.serve import make_server
 from rulesmith.tuning import BASE, tune
 
 # The games load only for a task that plays one (see game), so a core install without their
@@ -268,6 +269,19 @@ def parser() -> argparse.ArgumentParser:
     ablation.add_argument("--split", choices=("train", "validation", "test"), default="validation")
     ablation.add_argument("--output", type=Path)
     provider_arguments(ablation)
+    serving = commands.add_parser(
+        "serve", help="Answer decisions over HTTP at POST /decisions/<name>, as run prints them"
+    )
+    serving.add_argument(
+        "decisions",
+        type=Path,
+        nargs="+",
+        help="Decision folders, each with a graph.rules or map.json, or graph files",
+    )
+    serving.add_argument("--host", default="127.0.0.1", help="The address to listen on")
+    serving.add_argument("--port", type=int, default=8020, help="0 picks a free port")
+    serving.add_argument("--trace", type=Path, help="Append every decision to this JSON-lines file")
+    provider_arguments(serving)
     run = commands.add_parser("run", help="Run a graph on one input and print what it decided")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
@@ -485,6 +499,40 @@ def arena(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     print(dump({"ratings": report["ratings"], "output": str(args.output)}), end="")
 
 
+def serve_decisions(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Serve each decision under its folder's name, or its file's, until stopped. A folder with a
+    task reads its rules against the task's labels, as calibrate and evaluate do."""
+    graphs = {}
+    for path in args.decisions:
+        name, file, task = path.stem, path, None
+        if path.is_dir():
+            name = path.name
+            file = next(
+                (path / f for f in ("graph.rules", "map.json") if (path / f).exists()), None
+            )
+            if file is None:
+                cli.error(f"{path} holds no graph.rules or map.json")
+            if (path / "task.json").exists():
+                task = load_task(cli, path / "task.json")
+        if name in graphs:
+            cli.error(f"two decisions are named {name}; serve them from folders of their own")
+        graphs[name] = read_plan(cli, file, task)
+    model, judge_client = judge(args, any(plan.asks() for plan in graphs.values()))
+    execution = ExecutionConfig(max_workers=args.max_workers)
+    with ExitStack() as stack:
+        client = stack.enter_context(judge_client)
+        models = graph_models(cli, args, stack, *graphs.values())
+        programs = {
+            name: DecisionProgram(plan, client, model, execution, args.trace, models=models)
+            for name, plan in graphs.items()
+        }
+        server = stack.enter_context(make_server(programs, args.host, args.port))
+        # One line, flushed, so whatever started the server knows when it may call it.
+        url = f"http://{args.host}:{server.server_port}"
+        print(json.dumps({"url": url, "decisions": sorted(programs)}), flush=True)
+        server.serve_forever()
+
+
 def dump(value: dict) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
@@ -679,6 +727,9 @@ def main() -> None:
         return
     if args.command == "calibrate":
         calibration(cli, args)
+        return
+    if args.command == "serve":
+        serve_decisions(cli, args)
         return
     task = None if args.command == "run" else load_task(cli, args.task)
     plan = read_plan(cli, args.plan, task) if args.plan else task.baseline_plan()

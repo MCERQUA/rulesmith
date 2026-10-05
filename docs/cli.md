@@ -7,6 +7,7 @@ every flag.
 | --- | --- |
 | `validate` | Check a graph against a task's labels and size limits, without running it |
 | `run` | Execute a graph once on one input |
+| `serve` | Answer decisions over HTTP, one endpoint per decision folder, with an optional trace |
 | `evaluate` | Score a graph on a task split |
 | `optimize` | Search for a better graph, writing `plan.json`, editable `plan.rules` and `report.json` |
 | `arena` | Rank Doom graphs by Elo from deathmatch duels |
@@ -70,6 +71,32 @@ Output (trimmed):
 
 `run --trace decisions.jsonl` also appends the decision to that file, as
 described under [Use from Python](python.md).
+
+## Serving decisions
+
+`serve` makes each decision folder an endpoint, so a workflow in any language
+asks it at its branch points. It listens on 127.0.0.1 unless `--host` says
+otherwise, takes the same judge flags as `run`, and prints one line with its
+address once it is ready:
+
+```sh
+uv run rulesmith serve examples/order-review examples/support-routing \
+  --backend ruling --max-workers 1 --trace decisions.jsonl
+```
+
+```text
+{"url": "http://127.0.0.1:8020", "decisions": ["order-review", "support-routing"]}
+```
+
+```sh
+curl -s -X POST http://127.0.0.1:8020/decisions/order-review -d '{"order": {"total": 900}}'
+```
+
+The answer is what `run` prints, label, rule and confidence included.
+`GET /decisions` lists what is served. An input the graph cannot answer gets
+422 with the error and what the graph did decide; a body that is not JSON gets
+400; an unknown name gets 404. With `--trace`, every decision is appended to the
+file the console's production panel reads.
 
 ## Backends
 

@@ -98,7 +98,8 @@ uv run rulesmith run runs/my-task/plan.rules examples/support-routing/input.json
 
 `optimize` writes `plan.json`, the same graph as editable `plan.rules`, and
 `report.json`; `run` answers with a label, the rule or judgment that decided it,
-and how sure it was. The [full walk-through](docs/quickstart.md) has every
+and how sure it was. `rulesmith serve` answers the same over HTTP, one
+endpoint per decision, for workflows that decide at their branch points. The [full walk-through](docs/quickstart.md) has every
 command's output, drafting labels for inputs that have none, structured inputs,
 and scoring on a held-out split.
 
