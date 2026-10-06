@@ -313,6 +313,11 @@ uv run rulesmith distill task.json --output runs/student \
 Serve the adapter it reports as the graph's own judge, and the large one
 answers only what the student is unsure of.
 
+Measured on TREC, with the tuned 4B escalating to Clef-flash, 9% of questions
+reached the larger judge and accuracy went from 0.884 to 0.920, half the gap to
+Clef-flash alone; the full result, and where it does not pay, is under
+[escalating to a larger judge](benchmarks.md#escalating-to-a-larger-judge).
+
 [Ruling](https://github.com/bradAGI/ruling) can also escalate on its own, with
 `RULING_CASCADE_TO`: every question below one confidence goes to a second
 model, inside the server. Rules do the same per judgment, with a cutoff each

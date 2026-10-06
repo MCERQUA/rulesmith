@@ -322,6 +322,55 @@ So a better judge does not make the rules unnecessary where the fields carry the
 it does make the question tuning unnecessary where they do not. That is the same split as the
 stock results, drawn more sharply.
 
+## Escalating to a larger judge
+
+A judgment can be asked of a larger judge only when the graph's own is unsure
+([rules](rules.md#asking-a-larger-judge-when-the-small-one-is-unsure)). This
+setting measures what that buys, with no search: on the tuned-judge seeds of
+TREC and job postings, the direct question asked three ways. Of the tuned 4B
+alone; of Cloudflare's Clef-flash alone, a trained 9B decision model run
+locally through its MLX port; and of the 4B first, with a rule per label that
+keeps its answer when its confidence is at least 0.8, falling through to the
+same question `using large`, Clef-flash. `calibrate` fitted the cutoffs with
+`--judge-cost large=0.1`, a Clef call priced at a tenth of a right answer. Each
+seed scores 300 held-out rows (`benchmarks/escalation.sh`; results in
+`benchmarks/results/escalation.json`; tables from
+`benchmarks/escalation.py summarize`).
+
+### trec
+
+| judge | accuracy by seed | mean | 4B calls/row | Clef calls/row | vs 4B alone (p) |
+|---|---|---:|---:|---:|---:|
+| tuned 4B alone | 0.877, 0.890, 0.887 | 0.884 | 1.00 | 0.00 |  |
+| Clef-flash alone | 0.963, 0.950, 0.950 | 0.954 | 0.00 | 1.00 | 1.3e-12 |
+| 4B, escalating to Clef | 0.923, 0.923, 0.913 | 0.920 | 1.00 | 0.09 | 6.7e-08 |
+
+### jobs
+
+| judge | accuracy by seed | mean | 4B calls/row | Clef calls/row | vs 4B alone (p) |
+|---|---|---:|---:|---:|---:|
+| tuned 4B alone | 0.507, 0.793, 0.500 | 0.600 | 1.00 | 0.00 |  |
+| Clef-flash alone | 0.703, 0.717, 0.630 | 0.683 | 0.00 | 1.00 | 8.5e-05 |
+| 4B, escalating to Clef | 0.703, 0.787, 0.633 | 0.708 | 1.00 | 0.76 | 1.5e-08 |
+
+On TREC the small judge is confident and right on most questions, so 9% of
+them reach Clef-flash and accuracy goes from 0.884 to 0.920: half the gap to
+Clef-flash alone, for a tenth of its calls. The other half is the questions
+the 4B gets wrong while sure, which nothing escalates. On job postings two of
+the three tuned judges never learned the task, so they are unsure almost
+everywhere and 76% of postings reach Clef-flash; the pair still beats either
+judge alone, 0.708 to 0.683, because the one good 4B keeps the answers it is
+sure of and Clef-flash covers the rest. So escalation buys most of the gain
+for a fraction of the calls where the small judge has learned the task, and
+where it has not, it buys accuracy at nearly the large judge's cost.
+
+Two caveats. The cutoff began at 0.8 and the fit moved it on three of the six
+seeds, so this is mostly a hand-picked line: a hundred training examples hold
+little signal about where to draw it, and the price is a choice. And three
+seeds settle the direction, not the sizes. Clef-flash itself beat the tuned 4B
+on both datasets, by a wide margin on postings, which makes it a candidate for
+the graph's own judge where a 9B model can be run, not only for the escalation.
+
 ## Chess against Stockfish
 
 The chess task (`examples/chess/stockfish.json`) plays graphs against Stockfish at skill

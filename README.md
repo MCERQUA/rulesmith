@@ -160,7 +160,10 @@ with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md)
 A judgment can be asked of a larger judge only when the small one is unsure,
 a generative model can read fields out of free text for rules to test, and a
 rule can test any or all of a list's items, or count them. These run and are
-tested; none is in the benchmarks yet, so nothing here claims they help.
+tested; of them only escalation is measured so far: on TREC, a tuned 4B
+escalating to Clef-flash sent 9% of questions up and gained half the gap to
+Clef-flash alone, as the [benchmarks](docs/benchmarks.md#escalating-to-a-larger-judge)
+show, while extraction and lists are not yet in the benchmarks.
 Graphs compose: a decision can hand a case to another graph's unit, and many
 decisions become one map, validated across its hand-offs and searched a unit
 at a time; the first one is in [Maps](docs/maps.md).
