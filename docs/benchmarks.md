@@ -322,6 +322,17 @@ So a better judge does not make the rules unnecessary where the fields carry the
 it does make the question tuning unnecessary where they do not. That is the same split as the
 stock results, drawn more sharply.
 
+**A calibration term in the tune.** Ruling's trainer takes an optional Brier term, the squared
+distance between the judge's probabilities and the right answer, meant to pull confident
+mistakes back toward the middle. Tried at weight 1.0 against the plain tune on six seeds of
+each dataset, 300 held-out rows each (`benchmarks/results/training-terms.json`): on TREC it
+gained a little, 0.885 to 0.893 (McNemar p 0.04) with the Brier score down from 0.187 to
+0.172; on job postings nothing, 0.637 to 0.630, with three of six judges learning the task
+either way; on clothing nothing, 0.931 both. The first three seeds had suggested more, because
+the term happened to rescue one weak seed per dataset; three more seeds took that back. So the
+term stays off by default in `rulesmith tune`, and the fragility it was meant to fix, a tune on
+a hundred examples that sometimes learns nothing, remains.
+
 ## Escalating to a larger judge
 
 A judgment can be asked of a larger judge only when the graph's own is unsure

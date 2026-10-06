@@ -1,0 +1,342 @@
+{
+ "recipe": "200 steps, eval every 20, valid fraction 0.2, best checkpoint kept",
+ "terms": {
+  "plain": [],
+  "brier": [
+   "--brier-weight",
+   "1.0"
+  ]
+ },
+ "runs": [
+  {
+   "dataset": "jobs",
+   "seed": 0,
+   "term": "plain",
+   "accuracy": 0.5,
+   "expected_calibration_error": 0.08891534113133932,
+   "brier": 0.4917923992153986,
+   "negative_log_likelihood": 0.6848667784911132,
+   "coverage_at_5pct_error": 0.0,
+   "confident_error_rate": 0.0
+  },
+  {
+   "dataset": "jobs",
+   "seed": 0,
+   "term": "brier",
+   "accuracy": 0.7566666666666667,
+   "expected_calibration_error": 0.07367159853851961,
+   "brier": 0.36824116125043604,
+   "negative_log_likelihood": 0.6074352154813876,
+   "coverage_at_5pct_error": 0.09333333333333334,
+   "confident_error_rate": 0.07
+  },
+  {
+   "dataset": "jobs",
+   "seed": 1,
+   "term": "plain",
+   "accuracy": 0.74,
+   "expected_calibration_error": 0.163673903875576,
+   "brier": 0.38758629712786935,
+   "negative_log_likelihood": 0.7052979642038423,
+   "coverage_at_5pct_error": 0.07,
+   "confident_error_rate": 0.11666666666666667
+  },
+  {
+   "dataset": "jobs",
+   "seed": 1,
+   "term": "brier",
+   "accuracy": 0.7166666666666667,
+   "expected_calibration_error": 0.09385400768687327,
+   "brier": 0.383741621066348,
+   "negative_log_likelihood": 0.57209290255487,
+   "coverage_at_5pct_error": 0.08666666666666667,
+   "confident_error_rate": 0.03
+  },
+  {
+   "dataset": "jobs",
+   "seed": 2,
+   "term": "plain",
+   "accuracy": 0.5,
+   "expected_calibration_error": 0.1284032054961962,
+   "brier": 0.49861312965337634,
+   "negative_log_likelihood": 0.6902977303445249,
+   "coverage_at_5pct_error": 0.08666666666666667,
+   "confident_error_rate": 0.0
+  },
+  {
+   "dataset": "jobs",
+   "seed": 2,
+   "term": "brier",
+   "accuracy": 0.5,
+   "expected_calibration_error": 0.14012792349746075,
+   "brier": 0.4940882919635295,
+   "negative_log_likelihood": 0.6821462721026705,
+   "coverage_at_5pct_error": 0.07,
+   "confident_error_rate": 0.0
+  },
+  {
+   "dataset": "jobs",
+   "seed": 3,
+   "term": "plain",
+   "accuracy": 0.77,
+   "expected_calibration_error": 0.04308635331355927,
+   "brier": 0.3220647119670628,
+   "negative_log_likelihood": 0.48886813940240786,
+   "coverage_at_5pct_error": 0.16333333333333333,
+   "confident_error_rate": 0.006666666666666667
+  },
+  {
+   "dataset": "jobs",
+   "seed": 3,
+   "term": "brier",
+   "accuracy": 0.5033333333333333,
+   "expected_calibration_error": 0.20198170077909727,
+   "brier": 0.556130842535724,
+   "negative_log_likelihood": 0.7520955696477216,
+   "coverage_at_5pct_error": 0.03666666666666667,
+   "confident_error_rate": 0.0
+  },
+  {
+   "dataset": "jobs",
+   "seed": 4,
+   "term": "plain",
+   "accuracy": 0.5,
+   "expected_calibration_error": 0.16626418572322543,
+   "brier": 0.4552341544817298,
+   "negative_log_likelihood": 0.6434997190665388,
+   "coverage_at_5pct_error": 0.09666666666666666,
+   "confident_error_rate": 0.0
+  },
+  {
+   "dataset": "jobs",
+   "seed": 4,
+   "term": "brier",
+   "accuracy": 0.5033333333333333,
+   "expected_calibration_error": 0.18825636251006567,
+   "brier": 0.4512441336979726,
+   "negative_log_likelihood": 0.6377785171569634,
+   "coverage_at_5pct_error": 0.06666666666666667,
+   "confident_error_rate": 0.0
+  },
+  {
+   "dataset": "jobs",
+   "seed": 5,
+   "term": "plain",
+   "accuracy": 0.81,
+   "expected_calibration_error": 0.11566703253475306,
+   "brier": 0.3190440765193832,
+   "negative_log_likelihood": 0.6586945910366343,
+   "coverage_at_5pct_error": 0.21333333333333335,
+   "confident_error_rate": 0.11333333333333333
+  },
+  {
+   "dataset": "jobs",
+   "seed": 5,
+   "term": "brier",
+   "accuracy": 0.8,
+   "expected_calibration_error": 0.1440961437296758,
+   "brier": 0.33832660971618517,
+   "negative_log_likelihood": 0.7098774154524551,
+   "coverage_at_5pct_error": 0.20333333333333334,
+   "confident_error_rate": 0.13333333333333333
+  },
+  {
+   "dataset": "trec",
+   "seed": 0,
+   "term": "plain",
+   "accuracy": 0.8866666666666667,
+   "expected_calibration_error": 0.07052364017899909,
+   "brier": 0.174124805173535,
+   "negative_log_likelihood": 0.4736322673804547,
+   "coverage_at_5pct_error": 0.81,
+   "confident_error_rate": 0.056666666666666664
+  },
+  {
+   "dataset": "trec",
+   "seed": 0,
+   "term": "brier",
+   "accuracy": 0.8833333333333333,
+   "expected_calibration_error": 0.07723507728185891,
+   "brier": 0.18423326952029076,
+   "negative_log_likelihood": 0.5320334681544906,
+   "coverage_at_5pct_error": 0.8,
+   "confident_error_rate": 0.06666666666666667
+  },
+  {
+   "dataset": "trec",
+   "seed": 1,
+   "term": "plain",
+   "accuracy": 0.8966666666666666,
+   "expected_calibration_error": 0.03251910365141295,
+   "brier": 0.17497437865208437,
+   "negative_log_likelihood": 0.3849209310907958,
+   "coverage_at_5pct_error": 0.6233333333333333,
+   "confident_error_rate": 0.03666666666666667
+  },
+  {
+   "dataset": "trec",
+   "seed": 1,
+   "term": "brier",
+   "accuracy": 0.9033333333333333,
+   "expected_calibration_error": 0.0407335008298971,
+   "brier": 0.1650906444680629,
+   "negative_log_likelihood": 0.3688029762148998,
+   "coverage_at_5pct_error": 0.6866666666666666,
+   "confident_error_rate": 0.04
+  },
+  {
+   "dataset": "trec",
+   "seed": 2,
+   "term": "plain",
+   "accuracy": 0.87,
+   "expected_calibration_error": 0.12064120911134629,
+   "brier": 0.24174693311205536,
+   "negative_log_likelihood": 0.6478458289953711,
+   "coverage_at_5pct_error": 0.81,
+   "confident_error_rate": 0.09
+  },
+  {
+   "dataset": "trec",
+   "seed": 2,
+   "term": "brier",
+   "accuracy": 0.91,
+   "expected_calibration_error": 0.06299529633771626,
+   "brier": 0.1560840901223034,
+   "negative_log_likelihood": 0.40613634798465564,
+   "coverage_at_5pct_error": 0.8533333333333334,
+   "confident_error_rate": 0.06333333333333334
+  },
+  {
+   "dataset": "trec",
+   "seed": 3,
+   "term": "plain",
+   "accuracy": 0.9033333333333333,
+   "expected_calibration_error": 0.02681755961382202,
+   "brier": 0.14644460937921006,
+   "negative_log_likelihood": 0.312777107983286,
+   "coverage_at_5pct_error": 0.88,
+   "confident_error_rate": 0.023333333333333334
+  },
+  {
+   "dataset": "trec",
+   "seed": 3,
+   "term": "brier",
+   "accuracy": 0.9066666666666666,
+   "expected_calibration_error": 0.027575494596519236,
+   "brier": 0.13590652331790215,
+   "negative_log_likelihood": 0.29220721634338154,
+   "coverage_at_5pct_error": 0.9,
+   "confident_error_rate": 0.03
+  },
+  {
+   "dataset": "trec",
+   "seed": 4,
+   "term": "plain",
+   "accuracy": 0.8966666666666666,
+   "expected_calibration_error": 0.07133984425749086,
+   "brier": 0.16743384990701812,
+   "negative_log_likelihood": 0.367053524639149,
+   "coverage_at_5pct_error": 0.84,
+   "confident_error_rate": 0.0033333333333333335
+  },
+  {
+   "dataset": "trec",
+   "seed": 4,
+   "term": "brier",
+   "accuracy": 0.9,
+   "expected_calibration_error": 0.06463541384614144,
+   "brier": 0.16584070322861408,
+   "negative_log_likelihood": 0.36035388157321113,
+   "coverage_at_5pct_error": 0.8266666666666667,
+   "confident_error_rate": 0.0033333333333333335
+  },
+  {
+   "dataset": "trec",
+   "seed": 5,
+   "term": "plain",
+   "accuracy": 0.8566666666666667,
+   "expected_calibration_error": 0.09230709884209737,
+   "brier": 0.21572341599286157,
+   "negative_log_likelihood": 0.4608046821766889,
+   "coverage_at_5pct_error": 0.77,
+   "confident_error_rate": 0.06
+  },
+  {
+   "dataset": "trec",
+   "seed": 5,
+   "term": "brier",
+   "accuracy": 0.8533333333333334,
+   "expected_calibration_error": 0.09948540239162051,
+   "brier": 0.22426338079057387,
+   "negative_log_likelihood": 0.4797627737082724,
+   "coverage_at_5pct_error": 0.76,
+   "confident_error_rate": 0.05333333333333334
+  },
+  {
+   "dataset": "clothing",
+   "seed": 3,
+   "term": "plain",
+   "accuracy": 0.9433333333333334,
+   "expected_calibration_error": 0.05272479486077237,
+   "brier": 0.10230912171240983,
+   "negative_log_likelihood": 0.3487479324655366,
+   "coverage_at_5pct_error": 0.9833333333333333,
+   "confident_error_rate": 0.04666666666666667
+  },
+  {
+   "dataset": "clothing",
+   "seed": 3,
+   "term": "brier",
+   "accuracy": 0.9433333333333334,
+   "expected_calibration_error": 0.053246876214074444,
+   "brier": 0.10351151049192334,
+   "negative_log_likelihood": 0.35716341562748577,
+   "coverage_at_5pct_error": 0.9866666666666667,
+   "confident_error_rate": 0.04666666666666667
+  },
+  {
+   "dataset": "clothing",
+   "seed": 4,
+   "term": "plain",
+   "accuracy": 0.9266666666666666,
+   "expected_calibration_error": 0.06432013624688504,
+   "brier": 0.12868477575129475,
+   "negative_log_likelihood": 0.29339172597407687,
+   "coverage_at_5pct_error": 0.95,
+   "confident_error_rate": 0.05333333333333334
+  },
+  {
+   "dataset": "clothing",
+   "seed": 4,
+   "term": "brier",
+   "accuracy": 0.9266666666666666,
+   "expected_calibration_error": 0.05485507638644455,
+   "brier": 0.12214170190222343,
+   "negative_log_likelihood": 0.2737569439283872,
+   "coverage_at_5pct_error": 0.9466666666666667,
+   "confident_error_rate": 0.043333333333333335
+  },
+  {
+   "dataset": "clothing",
+   "seed": 5,
+   "term": "plain",
+   "accuracy": 0.9233333333333333,
+   "expected_calibration_error": 0.06869806584115166,
+   "brier": 0.1399544747599555,
+   "negative_log_likelihood": 0.46277732656035986,
+   "coverage_at_5pct_error": 0.9066666666666666,
+   "confident_error_rate": 0.06
+  },
+  {
+   "dataset": "clothing",
+   "seed": 5,
+   "term": "brier",
+   "accuracy": 0.9233333333333333,
+   "expected_calibration_error": 0.07418040592543104,
+   "brier": 0.14830801206697358,
+   "negative_log_likelihood": 0.7886576168875895,
+   "coverage_at_5pct_error": 0.94,
+   "confident_error_rate": 0.07
+  }
+ ]
+}
