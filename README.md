@@ -34,6 +34,19 @@ retrieval, and tasks where worked examples in the prompt carry the accuracy.
 rulesmith searches over rules and questions, not demonstrations, so it has
 nothing to add there.
 
+DSPy 3.4 also speaks to the judge itself: an experimental `TypeSafe` client
+used as any other `lm`, `Noul`, `Choice` and `Score` output types, and a
+`ReAnchor` optimizer that fits their thresholds, cuts and weights to a metric.
+If the question belongs inside a DSPy program, that is the way to ask it, and
+rulesmith's own optimizer and extraction nodes run on it. rulesmith is for when
+the decision is a program of its own: rules over the input's fields that settle
+cases before any question is asked, several judges at different prices with
+escalation between them, calibration that charges for calls, a rules file a
+reviewer reads in a pull request, and `serve` and `drift` once it is in
+production. The `dspy-typed` row in the benchmarks is that native path on the
+same judge, with GEPA and ReAnchor on the same budget; the graphs are measured
+against it, and the gap is what being a graph is worth.
+
 The [benchmarks](docs/benchmarks.md) bear this out on five public datasets,
 against DSPy's text classifiers and its typed classifier on the same judge.
 Where a field settles most cases, rulesmith ties them at a fraction of the
