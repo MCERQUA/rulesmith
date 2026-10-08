@@ -63,6 +63,19 @@ def test_a_rule_deciding_far_more_real_traffic_than_it_was_counted_on_is_flagged
     assert {moved["rule"] for moved in report["drift"]} == {"rule_1", "rule_2"}
 
 
+def test_undecided_traffic_is_counted_apart_from_the_rules(tmp_path):
+    graph = tmp_path / "graph.rules"
+    partial = "read amount in [0, 10000]\nwhen amount >= 500: review calibrated 10/10 of 100\n"
+    graph.write_text(partial)
+    trace = tmp_path / "decisions.jsonl"
+    traffic(partial, trace, [900] * 10 + [50] * 10)
+    result = invoke("drift", graph, trace)
+    report = json.loads(result.stdout)
+    assert report["decisions"] == 20 and report["undecided"] == 10
+    # Half the traffic was decided by no rule, which the rule's own share does not cover.
+    assert [moved["rule"] for moved in report["drift"]] == ["rule_1"]
+
+
 def test_traffic_like_the_examples_raises_nothing(tmp_path):
     graph = tmp_path / "graph.rules"
     graph.write_text(MEASURED)

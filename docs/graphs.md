@@ -103,8 +103,10 @@ Any node can have a `when` condition. It gates that node, not its dependencies.
 - A node waits for all its data and condition dependencies, then runs or is skipped.
 - A skipped required input skips its consumer; a skipped optional input is left out.
 - `coalesce` skips only when every source skipped.
-- A skipped optional output is omitted; a skipped required output raises
-  `GraphExecutionError`.
+- A skipped optional output is omitted. A skipped required output leaves the
+  decision undecided: the result has `label` and `decided_by` null and
+  `undecided: "no_rule_applied"`. A decision that was made has `undecided: null`.
+  A judge call that fails raises; that is a failure, not a decision.
 - `ExecutionConfig(suppress=("node",))` forces the named nodes to skip. It exists
   to measure what a graph decides without them: `rulesmith ablate` and
   `rulesmith.ablate.effects` use it, and an ordinary run leaves it empty.

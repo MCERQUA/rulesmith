@@ -714,3 +714,14 @@ def test_clef_flash_is_a_backend_reached_like_ruling(tmp_path, provider):
     result = invoke("run", rules, state, "--backend", "clef", "--base-url", provider.url)
     assert result.returncode == 0, result.stderr
     assert provider.requests[0][1]["model"] == "clef-flash"
+
+
+def test_run_prints_a_decision_the_graph_could_not_make(tmp_path):
+    graph = tmp_path / "graph.rules"
+    graph.write_text("read order.total in [0, 1000000]\nwhen order.total >= 500: hold\n")
+    state = write(tmp_path / "state.json", {"order": {"total": 10}})
+    result = invoke("run", graph, state)
+    # Not deciding is an answer, so the command succeeds and says why there is no label.
+    assert result.returncode == 0, result.stderr
+    decided = json.loads(result.stdout)
+    assert decided["label"] is None and decided["undecided"] == "no_rule_applied"

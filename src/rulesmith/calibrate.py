@@ -33,7 +33,6 @@ from rulesmith.graph import (
 )
 from rulesmith.runtime import (
     DecisionProgram,
-    GraphExecutionError,
     Models,
     Prices,
     calibrated,
@@ -86,10 +85,7 @@ def calibrate(
     program = DecisionProgram(raw, client, model, models=models)
     pairs: dict[str, list] = {name: [] for name in fitted_nodes}
     for example in task.fitting():
-        try:
-            answers = program(state=example.state).answers
-        except GraphExecutionError as failure:
-            answers = failure.prediction.answers
+        answers = program(state=example.state).answers
         for name, node in fitted_nodes.items():
             if name in answers and example.label in node.question.criteria:
                 pairs[name].append((answers[name]["probabilities"], example.label))
@@ -259,10 +255,7 @@ def observed(
     program = DecisionProgram(plan, client, model, models=models)
     seen: dict[str, list[float]] = {}
     for example in examples:
-        try:
-            answers = program(state=example.state).answers
-        except GraphExecutionError as failure:
-            answers = failure.prediction.answers
+        answers = program(state=example.state).answers
         for name, node in plan.nodes.items():
             if (
                 isinstance(node, Call)
@@ -325,10 +318,7 @@ def outcomes(
     program = DecisionProgram(plan, client, model, models=models)
     found = []
     for example in examples:
-        try:
-            prediction = dict(program(state=example.state))
-        except GraphExecutionError as failure:
-            prediction = dict(failure.prediction)
+        prediction = dict(program(state=example.state))
         found.append(
             {
                 "label": prediction.get("label"),

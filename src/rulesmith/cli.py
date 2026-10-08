@@ -585,7 +585,7 @@ def watch_drift(cli: argparse.ArgumentParser, args: argparse.Namespace) -> int:
     report = {
         "graph_sha256": made,
         "decisions": len(records),
-        "errors": sum(record["error"] is not None for record in records),
+        "undecided": sum(record["undecided"] is not None for record in records),
         "calls": dict(sorted(called.items())),
         "drift": drift(plan, records, args.significance),
     }

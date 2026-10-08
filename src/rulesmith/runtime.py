@@ -132,12 +132,25 @@ def calibrated(answer: dict, temperature: float) -> dict:
     return tempered
 
 
-class GraphExecutionError(ValueError):
-    """A valid graph failed to produce a required output for this input."""
+# Why a decision has no answer. A required output no node produced is the only way a valid graph
+# can end without one: a judge that fails raises, since that is a failure, not a decision.
+NO_RULE_APPLIED = "no_rule_applied"
 
-    def __init__(self, message: str, prediction: dspy.Prediction):
-        super().__init__(message)
-        self.prediction = prediction
+
+def undecided(plan: Plan, prediction: dspy.Prediction) -> str | None:
+    """What scoring tells search about a decision that was not made, naming the outputs it lacks
+    so the proposer sees what to cover, or None for a decision that was made."""
+    if prediction.undecided is None:
+        return None
+    missing = [
+        name
+        for name, source in plan.outputs.items()
+        if not source.optional and name not in prediction.outputs
+    ]
+    return (
+        f"The graph decided nothing ({prediction.undecided}): "
+        f"required graph outputs were skipped: {missing}"
+    )
 
 
 class ExecutionConfig(StrictModel):
@@ -527,13 +540,10 @@ class DecisionProgram(dspy.Module):
 
     def _delegate(self, key: str, node: Graph, handed) -> dict[str, dspy.Prediction]:
         """Run a unit's graph on what it was handed, through the same engine, on the same
-        judge. A unit whose graph could not answer is a unit that answered nothing."""
-        try:
-            prediction = DecisionProgram(
-                node.plan, self.client, self.model, self.execution, models=self.models
-            )(state=handed)
-        except GraphExecutionError as failure:
-            prediction = failure.prediction
+        judge. A unit whose graph could not decide is a unit that answered nothing."""
+        prediction = DecisionProgram(
+            node.plan, self.client, self.model, self.execution, models=self.models
+        )(state=handed)
         return {key: prediction}
 
     def _extract(self, key: str, node: Extract, handed) -> dict[str, "Extracted"]:
@@ -555,17 +565,12 @@ class DecisionProgram(dspy.Module):
 
     def forward(self, state: State) -> dspy.Prediction:
         state = TypeAdapter(State, config=ConfigDict(allow_inf_nan=False)).validate_python(state)
-        if self.trace is None:
-            return self._decide(state)
-        try:
-            prediction = self._decide(state)
-        except GraphExecutionError as failure:
-            self._record(state, failure.prediction, str(failure))
-            raise
-        self._record(state, prediction, None)
+        prediction = self._decide(state)
+        if self.trace is not None:
+            self._record(state, prediction)
         return prediction
 
-    def _record(self, state: State, prediction: dspy.Prediction, error: str | None) -> None:
+    def _record(self, state: State, prediction: dspy.Prediction) -> None:
         """Append what was decided, by which rule, on which graph and input, to the trace.
         Inputs are kept as digests, so a trace can be shared without the data it judged."""
         record = {
@@ -580,7 +585,7 @@ class DecisionProgram(dspy.Module):
             "asked": list(prediction.answers),
             # Which model each call went to, so escalation is counted in production too.
             "called": {key: payer(call) for key, call in prediction.calls.items()},
-            "error": error,
+            "undecided": prediction.undecided,
         }
         # One unbuffered append per record, so concurrent decisions never split each other's line.
         with self.trace.open("ab", buffering=0) as trace:
@@ -693,7 +698,9 @@ class DecisionProgram(dspy.Module):
             result["confidence"] = min(
                 sure + ([measured.precision] if measured else []), default=1.0
             )
-        prediction = dspy.Prediction(**result)
+        # Without every required output there is no decision, whatever the outputs that were made
+        # say; the caller reads why rather than catching an exception.
+        result["undecided"] = NO_RULE_APPLIED if missing else None
         if missing:
-            raise GraphExecutionError(f"required graph outputs were skipped: {missing}", prediction)
-        return prediction
+            result |= {"label": None, "decided_by": None}
+        return dspy.Prediction(**result)

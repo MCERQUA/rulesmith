@@ -7,7 +7,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from pydantic import ValidationError
 
-from rulesmith.runtime import DecisionProgram, GraphExecutionError
+from rulesmith.runtime import DecisionProgram
 
 PREFIX = "/decisions"
 
@@ -40,12 +40,7 @@ def make_server(programs: dict[str, DecisionProgram], host: str, port: int) -> T
                 decided = programs[name](state=state)
             except ValidationError as error:
                 return self.answer(HTTPStatus.BAD_REQUEST, {"error": f"not an input: {error}"})
-            except GraphExecutionError as failure:
-                # The graph ran and could not answer: the caller decides what that means.
-                return self.answer(
-                    HTTPStatus.UNPROCESSABLE_ENTITY,
-                    {"error": str(failure), "result": dict(failure.prediction)},
-                )
+            # An undecided result is still an answer: the caller reads `undecided` for why.
             return self.answer(HTTPStatus.OK, dict(decided))
 
         def answer(self, status: HTTPStatus, body: dict) -> None:

@@ -7,7 +7,7 @@ import dspy
 
 from rulesmith.graph import Example, State
 from rulesmith.optimize import Outcome, text_adapter
-from rulesmith.runtime import DecisionProgram, GraphExecutionError
+from rulesmith.runtime import DecisionProgram, undecided
 
 
 def model_name(model: str) -> str:
@@ -57,10 +57,8 @@ class Graded:
         self.grader = grader
 
     def __call__(self, program: DecisionProgram, example: Example) -> Outcome:
-        try:
-            prediction, error = program(state=example.state), None
-        except GraphExecutionError as failure:
-            prediction, error = failure.prediction, f"Graph execution failed: {failure}"
+        prediction = program(state=example.state)
+        error = undecided(program.plan, prediction)
         record = {"id": example.id, "expected": example.label, **dict(prediction)}
         trace = {"Inputs": example.state, "Generated Outputs": dict(prediction)}
         if error:

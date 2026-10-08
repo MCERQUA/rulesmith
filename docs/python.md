@@ -31,12 +31,13 @@ audited, not just acted on. Pass `trace=Path("decisions.jsonl")` and every
 decision is appended there as one JSON line, including a graph that could not
 answer: the time, the
 SHA-256 of the graph and of the input, the label and outputs, the rule that
-`decided_by` names, the confidence, the judgments asked, and any error. The
+`decided_by` names, the confidence, the judgments asked, and `undecided`: null
+for a decision that was made, or why none was (`"no_rule_applied"`). The
 file is only ever appended to, and inputs are kept as digests, so a trace can
 be shared without the data it judged:
 
 ```json
-{"time": "2026-10-03T16:32:46.539951+00:00", "graph_sha256": "7295e26f…", "input_sha256": "44636a77…", "model": "none", "label": "hold_for_review", "outputs": {"label": "hold_for_review"}, "decided_by": "rule_1", "confidence": 1.0, "asked": [], "error": null}
+{"time": "2026-10-03T16:32:46.539951+00:00", "graph_sha256": "7295e26f…", "input_sha256": "44636a77…", "model": "none", "label": "hold_for_review", "outputs": {"label": "hold_for_review"}, "decided_by": "rule_1", "confidence": 1.0, "asked": [], "called": {}, "undecided": null}
 ```
 
 A graph that asks a named judge with `using`, or reads fields with `extract`,

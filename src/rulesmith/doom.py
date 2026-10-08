@@ -15,7 +15,7 @@ from pydantic import ConfigDict, Field, model_validator
 from rulesmith.graph import Plan, StrictModel, Text
 from rulesmith.level import Level
 from rulesmith.optimize import Outcome
-from rulesmith.runtime import DecisionProgram, GraphExecutionError
+from rulesmith.runtime import DecisionProgram, undecided
 
 
 class Episode(StrictModel):
@@ -501,13 +501,11 @@ class Episodes:
         episode = self.task.episode(episode)
         observation, steps, models, error = self.env.reset(episode), [], set(), None
         while observation is not None:
-            try:
-                prediction = program(state=observation)
-            except GraphExecutionError as failure:
-                models.update(failure.prediction.models)
-                error = f"Graph execution failed at step {len(steps)}: {failure}"
-                break
+            prediction = program(state=observation)
             models.update(prediction.models)
+            if prediction.undecided:
+                error = f"{undecided(program.plan, prediction)}, at step {len(steps)}"
+                break
             reward, following = self.env.step(prediction.label)
             steps.append({"observation": observation, "action": prediction.label, "reward": reward})
             observation = following

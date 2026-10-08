@@ -95,9 +95,12 @@ curl -s -X POST http://127.0.0.1:8020/decisions/order-review -d '{"order": {"tot
 ```
 
 The answer is what `run` prints, label, rule and confidence included.
-`GET /decisions` lists what is served. An input the graph cannot answer gets
-422 with the error and what the graph did decide; a body that is not JSON gets
-400; an unknown name gets 404. With `--trace`, every decision is appended to the
+`GET /decisions` lists what is served. An input no rule applies to is still
+answered, with 200: `label` and `decided_by` are null and `undecided` says why
+(`"no_rule_applied"`, the one reason a valid graph can end without a decision),
+so a workflow branches on that field rather than on a status code. A decision
+that was made has `undecided: null`. A body that is not JSON gets 400; an
+unknown name gets 404. With `--trace`, every decision is appended to the
 file the console's production panel reads.
 
 ## Watching a decision in production
@@ -116,14 +119,16 @@ uv run rulesmith drift examples/ticket-triage traces/
 {
   "graph_sha256": "…",
   "decisions": 1200,
-  "errors": 3,
+  "undecided": 3,
   "calls": {"judge large": 41, "the judge": 388},
   "drift": [{"rule": "rule_1", "measured_share": 0.12, "share": 0.31, "p": 1.2e-41}]
 }
 ```
 
 `calls` counts every model call by the model it went to, so an escalation rate
-that creeps up shows here too. The command exits 1 when any rule drifted and 0
+that creeps up shows here too. `undecided` counts decisions no rule made; they
+count toward the traffic every rule's share is tested against, so a rise in them
+moves the shares too. The command exits 1 when any rule drifted and 0
 otherwise, so a scheduled job can alert on it. Decisions by earlier versions of
 the graph are left out: a rule's name is its place in the list. Each trace record
 names the model each call went to under `called`.

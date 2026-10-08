@@ -15,7 +15,7 @@ from pydantic import Field, model_validator
 
 from rulesmith.graph import Plan, StrictModel, Text
 from rulesmith.optimize import Outcome
-from rulesmith.runtime import DecisionProgram, GraphExecutionError
+from rulesmith.runtime import DecisionProgram, undecided
 
 VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
 CENTER = [chess.D4, chess.E4, chess.D5, chess.E5]
@@ -419,13 +419,11 @@ def played(task: ChessTask, white: Player, black: Player, seed: int) -> dict:
             continue
         seen = observe(board)
         first.setdefault(board.turn, seen)
-        try:
-            prediction = program(state=seen)
-        except GraphExecutionError as failure:
-            models.update(failure.prediction.models)
-            error, loser = f"Graph execution failed: {failure}", board.turn
-            break
+        prediction = program(state=seen)
         models.update(prediction.models)
+        if prediction.undecided:
+            error, loser = undecided(program.plan, prediction), board.turn
+            break
         try:
             move = chosen(board, prediction.label)
         except ValueError as failure:

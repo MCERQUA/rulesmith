@@ -11,7 +11,6 @@ from typesafe_sdk import ChoiceAnswer, NoulAnswer, ScoreAnswer
 from rulesmith.graph import Choice, Noul, Plan, Score
 from rulesmith.runtime import (
     DecisionProgram,
-    GraphExecutionError,
     ResponseError,
     read_answer,
 )
@@ -130,11 +129,11 @@ def test_pure_graph_preserves_null_and_omits_only_skipped_optional_inputs():
     assert result.calls == {} and result.input_tokens == result.output_tokens == 0
 
 
-def test_missing_required_output_is_an_execution_error():
+def test_a_skipped_required_output_leaves_the_decision_undecided():
     from test_graph import ref
 
     from rulesmith.graph import Plan
-    from rulesmith.runtime import DecisionProgram, GraphExecutionError
+    from rulesmith.runtime import DecisionProgram
 
     plan = Plan.model_validate(
         {
@@ -149,8 +148,10 @@ def test_missing_required_output_is_an_execution_error():
             "outputs": {"result": ref("absent")},
         }
     )
-    with pytest.raises(GraphExecutionError, match="result"):
-        DecisionProgram(plan, None, "unused")(state="input")
+    result = DecisionProgram(plan, None, "unused")(state="input")
+    assert result.undecided == "no_rule_applied"
+    assert result.label is None and result.decided_by is None
+    assert "result" not in result.outputs and result.skipped == ["absent"]
 
 
 def test_execution_limits_reject_nonpositive_concurrency():
@@ -222,10 +223,12 @@ def test_read_nodes_take_values_from_the_input_without_a_model_call():
     assert program(state={"rangefinder": [900, 900, 900, 20, 900, 900, 900]}).label == "TURN_LEFT"
 
 
-def test_a_missing_read_path_skips_the_node():
+def test_a_missing_read_path_skips_the_node_and_the_decision_says_so():
     program = DecisionProgram(read_plan(), None, "none")
-    with pytest.raises(GraphExecutionError, match="label"):
-        program(state={"rangefinder": [1, 2]})
+    result = program(state={"rangefinder": [1, 2]})
+    assert result.undecided == "no_rule_applied" and result.label is None
+    # A decision that was made says it was not undecided, so a caller tests one field.
+    assert program(state={"rangefinder": [9, 9, 9, 500, 9, 9, 9]}).undecided is None
 
 
 @pytest.mark.parametrize(
@@ -283,7 +286,7 @@ def test_a_trace_appends_one_record_per_decision_and_keeps_what_was_there(tmp_pa
     earlier, first, second = traced(trace)
     assert earlier == {"earlier": True}
     assert [first["label"], second["label"]] == ["MOVE_FORWARD", "TURN_LEFT"]
-    assert first["decided_by"] == "move" and first["error"] is None
+    assert first["decided_by"] == "move" and first["undecided"] is None
     graph = hashlib.sha256(plan.model_dump_json().encode()).hexdigest()
     assert first["graph_sha256"] == second["graph_sha256"] == graph
     assert first["input_sha256"] != second["input_sha256"]
@@ -302,11 +305,13 @@ def test_an_input_is_traced_by_content_whatever_its_key_order(tmp_path_factory, 
     assert first["input_sha256"] == second["input_sha256"]
 
 
-def test_a_decision_the_graph_could_not_make_is_traced_and_still_raised(tmp_path):
+def test_a_decision_the_graph_could_not_make_is_traced_as_undecided(tmp_path):
     trace = tmp_path / "decisions.jsonl"
     program = DecisionProgram(read_plan(), None, "none", trace=trace)
-    with pytest.raises(GraphExecutionError, match="label"):
-        program(state={"rangefinder": [1, 2]})
-    (record,) = traced(trace)
-    assert record["label"] is None
-    assert "label" in record["error"]
+    program(state={"rangefinder": [1, 2]})
+    program(state={"rangefinder": [9, 9, 9, 500, 9, 9, 9]})
+    undecided, decided = traced(trace)
+    assert undecided["label"] is None and undecided["decided_by"] is None
+    assert undecided["undecided"] == "no_rule_applied"
+    assert decided["label"] == "MOVE_FORWARD" and decided["undecided"] is None
+    assert "error" not in undecided and "error" not in decided

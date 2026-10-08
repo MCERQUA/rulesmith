@@ -13,7 +13,6 @@ from rulesmith.runtime import (
     MISSING,
     DecisionProgram,
     ExecutionConfig,
-    GraphExecutionError,
     Models,
     Remembered,
     read_path,
@@ -40,10 +39,8 @@ def decisions(program: DecisionProgram, states: list[State]) -> list[dict | None
     may decide more than a label, and a change to any output is a changed decision."""
     decided = []
     for state in states:
-        try:
-            decided.append(program(state=state).outputs)
-        except GraphExecutionError:
-            decided.append(None)
+        prediction = program(state=state)
+        decided.append(None if prediction.undecided else prediction.outputs)
     return decided
 
 

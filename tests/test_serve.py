@@ -66,10 +66,15 @@ def test_a_request_the_server_cannot_answer_says_why(served):
     with pytest.raises(urllib.error.HTTPError) as refused:
         urllib.request.urlopen(request)
     assert refused.value.code == 400
-    # A graph that could not answer this input is the caller's to handle, with what it did decide.
+
+
+def test_an_input_the_graph_cannot_decide_is_answered_as_undecided(served):
+    # The request was handled; the decision is that there is none, and the caller reads why.
+    url, _ = served
     status, body = post(f"{url}/decisions/partial", {"order": {"total": 10}})
-    assert status == 422
-    assert "label" in body["error"] and body["result"]["skipped"]
+    assert status == 200
+    assert body["label"] is None and body["undecided"] == "no_rule_applied"
+    assert "rule_1" in body["skipped"]
 
 
 def test_the_command_line_serves_decision_folders(tmp_path):

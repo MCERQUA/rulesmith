@@ -82,7 +82,10 @@ the judge (`run`, `evaluate`, `optimize`, `calibrate`, `ablate`).
 
 7. **Serve and watch it.** `serve` answers decisions over HTTP for a workflow to
    call, appending each to a trace; `drift` checks those traces against what
-   the rules were calibrated on and exits 1 when a rule drifted.
+   the rules were calibrated on and exits 1 when a rule drifted. An input no
+   rule applies to comes back with `label: null` and
+   `undecided: "no_rule_applied"`, not an error; end the rules with an
+   `always:` line when every input must get a label.
 
    ```sh
    uv run rulesmith serve decisions/my-task --trace decisions.jsonl

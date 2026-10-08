@@ -26,11 +26,11 @@ from rulesmith.rules import RuleError, parts, whole
 from rulesmith.runtime import (
     DecisionProgram,
     ExecutionConfig,
-    GraphExecutionError,
     Models,
     Prices,
     Remembered,
     payer,
+    undecided,
 )
 
 
@@ -130,11 +130,10 @@ class Labels:
     def __call__(self, program: DecisionProgram, example: Example) -> Outcome:
         if example.label is None:
             raise ValueError(f"example {example.id} has no label to score against; grade it")
-        try:
-            prediction, error = program(state=example.state), None
-        except GraphExecutionError as failure:
-            prediction, error = failure.prediction, f"Graph execution failed: {failure}"
-        answered = None if error else prediction.label
+        prediction = program(state=example.state)
+        error = undecided(program.plan, prediction)
+        # Undecided costs what the dearest mistake does; only the abstain label is a pass.
+        answered = prediction.label
         right = [example.label, *example.accepted]
         cost = (
             self.task.worst
