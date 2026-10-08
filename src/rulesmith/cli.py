@@ -15,7 +15,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING
 
 import dspy
-from typesafe_sdk import RetryPolicy, TypeSafeClient
+from typesafe_sdk import RetryPolicy, TypeSafeClient, TypeSafeError
 
 from rulesmith.ablate import effects
 from rulesmith.calibrate import at_prevalence, calibrate, correct, drift, fit_cutoffs, measure
@@ -838,12 +838,27 @@ def load_task(cli: argparse.ArgumentParser, path: Path) -> "Task | DoomTask | Ch
         cli.error(f"{path}: {error}")
 
 
+def read_state(cli: argparse.ArgumentParser, path: Path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        cli.error(f"{path}: {error}")
+
+
 def main() -> None:
     # The default SIGTERM action skips cleanup, which leaves ViZDoom engines running (they
     # ignore SIGTERM themselves); exiting normally closes every environment on the way out.
     signal.signal(signal.SIGTERM, lambda number, _: sys.exit(128 + number))
     cli = parser()
     args = cli.parse_args()
+    try:
+        command(cli, args)
+    except TypeSafeError as error:
+        # A missing key or an unreachable judge is something to set or start, said in a line.
+        cli.error(str(error))
+
+
+def command(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     if args.command == "draft-labels":
         draft_labels(cli, args)
         return
@@ -1041,7 +1056,7 @@ def main() -> None:
             score = Episodes(task, stack.enter_context(env))
         if args.command == "run":
             prediction = DecisionProgram(plan, client, model, execution, args.trace, models=models)(
-                state=json.loads(args.state.read_text())
+                state=read_state(cli, args.state)
             )
             print(dump(dict(prediction)), end="")
         elif args.command == "record":

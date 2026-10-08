@@ -725,3 +725,25 @@ def test_run_prints_a_decision_the_graph_could_not_make(tmp_path):
     assert result.returncode == 0, result.stderr
     decided = json.loads(result.stdout)
     assert decided["label"] is None and decided["undecided"] == "no_rule_applied"
+
+
+def test_a_first_run_without_a_key_or_an_input_says_what_is_missing(tmp_path):
+    # What a new user meets first: a judge with no key, an input that is not there. Each is a
+    # sentence about what to set or fix, not a traceback.
+    import os
+
+    graph = tmp_path / "graph.rules"
+    graph.write_text('ask urgent = "Is it urgent?"\nwhen urgent >= 0.5: page\nalways: queue\n')
+    state = write(tmp_path / "input.json", {"message": "Server down"})
+    env = {k: v for k, v in os.environ.items() if k != "TYPESAFE_API_KEY"}
+    run = [sys.executable, "-m", "rulesmith.cli", "run", str(graph)]
+    keyless = subprocess.run([*run, str(state)], capture_output=True, text=True, env=env)
+    assert keyless.returncode == 2
+    assert "TYPESAFE_API_KEY" in keyless.stderr and "Traceback" not in keyless.stderr
+    missing = subprocess.run(
+        [*run, str(tmp_path / "nowhere.json"), "--backend", "ruling"],
+        capture_output=True,
+        text=True,
+    )
+    assert missing.returncode == 2
+    assert "nowhere.json" in missing.stderr and "Traceback" not in missing.stderr
