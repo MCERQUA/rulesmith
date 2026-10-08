@@ -269,7 +269,8 @@ or lacks a field or holds one outside its domain, fails a test on that field,
 the way a comparison with a missing reading is false. `all` over an empty list
 holds, and a missing list leaves the rule to the next one. A count is a number,
 so it can be compared, summed, or thresholded like any reading. Search is told
-this syntax only when the task's inputs hold lists of records.
+this syntax only when the task's inputs hold lists of records. Whether rules
+over lists lift accuracy on a real task is not yet measured here.
 
 ## Asking a larger judge when the small one is unsure
 
