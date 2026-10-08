@@ -142,7 +142,9 @@ def parser() -> argparse.ArgumentParser:
                 "--seed", type=int, nargs="+", required=True, help="Episode seeds, played in order"
             )
         elif name == "evaluate":
-            command.add_argument("--split", choices=("train", "validation", "test"), default="test")
+            command.add_argument(
+                "--split", choices=("train", "validation", "calibration", "test"), default="test"
+            )
             command.add_argument(
                 "--drift",
                 type=float,
@@ -641,7 +643,7 @@ def draft_labels(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(task.model_dump_json(indent=2) + "\n")
-    counts = Counter(e.label for e in task.train + task.validation + task.test)
+    counts = Counter(e.label for e in task.examples())
     print(dump({"labels": dict(counts), "output": str(args.output)}), end="")
 
 
@@ -724,7 +726,13 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         for name, node in fitted.nodes.items()
         if getattr(node, "measured", None) is not None
     }
-    report = {"temperatures": temperatures, "cutoffs": cutoffs, "rules": counted}
+    # Fitted on examples search never saw, or on the ones it chose the graph by.
+    report = {
+        "fitted_on": task.fitted_on(),
+        "temperatures": temperatures,
+        "cutoffs": cutoffs,
+        "rules": counted,
+    }
     if priced != Prices():
         # A line placed against prices holds for those prices; say which they were.
         report["prices"] = priced.model_dump()

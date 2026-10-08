@@ -114,6 +114,21 @@ Or write `task.json` directly. This minimal example shows the required shape:
 
 `train` drives proposals, `validation` picks the winner, and `test` is scored once at the end.
 
+Two optional additions keep the held-out figures honest:
+
+- **`calibration`**, a fourth list of examples search never sees. `rulesmith
+  calibrate` fits its lines and counts its rules on these when they are there.
+  Without them it fits on the training and validation examples, which search
+  chose the graph by, so the counts flatter it; the calibrate report says which
+  with `fitted_on`.
+- **`group`** on an example, for examples that are not independent: a ticket and
+  its follow-up, two reviews by one customer. A task whose group appears in two
+  splits is refused, since whichever split is held out would have seen the other.
+
+```json
+"calibration": [{"id": "k1", "state": "Refund my second charge.", "label": "billing", "group": "acct-17"}]
+```
+
 ## How answers are scored
 
 By default an answer scores 1 when it matches the example's label and 0

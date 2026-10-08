@@ -219,6 +219,11 @@ def task_data():
         lambda t: t.update(validation=[]),
         lambda t: t.update(labels=["accept", "accept"]),
         lambda t: t.update(descriptions={"invented": "A label the task does not have."}),
+        # A calibration split is as disjoint as the others.
+        lambda t: t.update(calibration=[{"id": "a", "state": "request D", "label": "accept"}]),
+        lambda t: t.update(calibration=[{"id": "d", "state": "request C", "label": "accept"}]),
+        # Related examples stay in one split, or whichever is held out has seen the other.
+        lambda t: (t["train"][0].update(group="g1"), t["test"][0].update(group="g1")),
     ],
 )
 def test_task_rejects_leakage_and_invalid_targets(change):
@@ -226,6 +231,17 @@ def test_task_rejects_leakage_and_invalid_targets(change):
     change(data)
     with pytest.raises(ValidationError):
         Task.model_validate(data)
+
+
+def test_a_group_may_hold_several_examples_of_one_split():
+    data = task_data()
+    data["train"].append(
+        {"id": "a2", "state": "request A, again", "label": "accept", "group": "g1"}
+    )
+    data["train"][0]["group"] = "g1"
+    data["calibration"] = [{"id": "k", "state": "request K", "label": "review", "group": "g2"}]
+    task = Task.model_validate(data)
+    assert [e.group for e in task.train] == ["g1", "g1"] and task.calibration[0].group == "g2"
 
 
 def test_task_detects_duplicate_json_states_regardless_of_key_order():

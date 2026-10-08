@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from test_cli import invoke, write
 from test_graph import task_data
 
-from rulesmith.calibrate import cuts, fit_cutoffs, fit_temperature
+from rulesmith.calibrate import cuts, fit_cutoffs, fit_temperature, measure
 from rulesmith.graph import Plan, Task
 from rulesmith.optimize import Labels
 from rulesmith.rules import compile_rules, render_rules
@@ -169,7 +169,10 @@ def noul_by_state(provider):
 
 
 def scam_task(
-    positives: list[float], negatives: list[float], validation=((0.23, "genuine"),)
+    positives: list[float],
+    negatives: list[float],
+    validation=((0.23, "genuine"),),
+    calibration=(),
 ) -> Task:
     examples = [
         {"id": f"p{i}", "state": str(p), "label": "fraudulent"} for i, p in enumerate(positives)
@@ -182,7 +185,16 @@ def scam_task(
         {"id": f"v{i}", "state": str(p), "label": label} for i, (p, label) in enumerate(validation)
     ]
     data["test"] = [{"id": "t", "state": "0.99", "label": "fraudulent"}]
+    data["calibration"] = [
+        {"id": f"k{i}", "state": str(p), "label": label} for i, (p, label) in enumerate(calibration)
+    ]
     return Task.model_validate(data)
+
+
+# Training examples put the line between 0.25 and 0.3; these put it between 0.6 and 0.7.
+TIMID = ([0.3, 0.35, 0.4, 0.45, 0.42], [0.1, 0.15, 0.2, 0.25, 0.22])
+CALIBRATION = [(0.7, "fraudulent"), (0.75, "fraudulent"), (0.8, "fraudulent"), (0.85, "fraudulent")]
+CALIBRATION += [(0.6, "genuine"), (0.55, "genuine"), (0.5, "genuine"), (0.48, "genuine")]
 
 
 SCAM_RULES = 'ask scam = "Is this a scam?"\nwhen scam >= 0.5: fraudulent\nalways: genuine'
@@ -198,6 +210,17 @@ def test_a_cutoff_moves_to_where_the_judge_separates_the_labels(provider, client
     assert 0.25 < cutoff < 0.3
     assert report[0]["kept"] and report[0]["train_before"] == 0.5 and report[0]["train_after"] == 1
     assert "scam >= " in render_rules(fitted) and "0.5" not in render_rules(fitted)
+
+
+def test_a_calibration_split_is_what_the_lines_and_counts_are_fitted_on(provider, client):
+    noul_by_state(provider)
+    task = scam_task(*TIMID, calibration=CALIBRATION)
+    fitted, report = fit_cutoffs(compile_rules(SCAM_RULES), task, client, "fixture")
+    assert 0.6 < fitted.nodes[report[0]["rule"]].when.value < 0.7
+    counted = measure(fitted, task, client, "fixture")
+    # Eight calibration examples, none of the ten training ones.
+    assert {n.measured.examples for n in counted.nodes.values() if n.type == "value"} == {8}
+    assert sum(n.measured.right for n in counted.nodes.values() if n.type == "value") == 8
 
 
 def test_one_example_is_not_evidence_enough_to_move_a_cutoff(provider, client):
@@ -299,6 +322,50 @@ def test_the_cli_writes_fitted_cutoffs_and_reports_the_validation_change(tmp_pat
     assert printed["cutoffs"][0]["to"] == cutoff
     # Validation is reported, never fitted on: two of three were right before, all three after.
     assert printed["validation"] == {"before": pytest.approx(2 / 3), "after": 1}
+    assert printed["fitted_on"] == "train+validation"
+
+
+def test_the_cli_fits_on_a_calibration_split_and_still_reports_validation(tmp_path, provider):
+    noul_by_state(provider)
+    task = scam_task(
+        *TIMID, validation=[(0.65, "fraudulent"), (0.12, "genuine")], calibration=CALIBRATION
+    )
+    task_file = write(tmp_path / "task.json", task.model_dump(mode="json"))
+    plan = tmp_path / "plan.rules"
+    plan.write_text(SCAM_RULES)
+    output = tmp_path / "calibrated.rules"
+    result = invoke(
+        "calibrate",
+        task_file,
+        plan,
+        "--backend",
+        "ruling",
+        "--base-url",
+        provider.url,
+        "--output",
+        output,
+    )
+    assert result.returncode == 0, result.stderr
+    printed = json.loads(result.stdout)
+    assert printed["fitted_on"] == "calibration"
+    assert 0.6 < printed["cutoffs"][0]["to"] < 0.7
+    assert printed["validation"] == {"before": 1, "after": 1}
+    assert "calibrated 4/4 of 8" in output.read_text()
+    scored = invoke(
+        "evaluate",
+        task_file,
+        output,
+        "--backend",
+        "ruling",
+        "--base-url",
+        provider.url,
+        "--split",
+        "calibration",
+        "--output",
+        tmp_path / "scored.json",
+    )
+    assert scored.returncode == 0, scored.stderr
+    assert json.loads((tmp_path / "scored.json").read_text())["score"] == 1
 
 
 def test_at_the_real_rate_a_line_is_not_lowered_to_catch_scams_at_the_cost_of_false_flags(

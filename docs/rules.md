@@ -122,8 +122,9 @@ paying examples to score the rewrite. `calibrate` fits it instead: for every
 `>=` or `<` a rule draws on a probability, a score's expected level or a
 confidence, and every threshold node on one, it tries each line between two
 answers the judge actually gave on the training examples and keeps the one that
-gets the most of them right. A move is kept only when it also wins held out: the
-training examples are dealt into five folds, the line is chosen without each
+gets the most of them right. It fits on the task's `calibration` examples when
+it has them, and on its training examples otherwise. A move is kept only when it also wins held out: the
+fitting examples are dealt into five folds, the line is chosen without each
 fold and scored on it, and those scores together must beat the line as written,
 so one example on the far side of a line does not move it. The questions and
 the words of the rules stay as they were; lines drawn on readings, `rating >=
@@ -191,8 +192,8 @@ Every decision reports `decided_by`, the rule or judgment that settled it, and a
 `confidence`: the least sure of the judgments asked and, once the rule is
 measured, how often that rule is right. Until then a rule claims nothing, and a
 decision it settles without asking reads as 1.0. `calibrate` also measures
-every rule on the labeled training and validation examples and writes the count
-after it:
+every rule, on the task's `calibration` examples or without them on the labeled
+training and validation examples, and writes the count after it:
 
 ```
 when rating >= 4: recommended calibrated 37/40 of 100
@@ -200,8 +201,9 @@ when rating >= 4: recommended calibrated 37/40 of 100
 
 That rule decided 40 of 100 examples and was right on 37, so its decisions read
 as (37 + 1) / (40 + 2) = 0.90 sure. The smoothing keeps a rule seen twice from
-claiming certainty. These are examples search saw, so the counts flatter a
-searched graph; calibrate against a task of fresh examples for an honest figure.
+claiming certainty. Training and validation examples are ones search saw, so
+counts on them flatter a searched graph; a `calibration` split gives an honest
+figure, and the report's `fitted_on` says which the counts came from.
 
 `evaluate` checks the counts against the inputs it scores. A rule that decides
 far more or less often than it did when measured (at `--drift`, default 0.01,

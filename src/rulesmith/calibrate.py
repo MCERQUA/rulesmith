@@ -65,8 +65,8 @@ def calibrate(
     plan: Plan, task: Task, client, model: str, models: Models | None = None
 ) -> tuple[Plan, dict[str, float]]:
     """The plan with a temperature fitted for every choice question over the task's labels, from
-    how its answers on the training examples compare with their labels. Other questions have no
-    labels to be right about and keep theirs."""
+    how its answers on the examples it is fitted on compare with their labels. Other questions
+    have no labels to be right about and keep theirs."""
     fitted_nodes = {
         name: node
         for name, node in plan.nodes.items()
@@ -85,7 +85,7 @@ def calibrate(
     )
     program = DecisionProgram(raw, client, model, models=models)
     pairs: dict[str, list] = {name: [] for name in fitted_nodes}
-    for example in task.train:
+    for example in task.fitting():
         try:
             answers = program(state=example.state).answers
         except GraphExecutionError as failure:
@@ -185,9 +185,9 @@ def fit_cutoffs(
     models: Models | None = None,
     prices: Prices | None = None,
 ) -> tuple[Plan, list[dict]]:
-    """The plan with every cut moved to where it gets the most training examples right, one cut
+    """The plan with every cut moved to where it gets the most fitting examples right, one cut
     at a time, holding the questions and the rules' words still. A move is kept only when it
-    also wins held out: the training examples are dealt into folds, the best line is chosen
+    also wins held out: the fitting examples are dealt into folds, the best line is chosen
     without each fold in turn and scored on it, and those scores together must beat the line as
     it stands. One example on the far side of a line is not evidence to move it; a few are.
     The report has a row per line: where it was and where it ended, how many places were tried,
@@ -196,7 +196,7 @@ def fit_cutoffs(
     the rate the graph will meet, not the rate the examples were sampled at. With `prices`, each
     example also pays for the calls it made, so a line on how sure a small judge was is placed
     where escalating to a dearer one pays, not wherever escalating is never worse."""
-    examples = [e for e in task.train if e.label is not None]
+    examples = task.fitting()
     lines = cuts(plan)
     if not examples or not lines:
         return plan, []
@@ -367,11 +367,13 @@ def rules(plan: Plan) -> list[str]:
 
 
 def measure(plan: Plan, task: Task, client, model: str, models: Models | None = None) -> Plan:
-    """The plan with every rule that decides its label counted on the task's labeled training
-    and validation examples. A rule decides only some of them, so it is counted on all it can be;
-    they are examples search has seen, so the counts flatter a searched graph, and a task of
-    fresh examples measures it honestly."""
-    examples = [e for e in [*task.train, *task.validation] if e.label is not None]
+    """The plan with every rule that decides its label counted on the task's calibration
+    examples, or without those on its labeled training and validation examples. A rule decides
+    only some of them, so it is counted on all it can be; the training and validation examples
+    are ones search has seen, so those counts flatter a searched graph."""
+    examples = task.fitting()
+    if not task.calibration:
+        examples += [e for e in task.validation if e.label is not None]
     if not examples or not rules(plan):
         return plan
     counts = tally(outcomes(plan, examples, client, model, models))

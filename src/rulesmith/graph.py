@@ -824,6 +824,11 @@ class Example(StrictModel):
     accepted: list[Text] = Field(
         default_factory=list, description="Other labels that are also right for this example"
     )
+    group: Text | None = Field(
+        default=None,
+        description="Examples that are not independent, a ticket and its follow-up, share a "
+        "group, which keeps them in one split",
+    )
 
     @model_validator(mode="after")
     def accepted_beside_a_label(self) -> Self:
@@ -847,6 +852,11 @@ class Task(StrictModel):
     train: list[Example] = Field(min_length=1)
     validation: list[Example] = Field(min_length=1)
     test: list[Example] = Field(min_length=1)
+    calibration: list[Example] = Field(
+        default_factory=list,
+        description="Examples search never sees, for calibrate to fit on; without them it fits "
+        "on the training and validation examples, which search chose the graph by",
+    )
     costs: dict[Text, dict[Text, Annotated[float, Field(ge=0)]]] = Field(
         default_factory=dict,
         description="costs[expected][answered]: what a wrong answer costs; 1 where unlisted",
@@ -862,12 +872,23 @@ class Task(StrictModel):
         "other rates: a rare label sampled to half the examples makes its mistakes look common",
     )
 
+    def examples(self) -> list[Example]:
+        return self.train + self.validation + self.calibration + self.test
+
+    def fitting(self) -> list[Example]:
+        """The labeled examples calibrate fits lines and counts on: the calibration split when
+        the task has one, else the training examples search saw, which flatter a searched graph."""
+        return [e for e in (self.calibration or self.train) if e.label is not None]
+
+    def fitted_on(self) -> str:
+        return "calibration" if self.calibration else "train+validation"
+
     def weights(self) -> dict[str, float]:
         """How much an example of each label stands for in real traffic: its prevalence over
         its share of the labeled examples. Every label weighs 1 without a prevalence."""
         if self.prevalence is None:
             return dict.fromkeys(self.labels, 1.0)
-        labeled = [e.label for e in self.train + self.validation + self.test if e.label]
+        labeled = [e.label for e in self.examples() if e.label]
         return {
             label: self.prevalence[label] / (labeled.count(label) / len(labeled))
             if label in labeled
@@ -879,18 +900,26 @@ class Task(StrictModel):
     def disjoint_splits(self) -> Self:
         if len(set(self.labels)) != len(self.labels):
             raise ValueError("task labels must be distinct")
-        ids, states = set(), set()
-        for example in self.train + self.validation + self.test:
-            for label in [example.label, *example.accepted]:
-                if label is not None and label not in self.labels:
-                    raise ValueError(f"unknown label in example {example.id}: {label}")
-            state = json.dumps(example.state, sort_keys=True, ensure_ascii=False)
-            if example.id in ids:
-                raise ValueError(f"duplicate example id: {example.id}")
-            if state in states:
-                raise ValueError(f"duplicate state in example {example.id}")
-            ids.add(example.id)
-            states.add(state)
+        ids, states, groups = set(), set(), {}
+        splits = {"train": self.train, "validation": self.validation}
+        splits |= {"calibration": self.calibration, "test": self.test}
+        for split, examples in splits.items():
+            for example in examples:
+                for label in [example.label, *example.accepted]:
+                    if label is not None and label not in self.labels:
+                        raise ValueError(f"unknown label in example {example.id}: {label}")
+                state = json.dumps(example.state, sort_keys=True, ensure_ascii=False)
+                if example.id in ids:
+                    raise ValueError(f"duplicate example id: {example.id}")
+                if state in states:
+                    raise ValueError(f"duplicate state in example {example.id}")
+                if example.group is not None and groups.setdefault(example.group, split) != split:
+                    raise ValueError(
+                        f"group {example.group!r} is in both {groups[example.group]} and {split}; "
+                        "examples that belong together are held out together"
+                    )
+                ids.add(example.id)
+                states.add(state)
         for expected, row in self.costs.items():
             for answered in [expected, *row]:
                 if answered not in self.labels:
@@ -913,7 +942,7 @@ class Task(StrictModel):
                 raise ValueError(f"the abstain label {passed!r} must be one of the task's labels")
             if passed in self.costs or any(passed in row for row in self.costs.values()):
                 raise ValueError("the abstain label's cost is set by abstain, not by costs")
-            for example in self.train + self.validation + self.test:
+            for example in self.examples():
                 if passed in (example.label, *example.accepted):
                     raise ValueError(f"example {example.id} expects {passed!r}, which no person is")
         return self
