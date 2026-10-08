@@ -31,7 +31,9 @@ A unit is a `graph` node that names its file; the node format is in
 | Check every hand-off across the files | `rulesmith validate task.json map.json`, which lists the units it loaded and names any hand-off a unit cannot meet |
 | See the map | `rulesmith draw map.json --closed` for one box per unit; without `--closed`, each unit is opened |
 | Run it | `rulesmith run map.json input.json`; the result's `decided_by` names the unit and rule, and its judgments are listed under the unit's name |
-| Improve one unit | `rulesmith optimize unit-task.json map.json --unit billing`: search starts from that unit's graph, with the rest frozen, and the winner is refused if the map's hand-offs no longer hold |
+| Give a unit its own task | `rulesmith unit-task map-task.json map.json --unit billing --output billing-task.json`: the map runs over its task's examples, and the unit's task is the cases it was handed, as it was handed them, whose right answer is one it can give |
+| Calibrate a unit | `rulesmith calibrate billing-task.json units/billing.rules --output units/billing.rules.new`: the unit's rules are counted on its own cases; `calibrate` refuses a whole map, since a map's task does not say which cases reach which unit |
+| Improve one unit | `rulesmith optimize billing-task.json map.json --unit billing`: search starts from that unit's graph, with the rest frozen, and the winner is refused if the map's hand-offs no longer hold |
 | Keep the whole honest | add `--map-task map-task.json`: the map is scored on its own examples before and after the swap, and a unit that is better alone and worse for the map is refused |
 
 Search revises a unit's own rules, so a map is improved one decision at a time,

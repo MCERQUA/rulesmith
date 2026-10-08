@@ -592,7 +592,7 @@ class DecisionProgram(dspy.Module):
             trace.write((json.dumps(record) + "\n").encode())
 
     def _decide(self, state: State) -> dspy.Prediction:
-        values, answers, calls, units = {}, {}, {}, {}
+        values, answers, calls, units, delegated = {}, {}, {}, {}, {}
         sorter = TopologicalSorter(self.plan.dependencies())
         sorter.prepare()
         ready, running, settled, stuck = [], {}, set(), False
@@ -627,6 +627,8 @@ class DecisionProgram(dspy.Module):
                             group = json.dumps([node.judge, value], sort_keys=True)
                             requests.setdefault(group, (value, []))[1].append((key, node))
                         elif isinstance(node, (Graph, Extract)):
+                            if isinstance(node, Graph):
+                                delegated[key] = value
                             delegations.append((key, node, value))
                         else:
                             values[key] = value
@@ -676,6 +678,9 @@ class DecisionProgram(dspy.Module):
             answers={key: answers[key] for key in order if key in answers}
             | {key: answer for key, answer in answers.items() if key not in order},
             skipped=[key for key in order if key not in values],
+            # What each unit that ran was handed: the state its own graph decided on, which is
+            # what a unit's own task is made of.
+            handed={key: delegated[key] for key in order if key in delegated},
             calls={key: calls[key] for key in order if key in calls}
             | {key: usage for key, usage in calls.items() if key not in order},
             models=sorted({call["model"] for call in calls.values()}),

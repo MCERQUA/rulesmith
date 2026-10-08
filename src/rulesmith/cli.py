@@ -24,7 +24,7 @@ from rulesmith.extract import Extractor
 from rulesmith.grade import Graded, Grader, model_name
 from rulesmith.graph import Graph, Plan, Task
 from rulesmith.label import Labeler, Unlabeled, draft_task
-from rulesmith.maps import load, units
+from rulesmith.maps import MapError, load, unit_task, units
 from rulesmith.optimize import (
     GraphProposer,
     Labels,
@@ -249,6 +249,15 @@ def parser() -> argparse.ArgumentParser:
     fit.add_argument("--output", type=Path, required=True, help="A .rules or .json plan")
     provider_arguments(fit)
     cost_arguments(fit)
+    unit = commands.add_parser(
+        "unit-task",
+        help="Write the task of one unit of a map: the cases the map hands it, as handed",
+    )
+    unit.add_argument("task", type=Path, help="A labeled task for the whole map")
+    unit.add_argument("plan", type=Path, help="The map")
+    unit.add_argument("--unit", required=True, help="The unit's node in the map")
+    unit.add_argument("--output", type=Path, required=True)
+    provider_arguments(unit)
     draw = commands.add_parser("draw", help="Write a graph as a Mermaid flowchart")
     draw.add_argument("plan", type=Path)
     draw.add_argument(
@@ -692,12 +701,54 @@ def opponent_of(args: argparse.Namespace) -> str | None:
     return str(args.opponent) if getattr(args, "opponent", None) else None
 
 
+def write_unit_task(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """The task a unit is calibrated and searched on, made by running the whole map, on its
+    judge, over the map's own labeled examples."""
+    task = load_task(cli, args.task)
+    if not isinstance(task, Task):
+        cli.error("unit-task reads a labeled task for the whole map")
+    if args.output.exists():
+        cli.error(f"output already exists: {args.output}")
+    plan = read_plan(cli, args.plan, task)
+    if not isinstance(plan.nodes.get(args.unit), Graph):
+        cli.error(f"{args.plan} has no unit named {args.unit!r}; a unit is a graph node")
+    model, judge_client = judge(args, plan.asks_own_judge())
+    with ExitStack() as stack:
+        client = stack.enter_context(judge_client)
+        models = graph_models(cli, args, stack, plan)
+        program = DecisionProgram(
+            plan, client, model, ExecutionConfig(max_workers=args.max_workers), models=models
+        )
+        try:
+            found = unit_task(program, task, args.unit)
+        except MapError as error:
+            cli.error(str(error))
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(found.model_dump_json(indent=2, exclude_none=True) + "\n")
+    print(
+        dump(
+            {
+                split: len(getattr(found, split))
+                for split in ("train", "validation", "calibration", "test")
+            }
+        ),
+        end="",
+    )
+
+
 def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
     """A plan whose choice questions read as sure as they are right, whose rules draw their lines
     on judgments where the labeled examples put them, and whose rules are counted."""
     task = load_task(cli, args.task)
     if not isinstance(task, Task):
         cli.error("calibrate fits judgments against a labeled task's examples")
+    if units(args.plan):
+        # Each unit's rules are counted on the cases that reach it, which a map's task does not
+        # say; a unit's own task does.
+        cli.error(
+            "calibrate one unit of a map at a time: write its task with rulesmith unit-task, "
+            "then calibrate the unit's own file on it"
+        )
     if args.output.exists():
         cli.error(f"output already exists: {args.output}")
     plan = read_plan(cli, args.plan, task)
@@ -831,6 +882,8 @@ def main() -> None:
     if args.command == "ablate":
         ablation(cli, args)
         return
+    if args.command == "unit-task":
+        return write_unit_task(cli, args)
     if args.command == "calibrate":
         calibration(cli, args)
         return

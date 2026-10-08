@@ -15,6 +15,7 @@ every flag.
 | `record` | Play a Doom episode to `.mp4` or `.gif` |
 | `calibrate` | Fit how sure each judgment should read and where each rule draws its line on one, then count how often each rule is right, on the task's `calibration` examples or else its training and validation ones; with `--call-cost`, `--judge-cost` and `--extract-cost`, an escalation line lands where escalating pays. A rules file written from a rules file keeps its comments |
 | `draw` | Write a graph as a Mermaid flowchart; `--closed` draws a map's units as single boxes |
+| `unit-task` | Write the task of one unit of a map: the map runs over its task's examples, and the unit gets the cases it was handed, as handed, whose answer it can give. Calibrate and search a unit on this; `calibrate` refuses a whole map |
 | `ablate` | Measure what each reading, judgment and name in a graph is worth |
 | `draft-labels` | Label raw inputs with a strong model, for you to review as a task |
 | `tune` | Fine-tune the judge on a task's examples with Ruling, test split held out |

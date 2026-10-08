@@ -333,7 +333,18 @@ a map.
 
 Units are the piece a map of many decisions is built from: a directory of unit
 files and the maps that name them. A unit is searched in place against a task of
-its own, with the rest of the map frozen:
+its own, with the rest of the map frozen. `unit-task` writes that task from the
+map's: it runs the map over the map task's examples and keeps the cases handed
+to the unit, as the unit was handed them, whose right answer is one the unit can
+give. A case routed to the unit that needs another answer is the router's
+mistake, which no change to the unit fixes:
+
+```sh
+uv run rulesmith unit-task support-task.json examples/ticket-handling/map.json --unit billing \
+  --backend ruling --output billing-task.json
+```
+
+Then search the unit on it:
 
 ```sh
 uv run rulesmith optimize billing-task.json examples/ticket-handling/map.json --unit billing \
