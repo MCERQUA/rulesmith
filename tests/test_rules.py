@@ -10,7 +10,7 @@ from hypothesis import strategies as st
 from test_graph import binary_plan, call, constant_plan, ref, task_data
 
 from rulesmith.graph import Plan, Task
-from rulesmith.rules import RuleError, compile_rules, parts, render_rules
+from rulesmith.rules import RuleError, compile_rules, keep_comments, parts, render_rules
 from rulesmith.runtime import DecisionProgram
 
 GRAPHS = sorted((Path(__file__).resolve().parents[1] / "examples/doom/graphs").glob("*.json"))
@@ -310,3 +310,57 @@ def test_the_proposer_is_told_how_to_read_a_length():
         path = line.removeprefix("read length of ").split()[0]
         plan = compile_rules(f"{line}\nwhen length of {path} < 20: review\nalways: accept")
         assert any(node.type == "read" and node.measure == "length" for node in plan.nodes.values())
+
+
+COMMENTED = """# Triage: cheap fields first, the judge only for the rest.
+
+read amount in [0, 1000]
+# Asked only when the amount alone cannot settle it.
+ask risky = "Does this read like fraud?"
+  briefed "Card testing, resale."
+
+# Large orders always go to a person.
+when amount >= 500: review
+when risky >= 0.7: review
+# Everything else ships.
+always: accept
+# Reviewed 2026-10.
+"""
+
+
+def test_rewritten_rules_keep_the_comments_above_the_lines_they_explain():
+    rendered = render_rules(compile_rules(COMMENTED)).replace(">= 500", ">= 450")
+    kept = keep_comments(COMMENTED, rendered)
+    # Nothing but the comments and blank lines is added back: the rules are the rendered ones.
+    assert [line for line in kept.splitlines() if line and not line.startswith("#")] == (
+        rendered.splitlines()
+    )
+    lines = kept.splitlines()
+    assert lines[:3] == [
+        "# Triage: cheap fields first, the judge only for the rest.",
+        "",
+        "read amount in [0, 1000]",
+    ]
+    assert lines[
+        lines.index("# Asked only when the amount alone cannot settle it.") + 1
+    ].startswith("ask risky =")
+    assert lines[lines.index("# Large orders always go to a person.") + 1] == (
+        "when amount >= 450: review"
+    )
+    assert lines[lines.index("# Everything else ships.") + 1] == "always: accept"
+    assert lines[-1] == "# Reviewed 2026-10."
+
+
+def test_a_comment_above_a_line_that_is_gone_stays_with_what_followed_it():
+    rendered = "read amount in [0, 1000]\nwhen amount >= 500: review\nalways: accept"
+    source = (
+        "read amount in [0, 1000]\n# Retired.\nread other in [0, 1]\n"
+        "when amount >= 500: review\nalways: accept\n"
+    )
+    lines = keep_comments(source, rendered).splitlines()
+    assert lines == [
+        "read amount in [0, 1000]",
+        "# Retired.",
+        "when amount >= 500: review",
+        "always: accept",
+    ]

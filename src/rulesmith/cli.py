@@ -33,7 +33,7 @@ from rulesmith.optimize import (
     evaluate_plan,
     optimize_plan,
 )
-from rulesmith.rules import NAME, RuleError, render_rules
+from rulesmith.rules import NAME, RuleError, keep_comments, render_rules
 from rulesmith.runtime import (
     DecisionProgram,
     ExecutionConfig,
@@ -719,6 +719,8 @@ def calibration(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         if args.output.suffix == ".rules"
         else fitted.model_dump_json(indent=2)
     )
+    if args.output.suffix == ".rules" and args.plan.suffix == ".rules":
+        written = keep_comments(args.plan.read_text(), written)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(written + "\n")
     counted = {

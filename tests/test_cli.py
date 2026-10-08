@@ -675,6 +675,30 @@ def test_calibrating_a_graph_that_asks_nothing_needs_no_judge(tmp_path):
     assert "calibrated" in output.read_text()
 
 
+def test_calibrating_rules_keeps_their_comments(tmp_path):
+    task = write(
+        tmp_path / "task.json",
+        task_data()
+        | {
+            "train": [{"id": "a", "state": {"amount": 100}, "label": "accept"}],
+            "validation": [{"id": "b", "state": {"amount": 900}, "label": "review"}],
+            "test": [{"id": "c", "state": {"amount": 50}, "label": "accept"}],
+        },
+    )
+    rules = tmp_path / "policy.rules"
+    rules.write_text(
+        "# Who owns this: billing.\nread amount in [0, 1000]\n"
+        "# Large amounts need a person.\nwhen amount >= 500: review\nalways: accept\n"
+    )
+    output = tmp_path / "calibrated.rules"
+    result = invoke("calibrate", task, rules, "--output", output)
+    assert result.returncode == 0, result.stderr
+    lines = output.read_text().splitlines()
+    assert lines[0] == "# Who owns this: billing."
+    following = lines[lines.index("# Large amounts need a person.") + 1]
+    assert following.startswith("when amount >= ") and "calibrated" in following
+
+
 def test_clef_flash_is_a_backend_reached_like_ruling(tmp_path, provider):
     from rulesmith.cli import resolve_backend
 

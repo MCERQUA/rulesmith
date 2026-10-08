@@ -441,6 +441,65 @@ def joined_clauses(text: str) -> list[str]:
     return lines
 
 
+def statement_keys(lines: list[str]) -> list[tuple[int, tuple[str, ...]]]:
+    """Each statement line's index and what identifies it across a rewrite: a reading by its
+    path, a declaration by its name, a heading by itself, and a rule by its place among its
+    output's rules, since rewriting moves a rule's numbers but never its order."""
+    keys = []
+    section = LABEL_OUTPUT
+    ordinal = 0
+    previous = ""
+    for index, raw in enumerate(lines):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # A clause on a line of its own belongs to the judgment above it, as compiling reads it.
+        if line.startswith(CLAUSES) and previous.startswith("ask "):
+            continue
+        previous = line
+        if heading := OUTPUT.fullmatch(line):
+            section, ordinal = heading.group(1), 0
+            keys.append((index, ("output", section)))
+        elif line.startswith("read "):
+            declared = line[5:].split("=", 1)[-1] if "=" in line.split("[", 1)[0] else line[5:]
+            keys.append((index, ("read", declared.split()[0])))
+        elif line.split(" ", 1)[0] in ("ask", "extract", "let", "vote") and "=" in line:
+            keys.append((index, ("declare", line.split("=", 1)[0].split()[-1])))
+        else:
+            ordinal += 1
+            keys.append((index, ("rule", section, str(ordinal))))
+    return keys
+
+
+def keep_comments(source: str, rendered: str) -> str:
+    """Rendered rules with the source's comments and blank lines put back above the lines they
+    stood above. A plan holds no comments, so rewriting a file from its plan would otherwise
+    drop every note its authors left. Notes above a line the rewrite removed move down to the
+    next line that is still there; notes after the last line stay at the end."""
+    lines = source.splitlines()
+    notes: dict[tuple[str, ...], list[str]] = {}
+    present = {key for _, key in statement_keys(rendered.splitlines())}
+    pending: list[str] = []
+    start = 0
+    for index, key in statement_keys(lines):
+        pending += [
+            line for line in lines[start:index] if not line.strip() or line.lstrip().startswith("#")
+        ]
+        start = index + 1
+        if key in present:
+            notes[key], pending = pending, []
+    pending += [line for line in lines[start:] if not line.strip() or line.lstrip().startswith("#")]
+    out = []
+    rendered_lines = rendered.splitlines()
+    for index, key in statement_keys(rendered_lines):
+        out += notes.get(key, [])
+        out.append(rendered_lines[index])
+    out += pending
+    while out and not out[-1].strip():
+        out.pop()
+    return "\n".join(out)
+
+
 def compile_rules(text: str, labels: dict[str, str] | None = None) -> Plan:
     """A plan from rule text, or from whole-graph JSON for what rules cannot say. `labels` maps
     each task label to its description, and is what a question written '[task labels]' asks."""
