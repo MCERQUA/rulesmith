@@ -101,6 +101,23 @@ gains most where the input has fields.
 </details>
 
 <details>
+<summary><b>Clef-flash, on an NVIDIA GPU or a Mac</b></summary>
+
+Cloudflare's 9B decision model answers the same typed questions, needs no key, and
+scored above the tuned 4B judge on both datasets it was [measured on](benchmarks.md#escalating-to-a-larger-judge).
+On Linux with a GPU of about 20 GB (an L4, A10G, A100 or larger):
+
+```sh
+pip install 'rulesmith[clef]'
+rulesmith clef-serve --port 8000
+```
+
+Then add `--backend clef --max-workers 1` to the commands below. On a Mac, its 4-bit
+MLX port is lighter and faster; both are in [backends](cli.md#backends).
+
+</details>
+
+<details>
 <summary><b>Any OpenAI-compatible API</b></summary>
 
 The `openai` backend asks a chat model each question with its options lettered
