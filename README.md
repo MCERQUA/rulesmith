@@ -61,6 +61,7 @@ hunt in Doom deathmatch and beat the champion 12-0, with no model calls at all
 ## Learn more
 
 - [Quickstart](docs/quickstart.md): installation, judges, and a task to a running graph.
+- [Notebook](notebooks/quickstart.ipynb): rules for spotting fake job postings, end to end in Colab with an OpenAI key.
 - [Tasks](docs/tasks.md): the task file, drafting labels, structured inputs, costs, and graders.
 - [Rules](docs/rules.md): the language search writes, confidence, calibration, escalation, and extraction.
 - [Graph format](docs/graphs.md): the JSON behind each node, execution, and drawing a graph.
