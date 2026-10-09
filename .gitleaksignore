@@ -1,0 +1,4 @@
+# A news sentence in this task quotes a public GitHub commit link whose hash matches the
+# Sourcegraph token pattern; it is not a credential.
+32416921712faa5858481249f0eda30845f4051a:examples/entity-type/task.json:sourcegraph-access-token:1573
+examples/entity-type/task.json:sourcegraph-access-token:1573
