@@ -298,7 +298,9 @@ def read_node(nodes: dict, test: Test, states: list) -> None:
     else:
         low, high = min(seen), max(seen)
         room = max(high - low, 1)
-        domain = {"bounds": [low - room, high + room]}
+        # A length cannot be negative, so its room below what was seen stops at zero.
+        bottom = max(0, low - room) if measure == "length" else low - room
+        domain = {"bounds": [bottom, high + room]}
     extra = {"measure": "length"} if measure == "length" else {}
     nodes[name] = {"type": "read", "path": list(path), **domain, **extra}
 

@@ -157,6 +157,9 @@ def test_an_empty_text_field_can_settle_a_case():
     plan = mine(task_of(rows, ["real", "scam"]), Plan.constant("real"))
     assert "length of profile" in render_rules(plan)
     assert DecisionProgram(plan, None, "none")({"profile": "", "title": "x"}).label == "scam"
+    # A length is never negative, so the room around what was seen stops at zero.
+    (read,) = [node for node in plan.nodes.values() if node.type == "read"]
+    assert read.bounds[0] == 0
 
 
 def task_of(rows: list[dict], labels: list[str]) -> Task:
