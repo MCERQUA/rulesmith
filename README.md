@@ -16,6 +16,18 @@ when has_company_logo == 0 and length of company_profile == 0: fraudulent
 always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
 ```
 
+![Same 4B judge, same 100 examples: rulesmith beat DSPy's tuned classifier by 6.7 points on job-fraud detection with 29% of the model calls, and tied it on clothing reviews with 6%](docs/assets/claim.svg)
+
+The [benchmarks](docs/benchmarks.md) have every dataset, including where rulesmith
+does not help: on one-sentence inputs it ties DSPy, and on job postings a TF-IDF
+classifier still beats it.
+
+Rules are not only for text. Searched against a league of other graphs, this one
+learned to hunt in Doom deathmatch, and beat the champion 12-0
+([how](docs/doom.md)):
+
+![A searched rules graph hunting down the Doom champion it dethroned](docs/assets/doom/duel-hunter.gif)
+
 An independent research prototype, not affiliated with TypeSafe.
 
 ## Installation

@@ -31,3 +31,9 @@ def test_search_is_shown_beside_the_best_baseline_that_asks_on_every_row():
 def test_the_charts_in_the_docs_are_the_ones_the_results_draw():
     assert (ROOT / "docs/assets/benchmarks.svg").read_text() == charts.benchmarks_chart()
     assert (ROOT / "docs/assets/escalation.svg").read_text() == charts.escalation_chart()
+    assert (ROOT / "docs/assets/claim.svg").read_text() == charts.claim_chart()
+
+
+def test_a_p_value_reads_as_a_power_of_ten_when_it_is_small():
+    assert charts.p_value(3.2e-06) == "3×10⁻⁶"
+    assert charts.p_value(0.66) == "0.66"

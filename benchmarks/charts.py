@@ -3,9 +3,11 @@
     python3 benchmarks/charts.py
 
 Writes docs/assets/benchmarks.svg, accuracy against judge calls per row for rulesmith's search
-and the baselines on each dataset, and docs/assets/escalation.svg, accuracy against the share of
-rows sent to the larger judge. Every number is a mean over the seeds in benchmarks/results; the
-tables in docs/benchmarks.md carry the spread and the tests of significance.
+and the baselines on each dataset; docs/assets/escalation.svg, accuracy against the share of
+rows sent to the larger judge; and docs/assets/claim.svg, the README's headline: search against
+DSPy's typed classifier on the same tuned judge. Every number is a mean over the seeds in
+benchmarks/results; the tables in docs/benchmarks.md carry the spread and the tests of
+significance.
 """
 
 import json
@@ -26,6 +28,11 @@ ASKING = {
     "dspy-cot": "DSPy, reasoning",
     "dspy-typed": "DSPy typed",
 }
+# The README's headline: where the input has fields, on the judge tuned on each seed's examples.
+CLAIM = (
+    ("jobs", "Job postings: scam or genuine?"),
+    ("clothing", "Clothing reviews: recommend or not?"),
+)
 ESCALATION = (("small", "4B alone"), ("large", "Clef-flash alone"), ("escalate", "escalating"))
 
 # rulesmith is the one hue; every baseline is context, in the neutral, and named beside its mark.
@@ -83,6 +90,21 @@ def escalated() -> dict[str, list[tuple[str, float, float]]]:
             large = mean(r["calls_per_row"]["large"] for r in mine)
             found[dataset].append((name, large, mean(r["accuracy"] for r in mine)))
     return found
+
+
+def tuned(dataset: str, method: str) -> list[dict]:
+    """A method's runs on the tuned judge, seed by seed, so pooled rows line up across methods."""
+    runs = json.loads((RESULTS / "tuned" / f"{dataset}.json").read_text())["runs"]
+    return sorted((r for r in runs if r["method"] == method), key=lambda r: r["seed"])
+
+
+def p_value(p: float) -> str:
+    """A p-value as a reader writes it: 0.66, or 3×10⁻⁶ rather than 3.2e-06."""
+    if p >= 0.001:
+        return f"{p:.2g}"
+    mantissa, exponent = f"{p:.0e}".split("e")
+    raised = str(int(exponent)).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
+    return f"{mantissa}×10{raised}"
 
 
 def ticks(low: float, high: float) -> tuple[float, float, list[float]]:
@@ -206,9 +228,84 @@ def escalation_chart() -> str:
     )
 
 
+def bar(x: float, y: float, length: float, value: str, kind: str) -> list[str]:
+    """A bar from zero, and its value at the end of it in the text color."""
+    weight = ' font-weight="600"' if kind == "us" else ""
+    return [
+        f'<rect x="{x}" y="{y + 2}" width="{length:.1f}" height="18" rx="2" class="{kind}"/>',
+        f'<text x="{x + length + 6:.1f}" y="{y + 15}" class="ink"{weight}>{value}</text>',
+    ]
+
+
+def claim_chart() -> str:
+    from rulesmith.bench import mcnemar
+
+    width, left, accuracy_width, calls_left, calls_width = 820, 200, 360, 640, 110
+    body = [
+        f'<text x="{left}" y="{TOP}" class="muted" font-weight="600">accuracy</text>',
+        f'<text x="{calls_left}" y="{TOP}" class="muted" font-weight="600">'
+        "model calls per row</text>",
+    ]
+    y = TOP + 34
+    for dataset, title in CLAIM:
+        ours, theirs = tuned(dataset, "search"), tuned(dataset, "dspy-typed")
+        pooled = [[c for r in runs for c in r["correct"]] for runs in (ours, theirs)]
+        p = mcnemar(*pooled)
+        rows = [
+            (
+                "rulesmith",
+                mean(r["accuracy"] for r in ours),
+                mean(r["calls_per_example"] for r in ours),
+                "us",
+            ),
+            (
+                "DSPy typed classifier",
+                mean(r["accuracy"] for r in theirs),
+                mean(r["calls_per_example"] for r in theirs),
+                "them",
+            ),
+        ]
+        gain = (rows[0][1] - rows[1][1]) * 100
+        verdict = f"+{gain:.1f} points" if p < 0.05 and gain > 0 else "tie"
+        share = rows[0][2] / rows[1][2]
+        body.append(
+            f'<text x="16" y="{y}" class="ink" font-size="14" font-weight="600">{title}</text>'
+            f'<text x="{left + 230}" y="{y}" class="muted">{verdict} · p = {p_value(p)} · '
+            f"{share:.0%} of the calls</text>"
+        )
+        y += 14
+        for name, accuracy, calls, kind in rows:
+            weight = ' font-weight="600"' if kind == "us" else ""
+            body += [
+                f'<text x="{left - 10}" y="{y + 15}" text-anchor="end" class="ink"{weight}>'
+                f"{name}</text>",
+                *bar(left, y, accuracy * accuracy_width, f"{accuracy:.3f}", kind),
+                *bar(calls_left, y, calls * calls_width, f"{calls:.2f}", kind),
+            ]
+            y += 26
+        y += 30
+    body.append(
+        f'<text x="16" y="{y}" class="muted">Means of 3 seeds, 300 held-out rows each; p from '
+        "exact McNemar tests over the pooled rows. Bars start at zero.</text>"
+    )
+    body.append(
+        f'<text x="16" y="{y + 18}" class="muted">On one-sentence inputs (TREC, Banking77) '
+        "rulesmith ties DSPy; on job postings a TF-IDF classifier scores higher still.</text>"
+    )
+    return svg(
+        width,
+        y + 36,
+        "Same 4B judge, same 100 examples, a fraction of the calls",
+        "rulesmith against DSPy's typed classifier (GEPA + ReAnchor), the judge fine-tuned on each "
+        "seed's examples.",
+        body,
+    )
+
+
 def main() -> None:
     (ASSETS / "benchmarks.svg").write_text(benchmarks_chart())
     (ASSETS / "escalation.svg").write_text(escalation_chart())
+    (ASSETS / "claim.svg").write_text(claim_chart())
 
 
 if __name__ == "__main__":

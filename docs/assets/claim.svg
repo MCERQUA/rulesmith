@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="336" viewBox="0 0 820 336" font-family="system-ui, sans-serif" font-size="12">
+<style>
+.bg { fill: #fcfcfb } .ink { fill: #0b0b0b } .muted { fill: #52514e }
+.grid { stroke: #e4e3df } .axis { stroke: #b5b4ae }
+.us { fill: #2a78d6 } .them { fill: #6b6a66 } .ring { stroke: #fcfcfb }
+.mix { stroke: #6b6a66 }
+.halo { stroke: #fcfcfb; stroke-width: 4px; paint-order: stroke; stroke-linejoin: round }
+@media (prefers-color-scheme: dark) {
+  .bg { fill: #1a1a19 } .ink { fill: #ffffff } .muted { fill: #c3c2b7 }
+  .grid { stroke: #33322f } .axis { stroke: #57564f }
+  .us { fill: #3987e5 } .them { fill: #8f8e89 } .ring { stroke: #1a1a19 }
+  .mix { stroke: #8f8e89 }
+  .halo { stroke: #1a1a19 }
+}
+</style>
+<rect width="820" height="336" class="bg"/>
+<text x="16" y="24" font-size="14" font-weight="600" class="ink">Same 4B judge, same 100 examples, a fraction of the calls</text>
+<text x="16" y="42" class="muted">rulesmith against DSPy's typed classifier (GEPA + ReAnchor), the judge fine-tuned on each seed's examples.</text>
+<text x="200" y="74" class="muted" font-weight="600">accuracy</text>
+<text x="640" y="74" class="muted" font-weight="600">model calls per row</text>
+<text x="16" y="108" class="ink" font-size="14" font-weight="600">Job postings: scam or genuine?</text><text x="430" y="108" class="muted">+6.7 points · p = 3×10⁻⁶ · 29% of the calls</text>
+<text x="190" y="137" text-anchor="end" class="ink" font-weight="600">rulesmith</text>
+<rect x="200" y="124" width="281.6" height="18" rx="2" class="us"/>
+<text x="487.6" y="137" class="ink" font-weight="600">0.782</text>
+<rect x="640" y="124" width="32.4" height="18" rx="2" class="us"/>
+<text x="678.4" y="137" class="ink" font-weight="600">0.29</text>
+<text x="190" y="163" text-anchor="end" class="ink">DSPy typed classifier</text>
+<rect x="200" y="150" width="257.6" height="18" rx="2" class="them"/>
+<text x="463.6" y="163" class="ink">0.716</text>
+<rect x="640" y="150" width="110.0" height="18" rx="2" class="them"/>
+<text x="756.0" y="163" class="ink">1.00</text>
+<text x="16" y="204" class="ink" font-size="14" font-weight="600">Clothing reviews: recommend or not?</text><text x="430" y="204" class="muted">tie · p = 0.66 · 6% of the calls</text>
+<text x="190" y="233" text-anchor="end" class="ink" font-weight="600">rulesmith</text>
+<rect x="200" y="220" width="332.8" height="18" rx="2" class="us"/>
+<text x="538.8" y="233" class="ink" font-weight="600">0.924</text>
+<rect x="640" y="220" width="6.7" height="18" rx="2" class="us"/>
+<text x="652.7" y="233" class="ink" font-weight="600">0.06</text>
+<text x="190" y="259" text-anchor="end" class="ink">DSPy typed classifier</text>
+<rect x="200" y="246" width="334.4" height="18" rx="2" class="them"/>
+<text x="540.4" y="259" class="ink">0.929</text>
+<rect x="640" y="246" width="110.0" height="18" rx="2" class="them"/>
+<text x="756.0" y="259" class="ink">1.00</text>
+<text x="16" y="300" class="muted">Means of 3 seeds, 300 held-out rows each; p from exact McNemar tests over the pooled rows. Bars start at zero.</text>
+<text x="16" y="318" class="muted">On one-sentence inputs (TREC, Banking77) rulesmith ties DSPy; on job postings a TF-IDF classifier scores higher still.</text>
+</svg>
