@@ -169,7 +169,9 @@ cd "$(huggingface-cli download mlx-community/clef-flash-4bit)"
 uv run --no-project --with mlx==0.32.3 --with mlx-lm==0.32.0 --with mlx-vlm==0.7.4 \
   python clef_mlx.py serve --port 8000
 uv run rulesmith run graph.rules input.json --backend clef --max-workers 1
-``` A Ruling judge fine-tuned on
+```
+
+A Ruling judge fine-tuned on
 your labels is served (`RULING_ADAPTER`) and asked the same way, and
 `rulesmith tune task.json --output tuning` makes one: it writes the records
 Ruling's trainer reads, every training and validation example asked the direct
