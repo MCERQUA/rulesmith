@@ -22,9 +22,6 @@ The [benchmarks](docs/benchmarks.md) have every dataset, including where rulesmi
 does not help: on one-sentence inputs it ties DSPy, and on job postings a TF-IDF
 classifier still beats it.
 
-Rules are not only for text: searched against a league of other graphs, one learned
-to [hunt in Doom deathmatch](docs/doom.md) and beat the champion 12-0.
-
 An independent research prototype, not affiliated with TypeSafe.
 
 ## Installation
@@ -52,6 +49,14 @@ rulesmith run runs/my-task/plan.rules input.json --backend ruling
 ```
 
 The [quickstart](docs/quickstart.md) walks through it with every command's output.
+
+## Beyond classification
+
+The same search plays games. Pitted against a league of other graphs, this one learned to
+hunt in Doom deathmatch and beat the champion 12-0, with no model calls at all
+([how](docs/doom.md)):
+
+![A searched rules graph hunting down the Doom champion it dethroned](docs/assets/doom/duel-hunter.gif)
 
 ## Learn more
 
