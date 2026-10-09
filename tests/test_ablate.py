@@ -8,9 +8,13 @@ when score >= 0.5: high
 always: low"""
 # A reading no rule mentions is already dropped when the rules compile, so what is left to find
 # is the other kind: a reading the graph asks for, and then decides the same way without.
+# The first condition holds for every value its reading allows, so the rule reading the score
+# never runs.
 DEAD_RULE = """read score in [0, 1]
-always: high
-when score >= 0.5: never_reached"""
+read other in [0, 1]
+when other >= 0: high
+when score >= 0.5: never_reached
+always: low"""
 
 
 def states(values):
@@ -25,7 +29,8 @@ def test_the_reading_that_decides_is_the_one_that_changes_decisions():
 
 
 def test_a_rule_an_earlier_one_always_beats_changes_nothing():
-    (effect,) = effects(compile_rules(DEAD_RULE), states([0.1, 0.9]))
+    found = effects(compile_rules(DEAD_RULE), [{"score": s, "other": 0.5} for s in (0.1, 0.9)])
+    (effect,) = [e for e in found if e.node == "read_score"]
     assert effect.changed == 0
     assert effect.reason == "present in 2 of 2 states and changes no decision"
 

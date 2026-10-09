@@ -623,6 +623,11 @@ def read_rule(
     if colon < 0:
         raise RuleError("a rule reads 'when <condition>: <action>' or 'always: <action>'")
     head, action = line[:colon].strip(), line[colon + 1 :]
+    before = nodes[sources[-1]] if sources else None
+    if before and before["type"] == "value" and "when" not in before:
+        # The rule before answers every case with a label, so this one would be kept and never
+        # run. A computed answer, or a question asked of part of the input, can come back empty.
+        raise RuleError("this rule can never decide: the rule before it always answers")
     guard = (
         None
         if head == "always"

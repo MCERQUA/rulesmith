@@ -326,7 +326,10 @@ def test_a_graph_said_to_always_answer_answers_every_input(rules, a, b):
     from rulesmith.rules import compile_rules
     from rulesmith.runtime import DecisionProgram
 
-    lines = [f"when {cond}: {act}" if cond else f"always: {act}" for cond, act in rules]
+    # Rules after an unconditional label could never decide, and the compiler refuses them.
+    labels = ("high", "low")
+    end = next((i + 1 for i, (c, a) in enumerate(rules) if c is None and a in labels), len(rules))
+    lines = [f"when {cond}: {act}" if cond else f"always: {act}" for cond, act in rules[:end]]
     plan = compile_rules("read a in [0, 10]\nread b in [0, 10]\n" + "\n".join(lines))
     state = {key: value for key, value in {"a": a, "b": b}.items() if value is not None}
     if not plan.unanswered():

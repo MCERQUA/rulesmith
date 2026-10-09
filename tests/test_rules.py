@@ -368,3 +368,14 @@ def test_a_comment_above_a_line_that_is_gone_stays_with_what_followed_it():
         "when amount >= 500: review",
         "always: accept",
     ]
+
+
+def test_a_rule_after_one_that_always_answers_is_refused():
+    # It could never decide anything: the first unconditional rule settles every case. Search
+    # gets the refusal as feedback, rather than keeping rules a reader would think are live.
+    with pytest.raises(RuleError, match="line 3: .*never decide"):
+        compile_rules("read x in [0, 10]\nalways: a\nwhen x >= 5: b\n")
+    # A rule after one that only sometimes answers is live: a condition, or a computed answer
+    # whose reading may be missing.
+    compile_rules("read x in [0, 10]\nwhen x >= 5: b\nalways: a\noutput team:\nalways: billing\n")
+    compile_rules("read x in [0, 10]\nalways: x >= 5 ? b : a\nalways: c\n")
