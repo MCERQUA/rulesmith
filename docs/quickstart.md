@@ -17,6 +17,39 @@ flowchart LR
   CAL -.-> RUN
 ```
 
+## Installation
+
+Requires Python 3.12–3.14.
+
+```sh
+pip install rulesmith
+```
+
+That covers classification tasks and every command except the games. The games
+and the public benchmarks need packages the core leaves out, so they come as
+extras:
+
+| Extra | For | Adds |
+| --- | --- | --- |
+| `doom` | Doom tasks, `arena`, `record` | ViZDoom, NumPy, Pillow, ffmpeg |
+| `chess` | Chess tasks | python-chess |
+| `bench` | `python -m rulesmith.bench` | pyarrow, scikit-learn, Hugging Face Hub |
+
+```sh
+pip install 'rulesmith[doom,chess]'
+```
+
+The examples below run from a checkout with [uv](https://docs.astral.sh/uv/),
+which installs every extra and the test tools:
+
+```sh
+git clone https://github.com/bradAGI/rulesmith.git
+cd rulesmith
+uv sync --locked
+```
+
+## From a task to a running graph
+
 **1. Pick a judge.** The judge answers the graph's typed questions. Use
 TypeSafe's hosted Jev, or run Ruling on your own machine; every command takes
 either, and the examples below use Ruling.
@@ -188,3 +221,61 @@ to the rules is then a diff a reviewer can read beside the scorecard it moved, a
 on, which the scorecard names; after changing the judge, run `calibrate` and `evaluate` again
 and commit both.
 
+## What search writes
+
+Search writes rules, not prompts. On the [job-postings benchmark](benchmarks.md)
+it found this program from 100 labeled postings:
+
+```
+read has_company_logo in [0, 1]
+read length of company_profile in [0, 10000]
+when has_company_logo == 0 and length of company_profile == 0: fraudulent
+always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
+```
+
+Drawn with `rulesmith draw` (the [legend](graphs.md#looking-at-a-graph)):
+
+```mermaid
+flowchart TD
+    n0[/"read has_company_logo"/]
+    n1[/"read length of company_profile"/]
+    n2(("fraudulent"))
+    n3{{"judge<br/>choice: Is this job posting a scam?"}}
+    n4(["decision<br/>first that answers"])
+    c0["has_company_logo == 0 and length of company_profile == 0"]
+    n0 --> c0
+    n1 --> c0
+    c0 -.-> n2
+    n2 -->|"1"| n4
+    n3 -->|"2"| n4
+    o0(("label"))
+    n4 ==> o0
+    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
+    class n3 judge
+    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
+    class n0,n1 read
+    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
+    class n2 rule
+    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
+    class c0 condition
+```
+
+Rule 1 reads two fields and, when the posting has no logo and an empty company
+profile, answers `fraudulent` without calling any model. Only when it declines
+does rule 2 ask the judge (Jev or Ruling), which it did on 58% of test postings.
+The question search wrote is longer than shown here; the rules are as found.
+
+Rules compile to a validated graph that the runtime executes, and read back as
+the rules they came from: `optimize` saves both, and a `.rules` file runs
+anywhere a `plan.json` does, so you can edit what search wrote. The language,
+with what a judgment can be and how sure a rule is, is in [Rules](rules.md).
+A judgment can be asked of a larger judge only when the small one is unsure,
+a generative model can read fields out of free text for rules to test, and a
+rule can test any or all of a list's items, or count them. These run and are
+tested; of them only escalation is measured so far: on TREC, a tuned 4B
+escalating to Clef-flash sent 9% of questions up and gained half the gap to
+Clef-flash alone, as the [benchmarks](benchmarks.md#escalating-to-a-larger-judge)
+show, while extraction and lists are not yet in the benchmarks.
+Graphs compose: a decision can hand a case to another graph's unit, and many
+decisions become one map, validated across its hand-offs and searched a unit
+at a time; the first one is in [Maps](maps.md).

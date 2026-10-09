@@ -2,130 +2,12 @@
 
 ![rulesmith: rules that ask a local model for typed decisions](image.png)
 
-**rulesmith lets DSPy build decision graphs for you.** Give it a
-classification task and examples, labeled or graded by a stronger model. It
-searches for a small program of rules: cheap tests on the input's fields settle
-the cases they can, and a local Ruling or hosted Jev judge is asked typed
-questions (Choice, Score, and Noul, a probability that a statement is true)
-about the rest. A generative model proposes each revision,
-[GEPA](https://github.com/gepa-ai/gepa) decides which to keep by how they score
-on your examples, and the best program is saved as rules or JSON you can run,
-read, and edit. Graphs compose: a decision can hand a case to another graph,
-so many decisions become one map, searched a unit at a time.
-
-This is an independent research prototype, not affiliated with TypeSafe. Jev is
-TypeSafe's hosted judge, selected with `--backend typesafe`. rulesmith optimizes
-graphs and question instructions, not model weights.
-
-## When to use rulesmith, and when DSPy
-
-rulesmith is built on DSPy and solves a narrower problem. It fits when:
-
-- the answer must be one of a fixed set of labels, not free text;
-- the input is structured, so cheap rules over its fields settle many cases and
-  the judge is asked only about the rest;
-- a calibrated probability matters, or an unsure case should go to a person
-  rather than be guessed;
-- a small local judge should be enough, and a large model per decision is more
-  than the task is worth.
-
-Use DSPy directly for open-ended generation, programs of several steps,
-retrieval, and tasks where worked examples in the prompt carry the accuracy.
-rulesmith searches over rules and questions, not demonstrations, so it has
-nothing to add there.
-
-DSPy 3.4 also speaks to the judge itself: an experimental `TypeSafe` client
-used as any other `lm`, `Noul`, `Choice` and `Score` output types, and a
-`ReAnchor` optimizer that fits their thresholds, cuts and weights to a metric.
-If the question belongs inside a DSPy program, that is the way to ask it, and
-rulesmith's own optimizer and extraction nodes run on it. rulesmith is for when
-the decision is a program of its own: rules over the input's fields that settle
-cases before any question is asked, several judges at different prices with
-escalation between them, calibration that charges for calls, a rules file a
-reviewer reads in a pull request, and `serve` and `drift` once it is in
-production. The `dspy-typed` row in the benchmarks is that native path on the
-same judge, with GEPA and ReAnchor on the same budget; the graphs are measured
-against it, and the gap is what being a graph is worth.
-
-The [benchmarks](docs/benchmarks.md) bear this out on five public datasets,
-against DSPy's text classifiers and its typed classifier on the same judge.
-Where a field settles most cases, rulesmith ties them at a fraction of the
-calls: on clothing reviews, 0.916 to DSPy's 0.918 while asking the judge about
-14% of the rows. Where the signal is spread across fields and text, it beats
-them: 0.733 to 0.693 on job postings, at 72% of the calls, though one seed in
-three found no rule and a TF-IDF classifier trained on the same examples does
-better still. Where the input is one piece of free text there are no rules to
-find; search can only rewrite the question, and DSPy rewrites it as well or
-better. A judge tuned on the same hundred examples keeps that split, and
-`rulesmith tune` makes one with Ruling.
-
-## Installation
-
-Requires Python 3.12–3.14.
-
-```sh
-pip install rulesmith
-```
-
-That covers classification tasks and every command except the games. The games
-and the public benchmarks need packages the core leaves out, so they come as
-extras:
-
-| Extra | For | Adds |
-| --- | --- | --- |
-| `doom` | Doom tasks, `arena`, `record` | ViZDoom, NumPy, Pillow, ffmpeg |
-| `chess` | Chess tasks | python-chess |
-| `bench` | `python -m rulesmith.bench` | pyarrow, scikit-learn, Hugging Face Hub |
-
-```sh
-pip install 'rulesmith[doom,chess]'
-```
-
-The examples below run from a checkout with [uv](https://docs.astral.sh/uv/),
-which installs every extra and the test tools:
-
-```sh
-git clone https://github.com/bradAGI/rulesmith.git
-cd rulesmith
-uv sync --locked
-```
-
-## Quickstart
-
-Pick a judge: TypeSafe's hosted Jev (`export TYPESAFE_API_KEY=<your key>`; it is
-the default backend), [Ruling](https://github.com/bradAGI/ruling) on your own
-Mac (`uv run --directory ../ruling ruling serve`, then add
-`--backend ruling --max-workers 1` to each command below), or Cloudflare's
-Clef-flash on your own Mac (`--backend clef --max-workers 1`; see
-[backends](docs/cli.md#backends)). Point the proposer,
-the model that writes graphs, at any OpenAI-compatible server:
-
-```sh
-export REFLECTION_MODEL="openai/<served-model-id>"
-export REFLECTION_BASE_URL=http://127.0.0.1:8080/v1
-export OPENAI_API_KEY=local-no-auth
-```
-
-Then search from a labeled task, and run what it finds:
-
-```sh
-cp examples/support-routing/task.json task.json
-uv run rulesmith optimize task.json --reflection-model "$REFLECTION_MODEL" \
-  --reflection-base-url "$REFLECTION_BASE_URL" --output runs/my-task
-uv run rulesmith run runs/my-task/plan.rules examples/support-routing/input.json
-```
-
-`optimize` writes `plan.json`, the same graph as editable `plan.rules`, and
-`report.json`; `run` answers with a label, the rule or judgment that decided it,
-and how sure it was. `rulesmith serve` answers the same over HTTP, one
-endpoint per decision, for workflows that decide at their branch points. The [full walk-through](docs/quickstart.md) has every
-command's output, drafting labels for inputs that have none, structured inputs,
-and scoring on a held-out split.
-
-## What it builds
-
-Search writes rules, not prompts. On the [job-postings benchmark](docs/benchmarks.md)
-it found this program from 100 labeled postings:
+**rulesmith lets DSPy build decision graphs for you.** Give it a classification
+task and labeled examples. It searches for a small program of rules: cheap tests
+on the input's fields settle the cases they can, and a local or hosted judge is
+asked typed questions about the rest. [GEPA](https://github.com/gepa-ai/gepa)
+keeps the revisions that score better, and the result is a rules file you can
+read, edit, run, and serve.
 
 ```
 read has_company_logo in [0, 1]
@@ -134,126 +16,53 @@ when has_company_logo == 0 and length of company_profile == 0: fraudulent
 always: ask "Is this job posting a scam?" [fraudulent: "fraudulent"] [genuine: "genuine"]
 ```
 
-Drawn with `rulesmith draw` (the [legend](docs/graphs.md#looking-at-a-graph)):
+An independent research prototype, not affiliated with TypeSafe.
 
-```mermaid
-flowchart TD
-    n0[/"read has_company_logo"/]
-    n1[/"read length of company_profile"/]
-    n2(("fraudulent"))
-    n3{{"judge<br/>choice: Is this job posting a scam?"}}
-    n4(["decision<br/>first that answers"])
-    c0["has_company_logo == 0 and length of company_profile == 0"]
-    n0 --> c0
-    n1 --> c0
-    c0 -.-> n2
-    n2 -->|"1"| n4
-    n3 -->|"2"| n4
-    o0(("label"))
-    n4 ==> o0
-    classDef judge fill:#fcd34d,stroke:#b45309,stroke-width:2px,color:#1c1917
-    class n3 judge
-    classDef read fill:#bfdbfe,stroke:#1d4ed8,color:#1c1917
-    class n0,n1 read
-    classDef rule fill:#bbf7d0,stroke:#15803d,color:#1c1917
-    class n2 rule
-    classDef condition fill:#e5e7eb,stroke:#6b7280,color:#1c1917
-    class c0 condition
-```
-
-Rule 1 reads two fields and, when the posting has no logo and an empty company
-profile, answers `fraudulent` without calling any model. Only when it declines
-does rule 2 ask the judge (Jev or Ruling), which it did on 58% of test postings.
-The question search wrote is longer than shown here; the rules are as found.
-
-Rules compile to a validated graph that the runtime executes, and read back as
-the rules they came from: `optimize` saves both, and a `.rules` file runs
-anywhere a `plan.json` does, so you can edit what search wrote. The language,
-with what a judgment can be and how sure a rule is, is in [Rules](docs/rules.md).
-A judgment can be asked of a larger judge only when the small one is unsure,
-a generative model can read fields out of free text for rules to test, and a
-rule can test any or all of a list's items, or count them. These run and are
-tested; of them only escalation is measured so far: on TREC, a tuned 4B
-escalating to Clef-flash sent 9% of questions up and gained half the gap to
-Clef-flash alone, as the [benchmarks](docs/benchmarks.md#escalating-to-a-larger-judge)
-show, while extraction and lists are not yet in the benchmarks.
-Graphs compose: a decision can hand a case to another graph's unit, and many
-decisions become one map, validated across its hand-offs and searched a unit
-at a time; the first one is in [Maps](docs/maps.md).
-
-## Use from Python
-
-A graph runs as a `dspy.Module`:
-
-```python
-from pathlib import Path
-
-from typesafe_sdk import TypeSafeClient
-
-from rulesmith.graph import Plan
-from rulesmith.runtime import DecisionProgram
-
-plan = Plan.model_validate_json(Path("runs/my-task/plan.json").read_text())
-with TypeSafeClient(base_url="http://127.0.0.1:8010", api_key="local-no-auth") as client:
-    program = DecisionProgram(plan, client, model="default")
-    result = program(state="Please correct the duplicate charge on my invoice.")
-    print(result.label, result.answers)
-```
-
-Output (probabilities rounded):
-
-```text
-billing {'intent': {'type': 'choice', 'value': 'billing', 'probabilities': {'billing': 0.992, 'technical': 0.008, 'sales': 4.5e-05}, 'confidence': 0.989}}
-```
-
-Against Jev, the client reads `TYPESAFE_API_KEY` and TypeSafe's endpoint by
-itself: `with TypeSafeClient() as client:` and `model="jev-latest"`.
-
-The rest, from loading rules to running search from Python, is in
-[Python](docs/python.md).
-
-## Use with Claude Code
-
-[skills/rulesmith](skills/rulesmith/SKILL.md) is a Claude Code skill: the
-workflow from a task to a kept decision, the commands for each step, and what
-to report. Copy the folder into a project's `.claude/skills/`, or into
-`~/.claude/skills/` for every project:
+## Installation
 
 ```sh
-cp -r skills/rulesmith ~/.claude/skills/
+pip install rulesmith
 ```
+
+Python 3.12 to 3.14. Extras for the games and benchmarks are listed in the
+[quickstart](docs/quickstart.md#installation).
+
+## Quickstart
+
+With a judge running ([Ruling](https://github.com/bradAGI/ruling) on a Mac, or
+TypeSafe's hosted Jev), any OpenAI-compatible model to write the rules, and a
+labeled task such as [this one](examples/support-routing/task.json):
+
+```sh
+export OPENAI_API_KEY=local-no-auth   # a local model server takes any key
+rulesmith optimize task.json --backend ruling --max-workers 1 \
+  --reflection-model "openai/<model>" --reflection-base-url http://127.0.0.1:8080/v1 \
+  --output runs/my-task
+rulesmith run runs/my-task/plan.rules input.json --backend ruling
+```
+
+The [quickstart](docs/quickstart.md) walks through it with every command's output.
 
 ## Learn more
 
-- [Quickstart](docs/quickstart.md): the full walk-through, with every command's output.
+- [Quickstart](docs/quickstart.md): installation, judges, and a task to a running graph.
 - [Tasks](docs/tasks.md): the task file, drafting labels, structured inputs, costs, and graders.
-- [Rules](docs/rules.md): the language search writes, judgments, confidence, calibration and fitted cutoffs, escalating to a larger judge, reading fields out of free text, and worked examples.
-- [Graph format](docs/graphs.md): the JSON behind each node, execution, composing graphs from graphs, and drawing and ablating one.
-- [Maps](docs/maps.md): units in their own files behind a router, searched in place, and the first map scored end to end on public data.
-- [Optimization](docs/optimization.md): how search runs, its settings, reports, testing, and limits.
-- [Command line](docs/cli.md): every command, the flags they share, and the backends.
+- [Rules](docs/rules.md): the language search writes, confidence, calibration, escalation, and extraction.
+- [Graph format](docs/graphs.md): the JSON behind each node, execution, and drawing a graph.
+- [Maps](docs/maps.md): many decisions as one map, searched a unit at a time.
+- [Optimization](docs/optimization.md): how search runs, its settings, and its limits.
+- [Command line](docs/cli.md): every command, including `serve` and `drift`, and the backends.
 - [Python](docs/python.md): running and building graphs from code.
-- [Benchmarks](docs/benchmarks.md): rulesmith against DSPy, its typed classifier on the same judge, TF-IDF and direct calls on five public datasets.
-- [Doom](docs/doom.md): a graph that plays, scored by episode reward, and the league it came from.
-- [Chess](docs/chess.md): labels as policies, hundreds of games a minute, and the baseline ladder.
-- [Related work](docs/related-work.md): what got here first, and what is different.
+- [Benchmarks](docs/benchmarks.md): rulesmith against DSPy, TF-IDF and direct calls on five public datasets.
+- [Related work](docs/related-work.md): when to use rulesmith and when DSPy, and what came before.
+- [Doom](docs/doom.md) and [Chess](docs/chess.md): graphs that play.
+- [Claude Code skill](skills/rulesmith/SKILL.md): copy `skills/rulesmith` into `~/.claude/skills/`.
 
 ## Development
 
-`uv sync` installs the project with every extra, so the whole suite runs. CI runs
-the same checks on Python 3.12, 3.13 and 3.14.
-
 ```sh
+uv sync --locked
 uv run pytest -q
-uv run ruff check src tests && uv run ruff format --check src tests
-```
-
-Output (the last line of pytest):
-
-```text
-635 passed, 6 skipped in 341.43s (0:05:41)
-All checks passed!
-67 files already formatted
 ```
 
 ## License
