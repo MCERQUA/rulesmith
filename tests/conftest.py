@@ -23,6 +23,10 @@ def pytest_addoption(parser):
     )
     parser.addoption("--ruling-reflection-model", help="DSPy model ID for real graph generation")
     parser.addoption("--ruling-reflection-url", help="Explicit local text-generation API base URL")
+    parser.addoption(
+        "--openai-url", help="Run chat-judge integration tests against this OpenAI-compatible API"
+    )
+    parser.addoption("--openai-model", help="The model --openai-url serves")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -31,6 +35,8 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.skip(reason="paid live check requires --live"))
         if item.get_closest_marker("ruling") is not None and not config.getoption("--ruling-url"):
             item.add_marker(pytest.mark.skip(reason="local model check requires --ruling-url"))
+        if item.get_closest_marker("openai") is not None and not config.getoption("--openai-url"):
+            item.add_marker(pytest.mark.skip(reason="chat judge check requires --openai-url"))
 
 
 def chat_reply(**fields):
@@ -101,11 +107,14 @@ def larger():
 def serve_provider():
     fixture = SimpleNamespace(
         requests=[],
+        headers=[],
         answers=None,
         on_request=None,
         on_chat=None,
         status=200,
         completion=None,
+        # A chat completion's log-probabilities, in OpenAI's shape; most servers omit them.
+        logprobs=None,
         # LM Studio, for one, rejects OpenAI's JSON mode.
         json_mode=True,
         body={
@@ -119,6 +128,7 @@ def serve_provider():
         def do_POST(self):
             request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             fixture.requests.append((self.path, request))
+            fixture.headers.append(dict(self.headers))
             response = fixture.body
             if self.path == "/v1/systemone":
                 if fixture.on_request is not None:
@@ -145,6 +155,7 @@ def serve_provider():
                             "index": 0,
                             "finish_reason": "stop",
                             "message": {"role": "assistant", "content": fixture.completion},
+                            "logprobs": fixture.logprobs,
                         }
                     ],
                     "usage": {"prompt_tokens": 10, "completion_tokens": 10, "total_tokens": 20},

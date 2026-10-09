@@ -141,6 +141,22 @@ names the model each call went to under `called`.
 | Jev (hosted) | `--backend typesafe` (default) | `jev-latest`, or `--model` | `TYPESAFE_BASE_URL`, default `https://api.typesafe.ai` | `TYPESAFE_API_KEY` |
 | Ruling (local) | `--backend ruling` | whatever Ruling serves | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
 | Clef-flash (local) | `--backend clef` | `clef-flash` | `CLEF_BASE_URL`, default `http://127.0.0.1:8000` | none |
+| Any OpenAI-compatible chat API | `--backend openai` | `gpt-4.1-mini`, or `--model` | `OPENAI_BASE_URL`, default `https://api.openai.com/v1` | `OPENAI_API_KEY`, none for a local server |
+
+The `openai` backend asks a chat model each question on its own, with the
+options lettered (a yes-or-no question is A true, B false; a score's levels run
+from lowest to highest), for a single token at temperature 0 with the ten most
+likely first tokens' log-probabilities. An option's probability is the softmax
+of its letter's log-probability over the option letters; a letter not among the
+ten is taken to sit one nat below the least likely one listed. A choice is the
+most probable option, a score the expected level, and confidence is computed
+with TypeSafe's published formulas, so graphs and calibration read these
+answers as they read Jev's. It needs a model that returns log-probabilities:
+OpenAI's non-reasoning models do, as do local servers such as `mlx_lm.server`
+and vLLM; reasoning models and some providers do not, and rulesmith stops with
+an error naming the model. A model must also answer with the letter at once: one
+that opens with a thinking block, such as Qwen3 with thinking on, is refused too.
+A choice may have at most 26 options.
 
 Jev answers requests in parallel, so the default `--max-workers 4` applies;
 Ruling and Clef-flash serialize them, so use `--max-workers 1`. Clef-flash is

@@ -41,8 +41,9 @@ Python 3.12 to 3.14. Extras for the games and benchmarks are listed in the
 
 ## Quickstart
 
-With a judge running ([Ruling](https://github.com/bradAGI/ruling) on a Mac, or
-TypeSafe's hosted Jev), any OpenAI-compatible model to write the rules, and a
+With a judge running ([Ruling](https://github.com/bradAGI/ruling) on a Mac,
+TypeSafe's hosted Jev, or any OpenAI-compatible chat API that returns
+log-probabilities), any OpenAI-compatible model to write the rules, and a
 labeled task such as [this one](examples/support-routing/task.json):
 
 ```sh

@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "dspy==3.4.0",
     "gepa==0.1.4",
+    "httpx>=0.28,<1",
     "pydantic>=2.11,<3",
     "typesafe-sdk>=0.6,<0.7",
 ]
@@ -52,6 +53,7 @@ testpaths = ["tests"]
 markers = [
     "live: paid calls to configured Jev and reflection models",
     "ruling: real inference against an explicitly configured Ruling server",
+    "openai: real inference against an explicitly configured OpenAI-compatible chat API",
 ]
 
 [tool.ruff]

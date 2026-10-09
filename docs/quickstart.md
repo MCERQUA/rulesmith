@@ -51,8 +51,9 @@ uv sync --locked
 ## From a task to a running graph
 
 **1. Pick a judge.** The judge answers the graph's typed questions. Use
-TypeSafe's hosted Jev, or run Ruling on your own machine; every command takes
-either, and the examples below use Ruling.
+TypeSafe's hosted Jev, run Ruling on your own machine, or point rulesmith at any
+OpenAI-compatible chat API; every command takes any of them, and the examples
+below use Ruling.
 
 <details>
 <summary><b>Jev, hosted</b></summary>
@@ -96,6 +97,40 @@ know or care that its judge is tuned, and the
 [benchmarks](benchmarks.md#a-judge-tuned-on-the-same-examples) show what a tune
 on a hundred examples is worth: it lifts the judge, and the graph on top of it
 gains most where the input has fields.
+
+</details>
+
+<details>
+<summary><b>Any OpenAI-compatible API</b></summary>
+
+The `openai` backend asks a chat model each question with its options lettered
+A, B, C, and reads the answer's probabilities from the log-probabilities of
+that one-letter reply. It works with OpenAI itself or any server that speaks
+`/v1/chat/completions` and returns `logprobs`, such as a local `mlx_lm.server`
+or vLLM. Reasoning models, and some providers, return no log-probabilities, and
+rulesmith says so rather than guessing.
+
+```sh
+export OPENAI_API_KEY=<your key>
+```
+
+Then use `--backend openai` in place of `--backend ruling --max-workers 1`. The
+model defaults to `gpt-4.1-mini`; pass `--model` for another, and `--base-url`
+(or `OPENAI_BASE_URL`) for a server other than OpenAI's. The proposer below
+reads the same `OPENAI_API_KEY`; a local proposer server accepts any key, so
+keep your real one set instead of the placeholder step 2 exports. Each question
+is a separate request, billed as the provider bills it.
+
+A local model works the same way, with no key. Qwen3 thinks before it answers
+unless told not to, so turn that off:
+
+```sh
+uv run --no-project --with mlx-lm==0.32.0 mlx_lm.server \
+  --model mlx-community/Qwen3-0.6B-4bit --port 8091 \
+  --chat-template-args '{"enable_thinking": false}'
+uv run rulesmith run graph.rules input.json --backend openai \
+  --base-url http://127.0.0.1:8091/v1 --model mlx-community/Qwen3-0.6B-4bit
+```
 
 </details>
 

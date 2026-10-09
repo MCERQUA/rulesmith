@@ -19,6 +19,7 @@ from typesafe_sdk import RetryPolicy, TypeSafeClient, TypeSafeError
 
 from rulesmith.ablate import effects
 from rulesmith.calibrate import at_prevalence, calibrate, correct, drift, fit_cutoffs, measure
+from rulesmith.chat_judge import ChatClient, ChatJudgeError
 from rulesmith.diagram import mermaid
 from rulesmith.extract import Extractor
 from rulesmith.grade import Graded, Grader, model_name
@@ -60,6 +61,7 @@ class Backend:
     api_key_env: str
     base_url: str | None = None
     api_key: str | None = None
+    client: type[TypeSafeClient] | type[ChatClient] = TypeSafeClient
 
 
 BACKENDS = {
@@ -73,6 +75,14 @@ BACKENDS = {
     "clef": Backend(
         "clef-flash", "CLEF_BASE_URL", "CLEF_API_KEY", "http://127.0.0.1:8000", "local-no-auth"
     ),
+    # Any OpenAI-compatible chat API whose models return log-probabilities, read as a judge.
+    "openai": Backend(
+        "gpt-4.1-mini",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_KEY",
+        "https://api.openai.com/v1",
+        client=ChatClient,
+    ),
 }
 
 
@@ -81,6 +91,11 @@ def resolve_backend(name: str, model: str | None = None, base_url: str | None = 
     endpoint = (base_url or os.environ.get(backend.base_url_env, "")).strip() or backend.base_url
     key = os.environ.get(backend.api_key_env, "").strip() or backend.api_key
     return model or backend.model, {"base_url": endpoint, "api_key": key}
+
+
+def connect(name: str, connection: dict, timeout: float, retry: RetryPolicy):
+    """A client for the backend `name`, in the protocol that backend speaks."""
+    return BACKENDS[name].client(**connection, timeout=timeout, retry=retry)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -448,9 +463,7 @@ def graph_models(cli: argparse.ArgumentParser, args, stack: ExitStack, *plans) -
     for name, (backend, model, url) in given.items():
         resolved, connection = resolve_backend(backend, model, url)
         retry = RetryPolicy(max_retries=args.retries)
-        client = stack.enter_context(
-            TypeSafeClient(**connection, timeout=args.timeout, retry=retry)
-        )
+        client = stack.enter_context(connect(backend, connection, args.timeout, retry))
         judges[name] = Judge(client, resolved)
     if args.extractor_base_url and not args.extractor_model:
         cli.error("--extractor-base-url needs an --extractor-model to send extractions to")
@@ -478,7 +491,7 @@ def judge(args: argparse.Namespace, needed: bool):
     if not needed:
         return model, nullcontext()
     retry = RetryPolicy(max_retries=args.retries)
-    return model, TypeSafeClient(**connection, timeout=args.timeout, retry=retry)
+    return model, connect(args.backend, connection, args.timeout, retry)
 
 
 def ablation(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
@@ -856,7 +869,7 @@ def main() -> None:
         cli.error("only tune and distill pass arguments after -- on to ruling train")
     try:
         command(cli, args)
-    except TypeSafeError as error:
+    except (TypeSafeError, ChatJudgeError) as error:
         # A missing key or an unreachable judge is something to set or start, said in a line.
         cli.error(str(error))
 
@@ -882,7 +895,7 @@ def command(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
                     cli.error(f"already exists: {args.output}; distill into a new directory")
                 backend, model, url = args.teacher
                 teacher, connection = resolve_backend(backend, model, url)
-                with TypeSafeClient(**connection, timeout=args.timeout) as client:
+                with connect(backend, connection, args.timeout, RetryPolicy()) as client:
                     found = taught(task, client, teacher)
                 report = tune(task, args.output, args.ruling_dir, args.base, extra, found)
                 report["teacher"] = teacher

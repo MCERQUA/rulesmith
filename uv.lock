@@ -1892,6 +1892,7 @@ source = { editable = "." }
 dependencies = [
     { name = "dspy" },
     { name = "gepa" },
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "typesafe-sdk" },
 ]
@@ -1925,6 +1926,7 @@ requires-dist = [
     { name = "chess", marker = "extra == 'chess'", specifier = ">=1.11,<2" },
     { name = "dspy", specifier = "==3.4.0" },
     { name = "gepa", specifier = "==0.1.4" },
+    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "huggingface-hub", marker = "extra == 'bench'", specifier = ">=1,<2" },
     { name = "imageio-ffmpeg", marker = "extra == 'doom'", specifier = ">=0.6,<1" },
     { name = "numpy", marker = "extra == 'doom'", specifier = ">=2,<3" },
