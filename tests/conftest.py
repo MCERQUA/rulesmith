@@ -2,6 +2,8 @@
 
 import json
 import threading
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
@@ -21,6 +23,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--ruling-url", help="Run local-model integration tests against this Ruling server"
     )
+    parser.addoption("--clef-url", help="Run Clef integration tests against this clef-serve")
     parser.addoption("--ruling-reflection-model", help="DSPy model ID for real graph generation")
     parser.addoption("--ruling-reflection-url", help="Explicit local text-generation API base URL")
     parser.addoption(
@@ -37,6 +40,19 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.skip(reason="local model check requires --ruling-url"))
         if item.get_closest_marker("openai") is not None and not config.getoption("--openai-url"):
             item.add_marker(pytest.mark.skip(reason="chat judge check requires --openai-url"))
+        if item.get_closest_marker("clef") is not None and not config.getoption("--clef-url"):
+            item.add_marker(pytest.mark.skip(reason="Clef check requires --clef-url"))
+
+
+def post(url: str, body) -> tuple[int, dict]:
+    """POST a JSON body, and the status and JSON body of the answer, an error's included."""
+    request = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST")
+    request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read())
 
 
 def chat_reply(**fields):

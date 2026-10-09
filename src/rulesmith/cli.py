@@ -13,10 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import dspy
 from typesafe_sdk import RetryPolicy, TypeSafeClient, TypeSafeError
 
+from rulesmith import clef
 from rulesmith.ablate import effects
 from rulesmith.calibrate import at_prevalence, calibrate, correct, drift, fit_cutoffs, measure
 from rulesmith.chat_judge import ChatClient, ChatJudgeError
@@ -70,8 +72,8 @@ BACKENDS = {
     "ruling": Backend(
         "default", "RULING_BASE_URL", "RULING_API_KEY", "http://127.0.0.1:8010", "local-no-auth"
     ),
-    # Cloudflare's Clef-flash, served on this machine by the MLX port's own clef_mlx.py, which
-    # answers the same /v1/systemone requests, one at a time, with no key.
+    # Cloudflare's Clef-flash, served on this machine by `rulesmith clef-serve` or by the MLX
+    # port's own clef_mlx.py, which answer the same /v1/systemone requests, one at a time.
     "clef": Backend(
         "clef-flash", "CLEF_BASE_URL", "CLEF_API_KEY", "http://127.0.0.1:8000", "local-no-auth"
     ),
@@ -346,6 +348,25 @@ def parser() -> argparse.ArgumentParser:
     serving.add_argument("--port", type=int, default=8020, help="0 picks a free port")
     serving.add_argument("--trace", type=Path, help="Append every decision to this JSON-lines file")
     provider_arguments(serving)
+    clef_serving = commands.add_parser(
+        "clef-serve",
+        help="Serve Cloudflare's Clef at POST /v1/systemone for --backend clef, with PyTorch on "
+        "an NVIDIA GPU, Apple's, or a CPU (needs the clef extra)",
+    )
+    clef_serving.add_argument(
+        "--weights",
+        default="Cloudflare/clef-flash",
+        help="A Clef release on Hugging Face, such as Cloudflare/clef for the 27B, or a "
+        "downloaded copy of one (default: Cloudflare/clef-flash)",
+    )
+    clef_serving.add_argument("--device", help="cuda, mps or cpu (default: the best there is)")
+    clef_serving.add_argument("--host", default="127.0.0.1", help="The address to listen on")
+    clef_serving.add_argument(
+        "--port",
+        type=int,
+        default=urlsplit(BACKENDS["clef"].base_url).port,
+        help="0 picks a free port (default: the one --backend clef asks)",
+    )
     run = commands.add_parser("run", help="Run a graph on one input and print what it decided")
     run.add_argument("plan", type=Path)
     run.add_argument("state", type=Path, help="JSON file containing the input state")
@@ -636,6 +657,21 @@ def serve_decisions(cli: argparse.ArgumentParser, args: argparse.Namespace) -> N
         server.serve_forever()
 
 
+def serve_clef(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Load Clef, then answer its requests until stopped."""
+    try:
+        # Loading prints whatever the libraries print; stdout's first line must be the URL.
+        with redirect_stdout(sys.stderr):
+            answer, device = clef.load(args.weights, args.device)
+    except ImportError as error:
+        cli.error(f"clef-serve needs the clef extra: pip install 'rulesmith[clef]' ({error})")
+    with clef.make_server(answer, args.host, args.port) as server:
+        # One line, flushed, once the model is loaded, so a caller knows when it may ask.
+        url = f"http://{args.host}:{server.server_port}"
+        print(json.dumps({"url": url, "weights": args.weights, "device": device}), flush=True)
+        server.serve_forever()
+
+
 def dump(value: dict) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
 
@@ -920,6 +956,9 @@ def command(cli: argparse.ArgumentParser, args: argparse.Namespace) -> None:
         return
     if args.command == "serve":
         serve_decisions(cli, args)
+        return
+    if args.command == "clef-serve":
+        serve_clef(cli, args)
         return
     if args.command == "drift":
         sys.exit(watch_drift(cli, args))

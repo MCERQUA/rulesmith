@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 
 import pytest
+from conftest import post
 
 from rulesmith.rules import compile_rules
 from rulesmith.runtime import DecisionProgram
@@ -16,16 +17,6 @@ from rulesmith.serve import make_server
 
 TRIAGE = "read order.total in [0, 1000000]\nwhen order.total >= 500: hold\nalways: ship\n"
 PARTIAL = "read order.total in [0, 1000000]\nwhen order.total >= 500: hold\n"
-
-
-def post(url: str, body) -> tuple[int, dict]:
-    request = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST")
-    request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request) as response:
-            return response.status, json.loads(response.read())
-    except urllib.error.HTTPError as error:
-        return error.code, json.loads(error.read())
 
 
 @pytest.fixture

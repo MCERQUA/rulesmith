@@ -31,6 +31,16 @@ doom = ["imageio-ffmpeg>=0.6,<1", "numpy>=2,<3", "pillow>=11,<13", "vizdoom>=1.3
 chess = ["chess>=1.11,<2"]
 # Public benchmarks: parquet datasets, pinned dataset downloads, the trained-classifier baseline.
 bench = ["huggingface-hub>=1,<2", "pyarrow>=17,<24", "scikit-learn>=1.5,<2"]
+# `rulesmith clef-serve`: Cloudflare's Clef on PyTorch, at the versions its release was tested on
+# or later. Its processor loads a video processor, which needs torchvision, even for text, and
+# transformers' torch extra brings accelerate, which placing the weights on a device needs.
+clef = [
+    "huggingface-hub>=1,<2",
+    "pillow>=11,<13",
+    "torch>=2.11,<3",
+    "torchvision>=0.26,<1",
+    "transformers[torch]>=5.10.2,<6",
+]
 
 [project.urls]
 Homepage = "https://github.com/bradAGI/rulesmith"
@@ -54,6 +64,7 @@ markers = [
     "live: paid calls to configured Jev and reflection models",
     "ruling: real inference against an explicitly configured Ruling server",
     "openai: real inference against an explicitly configured OpenAI-compatible chat API",
+    "clef: real inference against an explicitly configured clef-serve",
 ]
 
 [tool.ruff]

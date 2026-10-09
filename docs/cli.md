@@ -160,9 +160,32 @@ A choice may have at most 26 options.
 
 Jev answers requests in parallel, so the default `--max-workers 4` applies;
 Ruling and Clef-flash serialize them, so use `--max-workers 1`. Clef-flash is
-Cloudflare's trained 9B decision model, served on your own Mac by its
-[MLX port](https://huggingface.co/mlx-community/clef-flash-4bit)'s own server,
-which answers the same requests rulesmith sends:
+Cloudflare's trained 9B decision model, and there are two ways to serve it.
+
+On Linux with an NVIDIA GPU, `rulesmith clef-serve` runs
+[Cloudflare's own release](https://huggingface.co/Cloudflare/clef-flash) with
+PyTorch. It downloads the weights on first start (about 19 GB), imports the
+model code that ships with them, as the model card does, and prints its URL
+once the model is loaded:
+
+```sh
+pip install 'rulesmith[clef]'
+rulesmith clef-serve --port 8000
+rulesmith run graph.rules input.json --backend clef --max-workers 1
+```
+
+The weights are bf16, so the GPU needs about 20 GB free: an L4 or A10G (24
+GB), an A100, or anything larger. A free Colab T4 has 16 GB and is not enough.
+`--device` picks `cuda`, `mps`, or `cpu` (default: the first one this machine
+has), and `--weights Cloudflare/clef` serves the 27B Clef instead, which needs
+about 55 GB, an 80 GB A100 or H100. A long state needs more memory than this;
+a request that runs out is answered with a 500 and the server keeps serving.
+
+On a Mac, the [MLX port](https://huggingface.co/mlx-community/clef-flash-4bit)
+needs far less memory, being 4-bit (about 6 GB), and runs faster: on an M5 Max
+it answered 300 one-question requests in 38 seconds, against 59 for
+`clef-serve --device mps`, and chose the same answer for every one. Its own
+server answers the same requests rulesmith sends:
 
 ```sh
 cd "$(huggingface-cli download mlx-community/clef-flash-4bit)"
