@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1204" height="316" viewBox="0 0 1204 316" font-family="system-ui, sans-serif" font-size="12">
+<style>
+.bg { fill: #fcfcfb } .ink { fill: #0b0b0b } .muted { fill: #52514e }
+.grid { stroke: #e4e3df } .axis { stroke: #b5b4ae }
+.us { fill: #2a78d6 } .them { fill: #6b6a66 } .ring { stroke: #fcfcfb }
+.mix { stroke: #6b6a66 }
+.halo { stroke: #fcfcfb; stroke-width: 4px; paint-order: stroke; stroke-linejoin: round }
+@media (prefers-color-scheme: dark) {
+  .bg { fill: #1a1a19 } .ink { fill: #ffffff } .muted { fill: #c3c2b7 }
+  .grid { stroke: #33322f } .axis { stroke: #57564f }
+  .us { fill: #3987e5 } .them { fill: #8f8e89 } .ring { stroke: #1a1a19 }
+  .mix { stroke: #8f8e89 }
+  .halo { stroke: #1a1a19 }
+}
+</style>
+<rect width="1204" height="316" class="bg"/>
+<text x="16" y="24" font-size="14" font-weight="600" class="ink">Accuracy against judge calls per row, on 300 held-out rows</text>
+<text x="16" y="42" class="muted">rulesmith's searched rules against the best baseline that asks on every row, and a classifier that never asks. Means of three seeds; each panel has its own scale.</text>
+<text x="52" y="60" font-weight="600" class="ink">clothing</text>
+<line x1="52" y1="264.0" x2="228" y2="264.0" class="grid"/>
+<text x="46" y="268.0" text-anchor="end" class="muted">0.80</text>
+<line x1="52" y1="200.7" x2="228" y2="200.7" class="grid"/>
+<text x="46" y="204.7" text-anchor="end" class="muted">0.85</text>
+<line x1="52" y1="137.3" x2="228" y2="137.3" class="grid"/>
+<text x="46" y="141.3" text-anchor="end" class="muted">0.90</text>
+<line x1="52" y1="74.0" x2="228" y2="74.0" class="grid"/>
+<text x="46" y="78.0" text-anchor="end" class="muted">0.95</text>
+<line x1="52" y1="264" x2="228" y2="264" class="axis"/>
+<text x="62.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="140.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="218.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="140.0" y="298" text-anchor="middle" class="muted">judge calls per row</text>
+<circle cx="62.0" cy="247.1" r="5" class="them ring" stroke-width="2"><title>TF-IDF: 0.813 accuracy, 0.00 calls per row</title></circle>
+<text x="62.0" y="237.1" text-anchor="start" class="ink halo">TF-IDF 0.813</text>
+<circle cx="218.0" cy="100.7" r="5" class="them ring" stroke-width="2"><title>DSPy typed: 0.929 accuracy, 1.00 calls per row</title></circle>
+<text x="218.0" y="90.7" text-anchor="end" class="ink halo">DSPy typed 0.929</text>
+<circle cx="84.4" cy="117.6" r="5" class="us ring" stroke-width="2"><title>rulesmith: 0.916 accuracy, 0.14 calls per row</title></circle>
+<text x="84.4" y="107.6" text-anchor="middle" class="ink halo" font-weight="600">rulesmith 0.916</text>
+<text x="290" y="60" font-weight="600" class="ink">jobs</text>
+<line x1="290" y1="264.0" x2="466" y2="264.0" class="grid"/>
+<text x="284" y="268.0" text-anchor="end" class="muted">0.65</text>
+<line x1="290" y1="226.0" x2="466" y2="226.0" class="grid"/>
+<text x="284" y="230.0" text-anchor="end" class="muted">0.70</text>
+<line x1="290" y1="188.0" x2="466" y2="188.0" class="grid"/>
+<text x="284" y="192.0" text-anchor="end" class="muted">0.75</text>
+<line x1="290" y1="150.0" x2="466" y2="150.0" class="grid"/>
+<text x="284" y="154.0" text-anchor="end" class="muted">0.80</text>
+<line x1="290" y1="112.0" x2="466" y2="112.0" class="grid"/>
+<text x="284" y="116.0" text-anchor="end" class="muted">0.85</text>
+<line x1="290" y1="74.0" x2="466" y2="74.0" class="grid"/>
+<text x="284" y="78.0" text-anchor="end" class="muted">0.90</text>
+<line x1="290" y1="264" x2="466" y2="264" class="axis"/>
+<text x="300.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="378.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="456.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="378.0" y="298" text-anchor="middle" class="muted">judge calls per row</text>
+<circle cx="300.0" cy="106.9" r="5" class="them ring" stroke-width="2"><title>TF-IDF: 0.857 accuracy, 0.00 calls per row</title></circle>
+<text x="300.0" y="96.9" text-anchor="start" class="ink halo">TF-IDF 0.857</text>
+<circle cx="456.0" cy="231.1" r="5" class="them ring" stroke-width="2"><title>DSPy: 0.693 accuracy, 1.00 calls per row</title></circle>
+<text x="456.0" y="221.1" text-anchor="end" class="ink halo">DSPy 0.693</text>
+<circle cx="412.3" cy="200.7" r="5" class="us ring" stroke-width="2"><title>rulesmith: 0.733 accuracy, 0.72 calls per row</title></circle>
+<text x="412.3" y="190.7" text-anchor="middle" class="ink halo" font-weight="600">rulesmith 0.733</text>
+<text x="528" y="60" font-weight="600" class="ink">news</text>
+<line x1="528" y1="264.0" x2="704" y2="264.0" class="grid"/>
+<text x="522" y="268.0" text-anchor="end" class="muted">0.20</text>
+<line x1="528" y1="169.0" x2="704" y2="169.0" class="grid"/>
+<text x="522" y="173.0" text-anchor="end" class="muted">0.25</text>
+<line x1="528" y1="74.0" x2="704" y2="74.0" class="grid"/>
+<text x="522" y="78.0" text-anchor="end" class="muted">0.30</text>
+<line x1="528" y1="264" x2="704" y2="264" class="axis"/>
+<text x="538.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="616.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="694.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="616.0" y="298" text-anchor="middle" class="muted">judge calls per row</text>
+<circle cx="538.0" cy="238.7" r="5" class="them ring" stroke-width="2"><title>TF-IDF: 0.213 accuracy, 0.00 calls per row</title></circle>
+<text x="538.0" y="228.7" text-anchor="start" class="ink halo">TF-IDF 0.213</text>
+<circle cx="694.0" cy="162.7" r="5" class="them ring" stroke-width="2"><title>direct call: 0.253 accuracy, 1.00 calls per row</title></circle>
+<text x="694.0" y="152.7" text-anchor="end" class="ink halo">direct call 0.253</text>
+<circle cx="635.6" cy="105.7" r="5" class="us ring" stroke-width="2"><title>rulesmith: 0.283 accuracy, 0.63 calls per row</title></circle>
+<text x="635.6" y="95.7" text-anchor="middle" class="ink halo" font-weight="600">rulesmith 0.283</text>
+<text x="766" y="60" font-weight="600" class="ink">trec</text>
+<line x1="766" y1="264.0" x2="942" y2="264.0" class="grid"/>
+<text x="760" y="268.0" text-anchor="end" class="muted">0.40</text>
+<line x1="766" y1="226.0" x2="942" y2="226.0" class="grid"/>
+<text x="760" y="230.0" text-anchor="end" class="muted">0.50</text>
+<line x1="766" y1="188.0" x2="942" y2="188.0" class="grid"/>
+<text x="760" y="192.0" text-anchor="end" class="muted">0.60</text>
+<line x1="766" y1="150.0" x2="942" y2="150.0" class="grid"/>
+<text x="760" y="154.0" text-anchor="end" class="muted">0.70</text>
+<line x1="766" y1="112.0" x2="942" y2="112.0" class="grid"/>
+<text x="760" y="116.0" text-anchor="end" class="muted">0.80</text>
+<line x1="766" y1="74.0" x2="942" y2="74.0" class="grid"/>
+<text x="760" y="78.0" text-anchor="end" class="muted">0.90</text>
+<line x1="766" y1="264" x2="942" y2="264" class="axis"/>
+<text x="776.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="854.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="932.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="854.0" y="298" text-anchor="middle" class="muted">judge calls per row</text>
+<circle cx="776.0" cy="247.1" r="5" class="them ring" stroke-width="2"><title>TF-IDF: 0.444 accuracy, 0.00 calls per row</title></circle>
+<text x="776.0" y="237.1" text-anchor="start" class="ink halo">TF-IDF 0.444</text>
+<circle cx="932.0" cy="79.9" r="5" class="them ring" stroke-width="2"><title>DSPy, reasoning: 0.884 accuracy, 1.00 calls per row</title></circle>
+<text x="932.0" y="69.9" text-anchor="end" class="ink halo">DSPy, reasoning 0.884</text>
+<circle cx="932.0" cy="97.6" r="5" class="us ring" stroke-width="2"><title>rulesmith: 0.838 accuracy, 1.00 calls per row</title></circle>
+<text x="932.0" y="116.6" text-anchor="end" class="ink halo" font-weight="600">rulesmith 0.838</text>
+<text x="1004" y="60" font-weight="600" class="ink">banking77</text>
+<line x1="1004" y1="264.0" x2="1180" y2="264.0" class="grid"/>
+<text x="998" y="268.0" text-anchor="end" class="muted">0.10</text>
+<line x1="1004" y1="232.3" x2="1180" y2="232.3" class="grid"/>
+<text x="998" y="236.3" text-anchor="end" class="muted">0.20</text>
+<line x1="1004" y1="200.7" x2="1180" y2="200.7" class="grid"/>
+<text x="998" y="204.7" text-anchor="end" class="muted">0.30</text>
+<line x1="1004" y1="169.0" x2="1180" y2="169.0" class="grid"/>
+<text x="998" y="173.0" text-anchor="end" class="muted">0.40</text>
+<line x1="1004" y1="137.3" x2="1180" y2="137.3" class="grid"/>
+<text x="998" y="141.3" text-anchor="end" class="muted">0.50</text>
+<line x1="1004" y1="105.7" x2="1180" y2="105.7" class="grid"/>
+<text x="998" y="109.7" text-anchor="end" class="muted">0.60</text>
+<line x1="1004" y1="74.0" x2="1180" y2="74.0" class="grid"/>
+<text x="998" y="78.0" text-anchor="end" class="muted">0.70</text>
+<line x1="1004" y1="264" x2="1180" y2="264" class="axis"/>
+<text x="1014.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="1092.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="1170.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="1092.0" y="298" text-anchor="middle" class="muted">judge calls per row</text>
+<circle cx="1014.0" cy="262.9" r="5" class="them ring" stroke-width="2"><title>TF-IDF: 0.103 accuracy, 0.00 calls per row</title></circle>
+<text x="1014.0" y="252.9" text-anchor="start" class="ink halo">TF-IDF 0.103</text>
+<circle cx="1170.0" cy="81.4" r="5" class="them ring" stroke-width="2"><title>DSPy typed: 0.677 accuracy, 1.00 calls per row</title></circle>
+<text x="1170.0" y="71.4" text-anchor="end" class="ink halo">DSPy typed 0.677</text>
+<circle cx="1170.0" cy="87.7" r="5" class="us ring" stroke-width="2"><title>rulesmith: 0.657 accuracy, 1.00 calls per row</title></circle>
+<text x="1170.0" y="106.7" text-anchor="end" class="ink halo" font-weight="600">rulesmith 0.657</text>
+</svg>

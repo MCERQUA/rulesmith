@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="738" height="316" viewBox="0 0 738 316" font-family="system-ui, sans-serif" font-size="12">
+<style>
+.bg { fill: #fcfcfb } .ink { fill: #0b0b0b } .muted { fill: #52514e }
+.grid { stroke: #e4e3df } .axis { stroke: #b5b4ae }
+.us { fill: #2a78d6 } .them { fill: #6b6a66 } .ring { stroke: #fcfcfb }
+.mix { stroke: #6b6a66 }
+.halo { stroke: #fcfcfb; stroke-width: 4px; paint-order: stroke; stroke-linejoin: round }
+@media (prefers-color-scheme: dark) {
+  .bg { fill: #1a1a19 } .ink { fill: #ffffff } .muted { fill: #c3c2b7 }
+  .grid { stroke: #33322f } .axis { stroke: #57564f }
+  .us { fill: #3987e5 } .them { fill: #8f8e89 } .ring { stroke: #1a1a19 }
+  .mix { stroke: #8f8e89 }
+  .halo { stroke: #1a1a19 }
+}
+</style>
+<rect width="738" height="316" class="bg"/>
+<text x="16" y="24" font-size="14" font-weight="600" class="ink">Escalating to a larger judge only where the small one is unsure</text>
+<text x="16" y="42" class="muted">Above the dashed line is better than sending that share of rows to the larger judge at random. Means of three seeds.</text>
+<text x="52" y="60" font-weight="600" class="ink">jobs</text>
+<line x1="52" y1="264.0" x2="352" y2="264.0" class="grid"/>
+<text x="46" y="268.0" text-anchor="end" class="muted">0.55</text>
+<line x1="52" y1="216.5" x2="352" y2="216.5" class="grid"/>
+<text x="46" y="220.5" text-anchor="end" class="muted">0.60</text>
+<line x1="52" y1="169.0" x2="352" y2="169.0" class="grid"/>
+<text x="46" y="173.0" text-anchor="end" class="muted">0.65</text>
+<line x1="52" y1="121.5" x2="352" y2="121.5" class="grid"/>
+<text x="46" y="125.5" text-anchor="end" class="muted">0.70</text>
+<line x1="52" y1="74.0" x2="352" y2="74.0" class="grid"/>
+<text x="46" y="78.0" text-anchor="end" class="muted">0.75</text>
+<line x1="52" y1="264" x2="352" y2="264" class="axis"/>
+<text x="62.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="202.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="342.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="202.0" y="298" text-anchor="middle" class="muted">larger-judge calls per row</text>
+<line x1="62.0" y1="216.5" x2="342.0" y2="137.3" class="mix" stroke-width="1.5" stroke-dasharray="4 4"/>
+<circle cx="62.0" cy="216.5" r="5" class="them ring" stroke-width="2"><title>4B alone: 0.600 accuracy, 0.00 calls per row</title></circle>
+<text x="62.0" y="206.5" text-anchor="start" class="ink halo">4B alone 0.600</text>
+<circle cx="342.0" cy="137.3" r="5" class="them ring" stroke-width="2"><title>Clef-flash alone: 0.683 accuracy, 1.00 calls per row</title></circle>
+<text x="342.0" y="156.3" text-anchor="end" class="ink halo">Clef-flash alone 0.683</text>
+<circle cx="274.5" cy="114.1" r="5" class="us ring" stroke-width="2"><title>escalating: 0.708 accuracy, 0.76 calls per row</title></circle>
+<text x="274.5" y="104.1" text-anchor="middle" class="ink halo" font-weight="600">escalating 0.708</text>
+<text x="414" y="60" font-weight="600" class="ink">trec</text>
+<line x1="414" y1="264.0" x2="714" y2="264.0" class="grid"/>
+<text x="408" y="268.0" text-anchor="end" class="muted">0.85</text>
+<line x1="414" y1="200.7" x2="714" y2="200.7" class="grid"/>
+<text x="408" y="204.7" text-anchor="end" class="muted">0.90</text>
+<line x1="414" y1="137.3" x2="714" y2="137.3" class="grid"/>
+<text x="408" y="141.3" text-anchor="end" class="muted">0.95</text>
+<line x1="414" y1="74.0" x2="714" y2="74.0" class="grid"/>
+<text x="408" y="78.0" text-anchor="end" class="muted">1.00</text>
+<line x1="414" y1="264" x2="714" y2="264" class="axis"/>
+<text x="424.0" y="280" text-anchor="middle" class="muted">0</text>
+<text x="564.0" y="280" text-anchor="middle" class="muted">0.5</text>
+<text x="704.0" y="280" text-anchor="middle" class="muted">1</text>
+<text x="564.0" y="298" text-anchor="middle" class="muted">larger-judge calls per row</text>
+<line x1="424.0" y1="220.4" x2="704.0" y2="131.7" class="mix" stroke-width="1.5" stroke-dasharray="4 4"/>
+<circle cx="424.0" cy="220.4" r="5" class="them ring" stroke-width="2"><title>4B alone: 0.884 accuracy, 0.00 calls per row</title></circle>
+<text x="424.0" y="210.4" text-anchor="start" class="ink halo">4B alone 0.884</text>
+<circle cx="704.0" cy="131.7" r="5" class="them ring" stroke-width="2"><title>Clef-flash alone: 0.954 accuracy, 1.00 calls per row</title></circle>
+<text x="704.0" y="121.7" text-anchor="end" class="ink halo">Clef-flash alone 0.954</text>
+<circle cx="450.1" cy="175.3" r="5" class="us ring" stroke-width="2"><title>escalating: 0.920 accuracy, 0.09 calls per row</title></circle>
+<text x="450.1" y="165.3" text-anchor="middle" class="ink halo" font-weight="600">escalating 0.920</text>
+</svg>

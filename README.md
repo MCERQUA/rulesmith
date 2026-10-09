@@ -59,6 +59,8 @@ find; search can only rewrite the question, and DSPy rewrites it as well or
 better. A judge tuned on the same hundred examples keeps that split, and
 `rulesmith tune` makes one with Ruling.
 
+![Accuracy against judge calls per row on five datasets: rulesmith beside the best baseline that asks on every row, and TF-IDF](docs/assets/benchmarks.svg)
+
 ## Installation
 
 Requires Python 3.12–3.14.

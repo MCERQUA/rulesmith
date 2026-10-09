@@ -40,6 +40,11 @@ table with `python3 -m rulesmith.bench chess`, and the three 1,000-game searches
 `benchmarks/chess.sh`; the raw results, one record per
 method and seed with every test answer, are in [`benchmarks/results`](../benchmarks/results).
 
+![Accuracy against judge calls per row on five datasets: rulesmith beside the best baseline that asks on every row, and TF-IDF](assets/benchmarks.svg)
+
+Both charts on this page are drawn from `benchmarks/results` by
+`python3 benchmarks/charts.py`, and a test fails if they drift from those files.
+
 ## Setup
 
 Each dataset is sampled three times (seeds 0, 1, 2). Each sample has 50 training examples, 50
@@ -347,6 +352,8 @@ same question `using large`, Clef-flash. `calibrate` fitted the cutoffs with
 seed scores 300 held-out rows (`benchmarks/escalation.sh`; results in
 `benchmarks/results/escalation.json`; tables from
 `benchmarks/escalation.py summarize`).
+
+![Escalating to Clef-flash where the 4B is unsure, against either judge alone, on job postings and TREC](assets/escalation.svg)
 
 ### trec
 
