@@ -78,8 +78,9 @@ BACKENDS = {
         "clef-flash", "CLEF_BASE_URL", "CLEF_API_KEY", "http://127.0.0.1:8000", "local-no-auth"
     ),
     # Any OpenAI-compatible chat API whose models return log-probabilities, read as a judge.
+    # OpenAI's newer GPT-5 and GPT-6 models return none, so the default is gpt-4.1.
     "openai": Backend(
-        "gpt-4.1-mini",
+        "gpt-4.1",
         "OPENAI_BASE_URL",
         "OPENAI_API_KEY",
         "https://api.openai.com/v1",

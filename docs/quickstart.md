@@ -132,7 +132,8 @@ export OPENAI_API_KEY=<your key>
 ```
 
 Then use `--backend openai` in place of `--backend ruling --max-workers 1`. The
-model defaults to `gpt-4.1-mini`; pass `--model` for another, and `--base-url`
+model defaults to `gpt-4.1`, the strongest OpenAI model that still returns
+log-probabilities (the GPT-6 models and most GPT-5 ones do not); pass `--model` for another, and `--base-url`
 (or `OPENAI_BASE_URL`) for a server other than OpenAI's. The proposer below
 reads the same `OPENAI_API_KEY`; a local proposer server accepts any key, so
 keep your real one set instead of the placeholder step 2 exports. Each question

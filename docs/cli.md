@@ -141,7 +141,7 @@ names the model each call went to under `called`.
 | Jev (hosted) | `--backend typesafe` (default) | `jev-latest`, or `--model` | `TYPESAFE_BASE_URL`, default `https://api.typesafe.ai` | `TYPESAFE_API_KEY` |
 | Ruling (local) | `--backend ruling` | whatever Ruling serves | `RULING_BASE_URL`, default `http://127.0.0.1:8010` | `RULING_API_KEY` if auth is on |
 | Clef-flash (local) | `--backend clef` | `clef-flash` | `CLEF_BASE_URL`, default `http://127.0.0.1:8000` | none |
-| Any OpenAI-compatible chat API | `--backend openai` | `gpt-4.1-mini`, or `--model` | `OPENAI_BASE_URL`, default `https://api.openai.com/v1` | `OPENAI_API_KEY`, none for a local server |
+| Any OpenAI-compatible chat API | `--backend openai` | `gpt-4.1`, or `--model` | `OPENAI_BASE_URL`, default `https://api.openai.com/v1` | `OPENAI_API_KEY`, none for a local server |
 
 The `openai` backend asks a chat model each question on its own, with the
 options lettered (a yes-or-no question is A true, B false; a score's levels run
