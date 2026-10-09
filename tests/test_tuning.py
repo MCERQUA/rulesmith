@@ -185,3 +185,10 @@ def test_distill_asks_the_teacher_and_hands_ruling_the_soft_targets(tmp_path, pr
     first = json.loads((out / "train.jsonl").read_text().splitlines()[0])
     assert first["references"]["label"]["target"]["accept"] == 0.8
     assert json.loads(result.stdout)["teacher"] == "big-model"
+
+
+def test_arguments_after_a_double_dash_are_refused_where_nothing_takes_them(tmp_path):
+    # Only tune and distill hand them on; anywhere else they would be dropped without a word.
+    task = write(tmp_path / "task.json", labeled_task().model_dump(mode="json"))
+    result = invoke("validate", task, tmp_path / "graph.rules", "--", "--steps", "50")
+    assert result.returncode == 2 and "after --" in result.stderr

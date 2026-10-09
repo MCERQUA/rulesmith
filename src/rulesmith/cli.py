@@ -294,11 +294,7 @@ def parser() -> argparse.ArgumentParser:
                 "clef or ruling:qwen-35b@http://127.0.0.1:8012",
             )
             tuning.add_argument("--timeout", type=float, default=60)
-        tuning.add_argument(
-            "train_args",
-            nargs="*",
-            help="Anything after -- goes to `ruling train` and overrides the recipe",
-        )
+        tuning.epilog = "Anything after -- goes to `ruling train` and overrides the recipe."
     ablation = commands.add_parser(
         "ablate", help="Measure what each reading, judgment and name in a graph is worth"
     )
@@ -850,7 +846,14 @@ def main() -> None:
     # ignore SIGTERM themselves); exiting normally closes every environment on the way out.
     signal.signal(signal.SIGTERM, lambda number, _: sys.exit(128 + number))
     cli = parser()
-    args = cli.parse_args()
+    argv = sys.argv[1:]
+    # Arguments after -- belong to `ruling train`. Older Python 3.12 releases match an empty
+    # positional before the options and then refuse them, so they are split off here instead.
+    split = argv.index("--") if "--" in argv else len(argv)
+    args = cli.parse_args(argv[:split])
+    args.train_args = argv[split + 1 :]
+    if args.train_args and args.command not in ("tune", "distill"):
+        cli.error("only tune and distill pass arguments after -- on to ruling train")
     try:
         command(cli, args)
     except TypeSafeError as error:
