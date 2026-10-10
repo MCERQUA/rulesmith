@@ -186,10 +186,6 @@ def test_every_example_program_compiles_and_survives_the_round_trip(path):
         "ticket-triage": "score",
         "reply-check": "noul",
         "order-review": "noul",
-        "concept-real": "choice",
-        "entity-same": "noul",
-        "entity-type": "choice",
-        "query-route": "choice",
     }
     assert kinds == {shown[path.parent.name]}
     if path.parent.name == "order-review":
