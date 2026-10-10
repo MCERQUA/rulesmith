@@ -623,10 +623,7 @@ def read_rule(
     if colon < 0:
         raise RuleError("a rule reads 'when <condition>: <action>' or 'always: <action>'")
     head, action = line[:colon].strip(), line[colon + 1 :]
-    before = nodes[sources[-1]] if sources else None
-    if before and before["type"] == "value" and "when" not in before:
-        # The rule before answers every case with a label, so this one would be kept and never
-        # run. A computed answer, or a question asked of part of the input, can come back empty.
+    if sources and always_answers(nodes[sources[-1]]):
         raise RuleError("this rule can never decide: the rule before it always answers")
     guard = (
         None
@@ -639,6 +636,19 @@ def read_rule(
         {"when": guard} if guard else {}
     )
     sources.append(name)
+
+
+def always_answers(rule: dict) -> bool:
+    """Whether an unguarded rule answers every case, so a rule after it would be kept and never
+    run: a label does, and so does a question about the whole input. A computed answer, or a
+    question about fields that may be missing, can come back empty."""
+    if "when" in rule:
+        return False
+    if rule["type"] == "value":
+        return True
+    return rule["type"] == "call" and all(
+        source["type"] == "state" for source in rule["inputs"].values()
+    )
 
 
 def parse_sum(text: str, names: dict, nodes: dict) -> dict:

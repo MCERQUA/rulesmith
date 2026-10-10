@@ -371,7 +371,11 @@ def test_a_rule_after_one_that_always_answers_is_refused():
     # gets the refusal as feedback, rather than keeping rules a reader would think are live.
     with pytest.raises(RuleError, match="line 3: .*never decide"):
         compile_rules("read x in [0, 10]\nalways: a\nwhen x >= 5: b\n")
-    # A rule after one that only sometimes answers is live: a condition, or a computed answer
-    # whose reading may be missing.
+    # A question about the whole input is always answered, so nothing after it runs either.
+    with pytest.raises(RuleError, match="line 2: .*never decide"):
+        compile_rules('always: ask "Is it a scam?" [scam] [genuine]\nalways: genuine\n')
+    # A rule after one that only sometimes answers is live: a condition, a computed answer
+    # whose reading may be missing, or a question about a field that may be missing.
     compile_rules("read x in [0, 10]\nwhen x >= 5: b\nalways: a\noutput team:\nalways: billing\n")
     compile_rules("read x in [0, 10]\nalways: x >= 5 ? b : a\nalways: c\n")
+    compile_rules('read x in [0, 10]\nalways: ask "Q?" [a] [b] given [x]\nalways: c\n')
