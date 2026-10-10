@@ -32,6 +32,27 @@ against it, and the gap is what being a graph is worth.
 
 What that buys, measured on five public datasets, is in [Benchmarks](benchmarks.md).
 
+## Cascades and compiled decisions
+
+[FrugalGPT](https://arxiv.org/abs/2305.05176) introduced the LLM cascade: ask a
+cheap model first, score how reliable its answer looks, and pass the query to a
+dearer model when the score falls below a threshold learned from labeled data
+under a cost budget. Escalation in rulesmith is that cascade, applied to typed
+judges: a rule keeps the small judge's answer when its own probability clears a
+cutoff, falls through to the same question `using large` otherwise, and
+`calibrate` fits the cutoff with each call priced in. What rulesmith puts ahead
+of the cascade is a tier that costs nothing, rules over the input's fields, and
+it writes the whole program as rules that search revises and a person reads.
+
+[TypeWright](https://github.com/Jev-Engineering/TypeWright), developed
+independently, compiles a declared decision into typed Jev questions with DSPy
+and GEPA, fits review gates on separate calibration data, and freezes the result
+as a checksummed JSON program, with routed hierarchies of questions besides.
+rulesmith's calibration split and group IDs follow its handling of held-out
+data. What rulesmith adds is rules over the input's fields ahead of any
+question, with the cost of each call in the search, and measured comparisons
+against DSPy's typed classifier on the same judge.
+
 ## Program search
 
 An LLM rewriting a symbolic policy that is then scored by playing it is not a new
